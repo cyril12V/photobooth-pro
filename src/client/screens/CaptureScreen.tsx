@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, AlertCircle } from 'lucide-react';
+import { MdArrowBack, MdErrorOutline } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { sounds } from '@shared/lib/sounds';
@@ -210,7 +210,7 @@ export function CaptureScreen() {
           cursor: 'pointer',
         }}
       >
-        <ArrowLeft size={16} strokeWidth={2.2} />
+        <MdArrowBack size={18} />
         <span>Annuler</span>
       </button>
 
@@ -324,7 +324,7 @@ export function CaptureScreen() {
               boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
             }}
           >
-            <AlertCircle size={40} strokeWidth={1.5} className="mx-auto mb-6" style={{ color: '#1A1A1A' }} />
+            <MdErrorOutline size={48} className="mx-auto mb-6" style={{ color: '#1A1A1A' }} />
             <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
               Erreur
             </p>

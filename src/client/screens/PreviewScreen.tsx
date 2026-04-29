@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Check, RotateCcw } from 'lucide-react';
+import { MdCheck, MdReplay } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { composePhotoWithTemplate } from '@shared/lib/composer';
@@ -157,7 +157,7 @@ export function PreviewScreen() {
                 disabled={saving}
                 className="btn-editorial-primary"
               >
-                <Check size={18} strokeWidth={2.5} />
+                <MdCheck size={20} />
                 {saving ? 'Sauvegarde...' : 'Je la garde'}
               </button>
 
@@ -166,7 +166,7 @@ export function PreviewScreen() {
                 disabled={saving}
                 className="btn-editorial-secondary"
               >
-                <RotateCcw size={18} strokeWidth={2.2} />
+                <MdReplay size={20} />
                 Reprendre
               </button>
             </motion.div>
