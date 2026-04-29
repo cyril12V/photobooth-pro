@@ -12,20 +12,10 @@ interface Props {
   className?: string;
 }
 
-const variants = {
-  primary:
-    'text-white shadow-[0_8px_32px_rgba(228,110,90,0.35)] hover:shadow-[0_12px_40px_rgba(228,110,90,0.5)]',
-  secondary:
-    'bg-white/80 border border-[#d4a574]/40 text-[#5a3e2b] shadow-[0_4px_16px_rgba(90,60,40,0.08)] hover:bg-white/95',
-  ghost:
-    'bg-white/60 border border-[#d4a574]/30 text-[#5a3e2b] hover:bg-white/80 backdrop-blur',
-  danger: 'bg-red-500/90 text-white hover:bg-red-500',
-};
-
-const sizes = {
-  md: 'px-6 py-3 text-base',
-  lg: 'px-10 py-5 text-xl',
-  xl: 'px-14 py-7 text-2xl',
+const sizes: Record<NonNullable<Props['size']>, string> = {
+  md: 'px-6 py-3 text-sm',
+  lg: 'px-10 py-4 text-base',
+  xl: 'px-14 py-5 text-lg',
 };
 
 export function Button({
@@ -38,23 +28,48 @@ export function Button({
   fullWidth,
   className = '',
 }: Props) {
+  const base: React.CSSProperties = {
+    fontFamily: 'Inter, system-ui, sans-serif',
+    fontWeight: 500,
+    textTransform: 'uppercase',
+    letterSpacing: '0.15em',
+    border: 'none',
+    borderRadius: '12px',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    display: 'inline-flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: '0.625rem',
+  };
+
+  const variantStyle: React.CSSProperties = (() => {
+    switch (variant) {
+      case 'primary':
+        return { backgroundColor: '#1A1A1A', color: '#FAF6EE' };
+      case 'secondary':
+        return { backgroundColor: '#E8DCC4', color: '#1A1A1A' };
+      case 'ghost':
+        return {
+          backgroundColor: 'transparent',
+          color: '#1A1A1A',
+          border: '1px solid #1A1A1A',
+        };
+      case 'danger':
+        return { backgroundColor: '#1A1A1A', color: '#FAF6EE' };
+      default:
+        return {};
+    }
+  })();
+
   return (
     <motion.button
-      whileHover={{ scale: disabled ? 1 : 1.02, y: disabled ? 0 : -2 }}
-      whileTap={{ scale: disabled ? 1 : 0.97 }}
+      whileHover={disabled ? undefined : { scale: 1.01 }}
+      whileTap={disabled ? undefined : { scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 400, damping: 25 }}
       onClick={onClick}
       disabled={disabled}
-      style={
-        variant === 'primary'
-          ? { background: 'linear-gradient(135deg, #f0a090 0%, #e8806a 50%, #d46855 100%)' }
-          : undefined
-      }
-      className={`btn-touch shine font-medium relative overflow-hidden
-        ${variants[variant]} ${sizes[size]}
-        ${fullWidth ? 'w-full' : ''}
-        ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-        ${className}`}
+      style={{ ...base, ...variantStyle, opacity: disabled ? 0.5 : 1 }}
+      className={`${sizes[size]} ${fullWidth ? 'w-full' : ''} ${className}`}
     >
       {icon && <span className="flex-shrink-0">{icon}</span>}
       <span>{children}</span>
