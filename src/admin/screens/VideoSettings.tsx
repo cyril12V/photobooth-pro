@@ -363,12 +363,12 @@ export function VideoSettings() {
         </AdminCard>
 
         <Button
-          variant="secondary"
+          variant="primary"
           onClick={save}
-          icon={saved ? <Check size={20} /> : undefined}
+          icon={saved ? <MdCheck size={20} /> : undefined}
           fullWidth
         >
-          {saved ? 'Enregistré !' : 'Enregistrer'}
+          {saved ? 'Enregistré' : 'Enregistrer'}
         </Button>
       </div>
     </>

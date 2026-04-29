@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, ChevronUp, ChevronDown, Check, Pencil } from 'lucide-react';
+import { MdAdd, MdDelete, MdKeyboardArrowUp, MdKeyboardArrowDown, MdCheck, MdEdit } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import type { InterviewQuestion } from '@shared/types';
 import { AdminCard, AdminPageHeader, AdminInput } from '../components/AdminUI';
@@ -114,9 +114,9 @@ export function InterviewQuestions() {
                     : 'bg-neutral-50 border border-neutral-200 hover:border-[#d4a574]/60 hover:bg-amber-50 text-neutral-700'
                 }`}
               >
-                <Plus size={14} className="flex-shrink-0" />
+                <MdAdd size={14} className="flex-shrink-0" />
                 <span className="flex-1 truncate">{q}</span>
-                {already && <Check size={14} className="text-emerald-600" />}
+                {already && <MdCheck size={14} style={{ color: '#1A1A1A' }} />}
               </button>
             );
           })}
@@ -184,7 +184,7 @@ export function InterviewQuestions() {
                   className="p-1 rounded hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed text-neutral-500"
                   aria-label="Monter"
                 >
-                  <ChevronUp size={16} />
+                  <MdKeyboardArrowUp size={16} />
                 </button>
                 <button
                   onClick={() => move(idx, 1)}
@@ -192,7 +192,7 @@ export function InterviewQuestions() {
                   className="p-1 rounded hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed text-neutral-500"
                   aria-label="Descendre"
                 >
-                  <ChevronDown size={16} />
+                  <MdKeyboardArrowDown size={16} />
                 </button>
               </div>
               <div className="flex-1 min-w-0">
