@@ -201,7 +201,7 @@ export function VideoSettings() {
                 ))}
               </div>
               <p className="text-neutral-400 text-xs mt-2">
-                1080p ≈ 35 MB/min · 720p ≈ 18 MB/min · 480p ≈ 8 MB/min (codec VP9)
+                1080p ≈ 35 MB/min, 720p ≈ 18 MB/min, 480p ≈ 8 MB/min (codec VP9)
               </p>
             </div>
 

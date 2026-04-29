@@ -121,7 +121,7 @@ export function Dashboard() {
     },
     {
       label: 'Évènement actif',
-      value: event?.name ?? '—',
+      value: event?.name ?? 'Aucun',
       icon: MdCalendarMonth,
     },
   ];

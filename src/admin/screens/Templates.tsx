@@ -218,7 +218,7 @@ export function Templates() {
                   }}
                 >
                   {t.config.canvas_width ?? 1200} x {t.config.canvas_height ?? 1800}px
-                  {'  '}·{'  '}
+                  {' '}
                   {t.config.elements?.length ?? 0} élément
                   {(t.config.elements?.length ?? 0) !== 1 ? 's' : ''}
                 </p>
