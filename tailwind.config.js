@@ -4,57 +4,68 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        display: ['"Fraunces"', 'serif'],
-        script: ['"Allura"', 'cursive'],
-        sans: ['"Manrope"', 'system-ui', 'sans-serif'],
+        // Direction Vogue / éditorial
+        editorial: ['"Playfair Display"', '"Bodoni Moda"', 'Didot', 'serif'],
+        display: ['"Playfair Display"', '"Bodoni Moda"', 'Didot', 'serif'],
+        sans: ['"Inter"', '"Manrope"', 'system-ui', 'sans-serif'],
+        signature: ['"Pinyon Script"', '"Allura"', 'cursive'],
+        // Garde l'ancienne pour rétrocompat
+        script: ['"Pinyon Script"', '"Allura"', 'cursive'],
       },
       colors: {
-        // Teintes festives sophistiquées (modifiables via theme.css)
+        // ─── Palette Vogue ────────────────────────────────────────────────
+        ivory: {
+          DEFAULT: '#F4ECDD',         // crème principale (fond)
+          light: '#FAF6EE',           // blanc cassé (highlights)
+        },
+        beige: {
+          DEFAULT: '#E8DCC4',         // beige chaud (accents)
+          dark: '#D4B896',            // beige sable (séparateurs / hover)
+        },
+        editorial: {
+          black: '#1A1A1A',           // noir éditorial (titres, CTA)
+          charcoal: '#2B2B2B',        // charcoal (admin)
+          taupe: '#6B5D4F',           // gris-taupe chaud (texte secondaire)
+        },
+        // ─── Compat avec l'ancienne palette ──────────────────────────────
+        cream: '#F4ECDD',
         midnight: {
-          950: '#0a0e1f',
-          900: '#0f1530',
-          800: '#161e3f',
-          700: '#1f2a55',
-          600: '#2c3a72',
+          950: '#1A1A1A',
+          900: '#2B2B2B',
+          800: '#2B2B2B',
+          700: '#3a3a3a',
+          600: '#4a4a4a',
         },
         gold: {
-          DEFAULT: '#d4a574',
-          light: '#e8c79a',
-          dark: '#b8884f',
+          DEFAULT: '#D4B896',
+          light: '#E8DCC4',
+          dark: '#6B5D4F',
         },
         coral: {
-          DEFAULT: '#ff8e72',
-          light: '#ffaa92',
-          dark: '#e26b4f',
+          DEFAULT: '#1A1A1A',
+          light: '#2B2B2B',
+          dark: '#1A1A1A',
         },
-        cream: '#faf6ef',
+      },
+      letterSpacing: {
+        editorial: '0.1em',
+        editorialWide: '0.15em',
+        editorialTight: '-0.02em',
       },
       boxShadow: {
-        glow: '0 0 80px -20px rgba(212, 165, 116, 0.5)',
-        'glow-strong': '0 0 120px -10px rgba(255, 142, 114, 0.6)',
-        soft: '0 4px 30px rgba(0, 0, 0, 0.1)',
-        card: '0 20px 60px -15px rgba(0, 0, 0, 0.5)',
+        editorial: '0 4px 20px rgba(0, 0, 0, 0.04)',
+        'editorial-md': '0 8px 32px rgba(0, 0, 0, 0.06)',
+        soft: '0 4px 20px rgba(0, 0, 0, 0.04)',
+        card: '0 8px 32px rgba(0, 0, 0, 0.06)',
+        glow: '0 4px 20px rgba(0, 0, 0, 0.04)',
+        'glow-strong': '0 8px 32px rgba(0, 0, 0, 0.08)',
       },
       animation: {
-        'gradient-shift': 'gradient-shift 20s ease infinite',
-        'float': 'float 6s ease-in-out infinite',
-        'pulse-soft': 'pulse-soft 3s ease-in-out infinite',
         'fade-in-up': 'fade-in-up 0.6s ease-out',
         'flash': 'flash 0.5s ease-out',
+        'float': 'float 6s ease-in-out infinite',
       },
       keyframes: {
-        'gradient-shift': {
-          '0%, 100%': { backgroundPosition: '0% 50%' },
-          '50%': { backgroundPosition: '100% 50%' },
-        },
-        'float': {
-          '0%, 100%': { transform: 'translateY(0px)' },
-          '50%': { transform: 'translateY(-12px)' },
-        },
-        'pulse-soft': {
-          '0%, 100%': { opacity: '1' },
-          '50%': { opacity: '0.7' },
-        },
         'fade-in-up': {
           '0%': { opacity: '0', transform: 'translateY(20px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
@@ -63,6 +74,10 @@ export default {
           '0%': { opacity: '0' },
           '20%': { opacity: '1' },
           '100%': { opacity: '0' },
+        },
+        'float': {
+          '0%, 100%': { transform: 'translateY(0px)' },
+          '50%': { transform: 'translateY(-12px)' },
         },
       },
     },

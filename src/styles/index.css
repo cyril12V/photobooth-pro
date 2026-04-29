@@ -2,12 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── Variables thème (modifiables dynamiquement) ─────────────────────────── */
+/* ─── Variables thème — Direction Vogue / éditorial ──────────────────────── */
 :root {
-  --color-primary: #0a0e1f;
-  --color-secondary: #d4a574;
-  --color-accent: #ff8e72;
-  --color-cream: #faf6ef;
+  --color-ivory: #F4ECDD;
+  --color-ivory-light: #FAF6EE;
+  --color-beige: #E8DCC4;
+  --color-beige-dark: #D4B896;
+  --color-black: #1A1A1A;
+  --color-charcoal: #2B2B2B;
+  --color-taupe: #6B5D4F;
+  /* compat */
+  --color-primary: #1A1A1A;
+  --color-secondary: #D4B896;
+  --color-accent: #1A1A1A;
+  --color-cream: #F4ECDD;
+}
+
+body {
+  background-color: #F4ECDD;
+  color: #1A1A1A;
 }
 
 /* ─── Reset / défauts ────────────────────────────────────────────────────── */
@@ -189,9 +202,130 @@ textarea {
   20% { opacity: 1; }
 }
 
-/* ─── Fond mariage clair ─────────────────────────────────────────────────── */
+/* ─── Fond mariage clair (compat) ────────────────────────────────────────── */
 .bg-wedding {
-  background-color: #faf6ef;
+  background-color: #F4ECDD;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DIRECTION VOGUE / ÉDITORIAL — Classes utilitaires
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.bg-ivory { background-color: #F4ECDD; }
+.bg-ivory-light { background-color: #FAF6EE; }
+.bg-beige { background-color: #E8DCC4; }
+.bg-beige-dark { background-color: #D4B896; }
+.bg-editorial-black { background-color: #1A1A1A; }
+.bg-charcoal { background-color: #2B2B2B; }
+
+.text-editorial-black { color: #1A1A1A; }
+.text-charcoal { color: #2B2B2B; }
+.text-taupe { color: #6B5D4F; }
+.text-ivory { color: #F4ECDD; }
+.text-ivory-light { color: #FAF6EE; }
+
+/* Titre display Didone — pour les "WEDDING" / "ISSUE 24" */
+.font-editorial {
+  font-family: 'Playfair Display', 'Bodoni Moda', Didot, serif;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+/* Label éditorial — pour les "BIENVENUE" / "EVENT 2026" */
+.label-editorial {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  font-size: 0.75rem;
+}
+
+/* Boutons éditoriaux ─────────────────────────────────────────────────────── */
+.btn-editorial-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background-color: #1A1A1A;
+  color: #FAF6EE;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 1rem 2.5rem;
+  border-radius: 12px;
+  transition: background-color 0.25s ease, transform 0.2s ease;
+  cursor: pointer;
+  border: none;
+}
+.btn-editorial-primary:hover { background-color: #2B2B2B; }
+.btn-editorial-primary:active { transform: scale(0.98); }
+.btn-editorial-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-editorial-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  background-color: #E8DCC4;
+  color: #1A1A1A;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  padding: 1rem 2.5rem;
+  border-radius: 12px;
+  transition: background-color 0.25s ease, transform 0.2s ease;
+  cursor: pointer;
+  border: none;
+}
+.btn-editorial-secondary:hover { background-color: #D4B896; }
+.btn-editorial-secondary:active { transform: scale(0.98); }
+.btn-editorial-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.btn-editorial-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: transparent;
+  color: #1A1A1A;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 0.5rem 0.75rem;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+.btn-editorial-ghost:hover { opacity: 0.6; }
+
+/* Card éditoriale — coins arrondis 24px, ombre douce */
+.card-editorial {
+  background: #FAF6EE;
+  border-radius: 24px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(212, 184, 150, 0.15);
+}
+
+/* Filet doré de séparation (style magazine) */
+.editorial-rule {
+  height: 1px;
+  background: #1A1A1A;
+  width: 100%;
+}
+.editorial-rule-light {
+  height: 1px;
+  background: #D4B896;
+  width: 100%;
+}
+
+/* Filtre photo "warm magazine" — sépia subtil + chaleur */
+.photo-warm {
+  filter: sepia(0.15) saturate(1.05) contrast(1.05) brightness(1.02);
 }
 
 /* ─── Carte mariage (verre clair) ────────────────────────────────────────── */
