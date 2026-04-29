@@ -122,7 +122,7 @@ export function GeneralSettings() {
               icon={saved ? <MdCheck size={20} /> : <MdSave size={20} />}
               fullWidth
             >
-              {saved ? 'Enregistré !' : 'Enregistrer les options'}
+              {saved ? 'Enregistré' : 'Enregistrer les options'}
             </Button>
           </div>
         </AdminCard>
@@ -134,7 +134,7 @@ export function GeneralSettings() {
         >
           <div className="space-y-4">
             <label className="block">
-              <span className="block text-neutral-700 text-xs font-medium uppercase tracking-wider mb-1.5">
+              <span className="block label-editorial mb-2" style={{ color: '#6B5D4F' }}>
                 Mot de passe actuel
               </span>
               <input
@@ -142,11 +142,20 @@ export function GeneralSettings() {
                 value={oldPw}
                 onChange={(e) => setOldPw(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-white border border-neutral-300 rounded-lg px-3 py-2.5 text-neutral-900 tracking-widest text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+                className="w-full px-4 py-3 focus:outline-none"
+                style={{
+                  backgroundColor: '#F4ECDD',
+                  border: '1px solid rgba(212, 184, 150, 0.4)',
+                  color: '#1A1A1A',
+                  borderRadius: '4px',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '0.9375rem',
+                  letterSpacing: '0.1em',
+                }}
               />
             </label>
             <label className="block">
-              <span className="block text-neutral-700 text-xs font-medium uppercase tracking-wider mb-1.5">
+              <span className="block label-editorial mb-2" style={{ color: '#6B5D4F' }}>
                 Nouveau mot de passe
               </span>
               <input
@@ -154,11 +163,20 @@ export function GeneralSettings() {
                 value={newPw}
                 onChange={(e) => setNewPw(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-white border border-neutral-300 rounded-lg px-3 py-2.5 text-neutral-900 tracking-widest text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+                className="w-full px-4 py-3 focus:outline-none"
+                style={{
+                  backgroundColor: '#F4ECDD',
+                  border: '1px solid rgba(212, 184, 150, 0.4)',
+                  color: '#1A1A1A',
+                  borderRadius: '4px',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '0.9375rem',
+                  letterSpacing: '0.1em',
+                }}
               />
             </label>
             <label className="block">
-              <span className="block text-neutral-700 text-xs font-medium uppercase tracking-wider mb-1.5">
+              <span className="block label-editorial mb-2" style={{ color: '#6B5D4F' }}>
                 Confirmer le nouveau mot de passe
               </span>
               <input
@@ -166,27 +184,40 @@ export function GeneralSettings() {
                 value={confirmPw}
                 onChange={(e) => setConfirmPw(e.target.value)}
                 placeholder="••••••••"
-                className="w-full bg-white border border-neutral-300 rounded-lg px-3 py-2.5 text-neutral-900 tracking-widest text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+                className="w-full px-4 py-3 focus:outline-none"
+                style={{
+                  backgroundColor: '#F4ECDD',
+                  border: '1px solid rgba(212, 184, 150, 0.4)',
+                  color: '#1A1A1A',
+                  borderRadius: '4px',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '0.9375rem',
+                  letterSpacing: '0.1em',
+                }}
               />
             </label>
 
             {pwMessage && (
               <div
-                className={`rounded-lg px-4 py-3 text-sm ${
-                  pwMessage.ok
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    : 'bg-red-50 text-red-700 border border-red-200'
-                }`}
+                className="px-4 py-3"
+                style={{
+                  backgroundColor: '#F4ECDD',
+                  border: '1px solid #1A1A1A',
+                  borderRadius: '4px',
+                  color: '#1A1A1A',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '0.875rem',
+                }}
               >
                 {pwMessage.text}
               </div>
             )}
 
             <Button
-              variant="secondary"
+              variant="primary"
               size="md"
               onClick={changePassword}
-              icon={<KeyRound size={20} />}
+              icon={<MdKey size={20} />}
               fullWidth
             >
               Modifier le mot de passe
@@ -200,12 +231,19 @@ export function GeneralSettings() {
             variant="danger"
             size="md"
             onClick={quit}
-            icon={<Power size={20} />}
+            icon={<MdPowerSettingsNew size={20} />}
             fullWidth
           >
             Quitter PhotoBooth
           </Button>
-          <p className="text-neutral-400 text-xs text-center mt-3 italic">
+          <p
+            className="text-center mt-3 italic"
+            style={{
+              color: '#6B5D4F',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '0.75rem',
+            }}
+          >
             Astuce : en mode kiosque, vous pouvez aussi appuyer 3 fois sur Ctrl+Shift+Q.
           </p>
         </AdminCard>
