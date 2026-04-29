@@ -1,5 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { MdWarning, MdRefresh } from 'react-icons/md';
 
 interface Props {
   children: ReactNode;
@@ -31,7 +31,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="bg-white border border-red-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-9 h-9 rounded-lg bg-red-50 flex items-center justify-center flex-shrink-0">
-              <AlertTriangle className="text-red-500" size={18} />
+              <MdWarning className="text-red-500" size={18} />
             </div>
             <h2 className="font-semibold text-neutral-900 text-base">
               Une erreur est survenue{this.props.label ? ` dans ${this.props.label}` : ''}
@@ -47,7 +47,7 @@ export class ErrorBoundary extends Component<Props, State> {
             onClick={this.reset}
             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-neutral-900 hover:bg-neutral-700 text-white text-sm font-medium transition-colors"
           >
-            <RefreshCw size={14} />
+            <MdRefresh size={14} />
             Réessayer
           </button>
         </div>

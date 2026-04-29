@@ -234,7 +234,7 @@ export function InterviewQuestions() {
                   className="p-2 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-600 border border-emerald-100"
                   aria-label="Valider"
                 >
-                  <Check size={14} />
+                  <MdCheck size={14} />
                 </button>
               ) : (
                 <button
@@ -242,7 +242,7 @@ export function InterviewQuestions() {
                   className="p-2 rounded-lg bg-neutral-50 hover:bg-neutral-100 text-neutral-500 border border-neutral-100"
                   aria-label="Modifier"
                 >
-                  <Pencil size={14} />
+                  <MdEdit size={14} />
                 </button>
               )}
               <button
@@ -250,7 +250,7 @@ export function InterviewQuestions() {
                 className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 border border-red-100"
                 aria-label="Supprimer"
               >
-                <Trash2 size={14} />
+                <MdDelete size={14} />
               </button>
             </div>
           ))}
@@ -261,7 +261,7 @@ export function InterviewQuestions() {
         <Button
           variant="primary"
           onClick={() => setAdding(true)}
-          icon={<Plus size={20} />}
+          icon={<MdAdd size={20} />}
           fullWidth
         >
           Ajouter une question

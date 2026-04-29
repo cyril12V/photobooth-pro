@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { jsPDF } from 'jspdf';
-import { BookOpen, Loader2, ImageOff } from 'lucide-react';
+import { MdMenuBook, MdRefresh, MdImageNotSupported } from 'react-icons/md';
 import type { Photo } from '@shared/types';
 import { useAppStore } from '@shared/store';
 import { localFileUrl } from '@shared/lib/poseAssets';
@@ -313,7 +313,7 @@ export function Album() {
           {/* Empty state */}
           {empty && (
             <div className="flex flex-col items-center justify-center py-10 px-4 rounded-xl border border-dashed border-neutral-200 bg-neutral-50">
-              <ImageOff size={32} className="text-neutral-300 mb-3" strokeWidth={1.6} />
+              <MdImageNotSupported size={32} className="mb-3" style={{ color: '#6B5D4F' }} />
               <p className="text-sm font-medium text-neutral-700">
                 Aucune photo capturée pour cet évènement
               </p>
@@ -330,27 +330,26 @@ export function Album() {
             </div>
           )}
 
-          {/* CTA */}
           <motion.button
             type="button"
             onClick={generate}
             disabled={generating || empty || loadingPhotos}
             whileHover={!generating && !empty ? { scale: 1.01 } : undefined}
             whileTap={!generating && !empty ? { scale: 0.99 } : undefined}
-            className="w-full flex items-center justify-center gap-2.5 px-5 py-3.5 rounded-xl font-semibold text-sm text-white transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            className="btn-editorial-primary w-full"
             style={{
-              background: 'linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%)',
-              boxShadow: '0 4px 14px rgba(255,126,95,0.35)',
+              opacity: generating || empty || loadingPhotos ? 0.5 : 1,
+              cursor: generating || empty || loadingPhotos ? 'not-allowed' : 'pointer',
             }}
           >
             {generating ? (
               <>
-                <Loader2 size={17} className="animate-spin" strokeWidth={2.4} />
-                Génération… {progress}%
+                <MdRefresh size={17} className="animate-spin" />
+                Génération... {progress}%
               </>
             ) : (
               <>
-                <BookOpen size={17} strokeWidth={2.4} />
+                <MdMenuBook size={17} />
                 Générer l'album
               </>
             )}
