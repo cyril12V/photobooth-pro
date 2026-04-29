@@ -72,6 +72,48 @@ function msToHms(ms: number): string {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${msPart}`;
 }
 
+/** Retourne le dossier racine d'un évènement (créé si absent + README). */
+async function ensureEventFolder(event: { name: string; date?: string | null }): Promise<string> {
+  const safeName = event.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const dir = path.join(app.getPath('pictures'), 'PhotoBooth', safeName);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.mkdir(path.join(dir, 'Interview'), { recursive: true });
+  await fs.mkdir(path.join(dir, 'Messages_libres'), { recursive: true });
+  await fs.mkdir(path.join(dir, 'videos'), { recursive: true });
+
+  const readmePath = path.join(dir, 'LISEZ-MOI.txt');
+  try {
+    await fs.access(readmePath);
+  } catch {
+    // README absent, on le crée
+    const readme = `PhotoBooth Pro — Dossier de l'évènement
+========================================
+
+Évènement : ${event.name}${event.date ? `\nDate : ${event.date}` : ''}
+
+ORGANISATION DES FICHIERS
+-------------------------
+Ce dossier contient toutes les photos et vidéos prises pendant l'évènement.
+
+  /  (ce dossier)
+  ├─ Photos prises (fichiers .jpg)
+  ├─ Interview/           Vidéos d'interview enregistrées
+  ├─ Messages_libres/     Messages vidéo libres
+  └─ videos/              Compilations générées (montage final)
+
+Toutes les photos sont triées par date dans leur nom (format ISO).
+
+Astuce : tu peux glisser-déposer ce dossier sur un disque dur externe
+ou un service cloud pour archiver l'évènement.
+
+— Application PhotoBooth Pro —
+`;
+    await fs.writeFile(readmePath, readme, 'utf8');
+  }
+
+  return dir;
+}
+
 function getSettings(): Record<string, any> {
   const rows: any[] = db.prepare('SELECT key, value FROM settings').all();
   const obj: Record<string, any> = {};
@@ -92,8 +134,14 @@ function registerIpcHandlers() {
     return db.prepare('SELECT * FROM events WHERE active = 1 LIMIT 1').get();
   });
 
-  ipcMain.handle('event:save', (_e, data) => {
+  ipcMain.handle('event:save', async (_e, data) => {
     const existing: any = db.prepare('SELECT id FROM events WHERE active = 1 LIMIT 1').get();
+    // Crée/met à jour le dossier de l'évènement (avec README) dès l'enregistrement
+    try {
+      await ensureEventFolder({ name: data.name, date: data.date });
+    } catch {
+      // ignore
+    }
     if (existing) {
       db.prepare(
         `UPDATE events SET name = ?, date = ?, logo_path = ?, background_path = ?,
@@ -132,9 +180,8 @@ function registerIpcHandlers() {
     const event: any = db.prepare('SELECT * FROM events WHERE id = ?').get(eventId);
     if (!event) throw new Error('Aucun évènement actif');
 
+    const dir = await ensureEventFolder(event);
     const safeName = event.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    const dir = path.join(app.getPath('pictures'), 'PhotoBooth', safeName);
-    await fs.mkdir(dir, { recursive: true });
 
     const ts = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `${ts}_${safeName}.jpg`;
@@ -233,8 +280,8 @@ function registerIpcHandlers() {
 
       const safeName = event.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
       const subFolder = mode === 'interview' ? 'Interview' : 'Messages_libres';
-      const dir = path.join(app.getPath('pictures'), 'PhotoBooth', safeName, subFolder);
-      await fs.mkdir(dir, { recursive: true });
+      const eventDir = await ensureEventFolder(event);
+      const dir = path.join(eventDir, subFolder);
 
       const ts = new Date().toISOString().replace(/[:.]/g, '-');
       const filename = `${ts}_${safeName}.webm`;
@@ -363,9 +410,7 @@ function registerIpcHandlers() {
       ? db.prepare('SELECT * FROM events WHERE id = ?').get(eventId)
       : db.prepare('SELECT * FROM events WHERE active = 1 LIMIT 1').get();
     if (!ev) return { ok: false, error: 'Aucun évènement' };
-    const safeName = ev.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    const dir = path.join(app.getPath('pictures'), 'PhotoBooth', safeName);
-    await fs.mkdir(dir, { recursive: true });
+    const dir = await ensureEventFolder(ev);
     await shell.openPath(dir);
     return { ok: true, path: dir };
   });
@@ -509,9 +554,7 @@ function registerIpcHandlers() {
       ? db.prepare('SELECT * FROM events WHERE id = ?').get(eventId)
       : db.prepare('SELECT * FROM events WHERE active = 1 LIMIT 1').get();
     if (!ev) return { ok: false, error: 'Aucun évènement' };
-    const safeName = ev.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    const dir = path.join(app.getPath('pictures'), 'PhotoBooth', safeName);
-    await fs.mkdir(dir, { recursive: true });
+    const dir = await ensureEventFolder(ev);
     await shell.openPath(dir);
     return { ok: true, path: dir };
   });
@@ -521,8 +564,7 @@ function registerIpcHandlers() {
       ? db.prepare('SELECT * FROM events WHERE id = ?').get(eventId)
       : db.prepare('SELECT * FROM events WHERE active = 1 LIMIT 1').get();
     if (!ev) return null;
-    const safeName = ev.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    return path.join(app.getPath('pictures'), 'PhotoBooth', safeName);
+    return ensureEventFolder(ev);
   });
 
   // ── App ───────────────────────────────────────
@@ -541,6 +583,14 @@ app.whenReady().then(async () => {
     await shareServer.start(port);
   } catch (e) {
     console.error('[ShareServer] échec démarrage:', e);
+  }
+
+  // Crée le dossier de l'évènement actif au démarrage (avec README explicatif)
+  try {
+    const activeEvent: any = db.prepare('SELECT * FROM events WHERE active = 1 LIMIT 1').get();
+    if (activeEvent) await ensureEventFolder(activeEvent);
+  } catch (e) {
+    console.warn('[startup] création dossier évènement échouée:', e);
   }
 
   registerIpcHandlers();
