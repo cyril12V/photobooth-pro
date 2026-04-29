@@ -1,0 +1,87 @@
+{
+  "name": "photobooth-pro",
+  "version": "0.1.0",
+  "description": "Photo Booth professionnel pour mariages et évènements",
+  "main": "dist-electron/main.js",
+  "author": "You",
+  "license": "UNLICENSED",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -p tsconfig.node.json && tsc -p tsconfig.json && vite build && electron-builder",
+    "release": "vite build && electron-builder --publish always",
+    "preview": "vite preview",
+    "lint": "eslint src --ext ts,tsx",
+    "start": "electron .",
+    "postinstall": "electron-rebuild -f -w better-sqlite3"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "better-sqlite3": "^12.9.0",
+    "electron-updater": "^6.8.3",
+    "express": "^5.2.1",
+    "framer-motion": "^11.11.0",
+    "lucide-react": "^0.453.0",
+    "nodemailer": "^8.0.7",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-rnd": "^10.5.3",
+    "zustand": "^5.0.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/express": "^5.0.6",
+    "@types/node": "^22.7.0",
+    "@types/nodemailer": "^8.0.0",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.2",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.0.1",
+    "electron": "^32.1.0",
+    "electron-builder": "^25.0.5",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8",
+    "vite-plugin-electron": "^0.28.8",
+    "vite-plugin-electron-renderer": "^0.14.6",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.you.photobooth",
+    "productName": "PhotoBooth Pro",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "artifactName": "PhotoBooth-Pro-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PhotoBooth Pro"
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "cyril12V",
+      "repo": "photobooth-pro",
+      "private": false,
+      "releaseType": "release"
+    }
+  }
+}
