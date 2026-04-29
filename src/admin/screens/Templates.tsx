@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Trash2, Pencil, Check, Layers } from 'lucide-react';
+import { MdAdd, MdDelete, MdEdit, MdCheck, MdLayers } from 'react-icons/md';
 import type { TemplateConfig } from '@shared/types';
 import { useAppStore } from '@shared/store';
 import { AdminPageHeader } from '../components/AdminUI';
@@ -103,22 +103,42 @@ export function Templates() {
       />
 
       {savedId !== null && (
-        <div className="mb-4 bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3 text-emerald-700">
-          <Check size={18} />
-          <span className="text-sm font-medium">Template enregistré avec succès</span>
+        <div
+          className="mb-4 p-4 flex items-center gap-3"
+          style={{
+            backgroundColor: '#FAF6EE',
+            border: '1px solid #1A1A1A',
+            borderRadius: '4px',
+            color: '#1A1A1A',
+            fontFamily: 'Inter, sans-serif',
+            fontSize: '0.875rem',
+          }}
+        >
+          <MdCheck size={18} />
+          <span>Template enregistré avec succès</span>
         </div>
       )}
 
-      {/* Loading state */}
       {loading && (
         <div className="space-y-3 mb-4">
           {[1, 2].map((i) => (
-            <div key={i} className="bg-white border border-neutral-200 rounded-2xl p-5 animate-pulse shadow-sm">
+            <div
+              key={i}
+              className="p-5 animate-pulse"
+              style={{
+                backgroundColor: '#FAF6EE',
+                border: '1px solid rgba(212, 184, 150, 0.2)',
+                borderRadius: '24px',
+              }}
+            >
               <div className="flex items-center gap-5">
-                <div className="w-16 rounded-lg bg-neutral-100 flex-shrink-0" style={{ height: 96 }} />
+                <div
+                  className="flex-shrink-0"
+                  style={{ width: 60, height: 96, backgroundColor: '#F4ECDD', borderRadius: '4px' }}
+                />
                 <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-neutral-100 rounded w-48" />
-                  <div className="h-3 bg-neutral-50 rounded w-32" />
+                  <div className="h-4 w-48" style={{ backgroundColor: '#F4ECDD', borderRadius: '4px' }} />
+                  <div className="h-3 w-32" style={{ backgroundColor: '#F4ECDD', borderRadius: '4px' }} />
                 </div>
               </div>
             </div>
@@ -126,27 +146,49 @@ export function Templates() {
         </div>
       )}
 
-      {/* Empty state */}
       {!loading && templates.length === 0 && (
-        <div className="bg-white border border-neutral-200 rounded-2xl p-12 text-center mb-4 shadow-sm">
-          <Layers size={36} className="text-neutral-300 mx-auto mb-4" />
-          <p className="text-neutral-500 mb-2">Aucun template pour le moment</p>
-          <p className="text-neutral-400 text-sm">
-            Créez votre premier template pour habiller vos photos
+        <div
+          className="p-12 text-center mb-4"
+          style={{
+            backgroundColor: '#FAF6EE',
+            border: '1px solid rgba(212, 184, 150, 0.2)',
+            borderRadius: '24px',
+          }}
+        >
+          <MdLayers size={36} className="mx-auto mb-4" style={{ color: '#6B5D4F' }} />
+          <p
+            className="font-editorial mb-2"
+            style={{ fontSize: '1.5rem', color: '#1A1A1A', fontWeight: 700, letterSpacing: '-0.02em' }}
+          >
+            Aucun template
+          </p>
+          <p style={{ color: '#6B5D4F', fontFamily: 'Inter, sans-serif', fontSize: '0.875rem' }}>
+            Créez votre premier template pour habiller vos photos.
           </p>
         </div>
       )}
 
-      {/* Template list */}
       {!loading && templates.length > 0 && (
         <div className="space-y-3 mb-4">
           {templates.map((t) => (
             <div
               key={t.id}
-              className="bg-white border border-neutral-200 rounded-2xl p-5 flex items-center gap-5 group shadow-sm hover:border-neutral-300 transition-colors"
+              className="p-5 flex items-center gap-5 group transition-colors"
+              style={{
+                backgroundColor: '#FAF6EE',
+                border: '1px solid rgba(212, 184, 150, 0.2)',
+                borderRadius: '24px',
+              }}
             >
-              {/* Miniature canvas */}
-              <div className="flex-shrink-0 rounded-xl overflow-hidden border border-neutral-200" style={{ width: 60, height: 90 }}>
+              <div
+                className="flex-shrink-0 overflow-hidden"
+                style={{
+                  width: 60,
+                  height: 90,
+                  borderRadius: '4px',
+                  border: '1px solid rgba(212, 184, 150, 0.3)',
+                }}
+              >
                 <CanvasPreview
                   config={t.config}
                   event={event}
@@ -154,31 +196,67 @@ export function Templates() {
                 />
               </div>
 
-              {/* Info */}
               <div className="flex-1 min-w-0">
-                <p className="text-neutral-900 font-semibold text-base truncate">{t.name}</p>
-                <p className="text-neutral-500 text-sm mt-0.5">
+                <p
+                  className="truncate"
+                  style={{
+                    fontFamily: '"Playfair Display", serif',
+                    fontWeight: 700,
+                    color: '#1A1A1A',
+                    fontSize: '1.0625rem',
+                    letterSpacing: '-0.01em',
+                  }}
+                >
+                  {t.name}
+                </p>
+                <p
+                  className="mt-1"
+                  style={{
+                    color: '#6B5D4F',
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '0.8125rem',
+                  }}
+                >
                   {t.config.canvas_width ?? 1200} x {t.config.canvas_height ?? 1800}px
-                  {' · '}
-                  {t.config.elements?.length ?? 0} élément{(t.config.elements?.length ?? 0) !== 1 ? 's' : ''}
+                  {'  '}·{'  '}
+                  {t.config.elements?.length ?? 0} élément
+                  {(t.config.elements?.length ?? 0) !== 1 ? 's' : ''}
                 </p>
               </div>
 
-              {/* Actions */}
               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
                   onClick={() => setEditing(t)}
-                  className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-sm font-medium transition-colors"
+                  className="flex items-center gap-2 px-3.5 py-2"
+                  style={{
+                    backgroundColor: '#F4ECDD',
+                    color: '#1A1A1A',
+                    border: '1px solid rgba(212, 184, 150, 0.3)',
+                    borderRadius: '4px',
+                    fontFamily: 'Inter, sans-serif',
+                    fontWeight: 500,
+                    fontSize: '0.75rem',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.15em',
+                    cursor: 'pointer',
+                  }}
                 >
-                  <Pencil size={13} />
+                  <MdEdit size={14} />
                   Modifier
                 </button>
                 <button
                   onClick={() => remove(t.id)}
-                  className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 border border-red-100 transition-colors"
+                  className="p-2"
+                  style={{
+                    backgroundColor: '#1A1A1A',
+                    color: '#FAF6EE',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
                   title="Supprimer"
                 >
-                  <Trash2 size={16} />
+                  <MdDelete size={16} />
                 </button>
               </div>
             </div>
@@ -186,7 +264,7 @@ export function Templates() {
         </div>
       )}
 
-      <Button variant="primary" onClick={newTemplate} icon={<Plus size={20} />} fullWidth>
+      <Button variant="primary" onClick={newTemplate} icon={<MdAdd size={20} />} fullWidth>
         Nouveau template
       </Button>
     </>
