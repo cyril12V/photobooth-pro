@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Save, Upload, Check } from 'lucide-react';
+import { MdSave, MdFileUpload, MdCheck } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { localFileUrl } from '@shared/lib/poseAssets';
 import { AdminCard, AdminPageHeader, AdminInput } from '../components/AdminUI';
@@ -63,7 +63,7 @@ export function EventSettings() {
         <AdminCard title="Visuels" description="Logo et image de fond personnalisés">
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-3">
+              <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
                 Logo / photo
               </p>
               {logoPath ? (
@@ -71,11 +71,26 @@ export function EventSettings() {
                   <img
                     src={localFileUrl(logoPath)}
                     alt="Logo"
-                    className="w-full h-40 object-contain bg-neutral-50 rounded-xl border border-neutral-200 p-3"
+                    className="w-full h-40 object-contain p-3"
+                    style={{
+                      backgroundColor: '#F4ECDD',
+                      borderRadius: '4px',
+                      border: '1px solid rgba(212, 184, 150, 0.4)',
+                    }}
                   />
                   <button
                     onClick={pickLogo}
-                    className="absolute inset-0 flex items-center justify-center bg-neutral-900/0 hover:bg-neutral-900/60 rounded-xl transition-colors text-white opacity-0 hover:opacity-100 text-sm font-medium"
+                    className="absolute inset-0 flex items-center justify-center transition-colors text-sm font-medium opacity-0 hover:opacity-100"
+                    style={{
+                      backgroundColor: 'rgba(26,26,26,0.6)',
+                      color: '#FAF6EE',
+                      borderRadius: '4px',
+                      fontFamily: 'Inter, sans-serif',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.15em',
+                      fontSize: '0.75rem',
+                      cursor: 'pointer',
+                    }}
                   >
                     Changer
                   </button>
@@ -83,16 +98,23 @@ export function EventSettings() {
               ) : (
                 <button
                   onClick={pickLogo}
-                  className="w-full h-40 border-2 border-dashed border-neutral-300 rounded-xl flex flex-col items-center justify-center gap-2 text-neutral-400 hover:text-neutral-600 hover:border-neutral-400 transition-colors"
+                  className="w-full h-40 flex flex-col items-center justify-center gap-2 transition-colors"
+                  style={{
+                    border: '1px dashed rgba(212, 184, 150, 0.6)',
+                    backgroundColor: '#F4ECDD',
+                    color: '#6B5D4F',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
                 >
-                  <Upload size={22} />
-                  <span className="text-sm">Choisir une image</span>
+                  <MdFileUpload size={22} />
+                  <span className="label-editorial">Choisir une image</span>
                 </button>
               )}
             </div>
 
             <div>
-              <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-3">
+              <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
                 Image de fond
               </p>
               {bgPath ? (
@@ -100,11 +122,25 @@ export function EventSettings() {
                   <img
                     src={localFileUrl(bgPath)}
                     alt="Fond"
-                    className="w-full h-40 object-cover rounded-xl border border-neutral-200"
+                    className="w-full h-40 object-cover"
+                    style={{
+                      borderRadius: '4px',
+                      border: '1px solid rgba(212, 184, 150, 0.4)',
+                    }}
                   />
                   <button
                     onClick={pickBg}
-                    className="absolute inset-0 flex items-center justify-center bg-neutral-900/0 hover:bg-neutral-900/60 rounded-xl transition-colors text-white opacity-0 hover:opacity-100 text-sm font-medium"
+                    className="absolute inset-0 flex items-center justify-center transition-colors opacity-0 hover:opacity-100"
+                    style={{
+                      backgroundColor: 'rgba(26,26,26,0.6)',
+                      color: '#FAF6EE',
+                      borderRadius: '4px',
+                      fontFamily: 'Inter, sans-serif',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.15em',
+                      fontSize: '0.75rem',
+                      cursor: 'pointer',
+                    }}
                   >
                     Changer
                   </button>
@@ -112,10 +148,17 @@ export function EventSettings() {
               ) : (
                 <button
                   onClick={pickBg}
-                  className="w-full h-40 border-2 border-dashed border-neutral-300 rounded-xl flex flex-col items-center justify-center gap-2 text-neutral-400 hover:text-neutral-600 hover:border-neutral-400 transition-colors"
+                  className="w-full h-40 flex flex-col items-center justify-center gap-2 transition-colors"
+                  style={{
+                    border: '1px dashed rgba(212, 184, 150, 0.6)',
+                    backgroundColor: '#F4ECDD',
+                    color: '#6B5D4F',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
                 >
-                  <Upload size={22} />
-                  <span className="text-sm">Choisir une image</span>
+                  <MdFileUpload size={22} />
+                  <span className="label-editorial">Choisir une image</span>
                 </button>
               )}
             </div>
@@ -123,12 +166,12 @@ export function EventSettings() {
         </AdminCard>
 
         <Button
-          variant="secondary"
-          icon={saved ? <Check size={20} /> : <Save size={20} />}
+          variant="primary"
+          icon={saved ? <MdCheck size={20} /> : <MdSave size={20} />}
           onClick={save}
           fullWidth
         >
-          {saved ? 'Enregistré !' : 'Enregistrer'}
+          {saved ? 'Enregistré' : 'Enregistrer'}
         </Button>
       </div>
     </>

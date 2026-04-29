@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Printer, Check } from 'lucide-react';
+import { MdPrint, MdCheck } from 'react-icons/md';
 import type { PrinterInfo } from '@shared/types';
 import { useAppStore } from '@shared/store';
 import { AdminCard, AdminPageHeader } from '../components/AdminUI';
@@ -35,39 +35,57 @@ export function PrinterSettings() {
       <div className="space-y-4">
         <AdminCard title="Imprimante par défaut">
           {printers.length === 0 ? (
-            <p className="text-neutral-500 text-sm">Aucune imprimante détectée par le système.</p>
+            <p style={{ color: '#6B5D4F', fontFamily: 'Inter, sans-serif', fontSize: '0.875rem' }}>
+              Aucune imprimante détectée par le système.
+            </p>
           ) : (
             <div className="space-y-2">
-              {printers.map((p) => (
-                <button
-                  key={p.name}
-                  onClick={() => setSelected(p.name)}
-                  className={`w-full flex items-center gap-3 p-3.5 rounded-xl text-left transition-colors
-                    ${selected === p.name
-                      ? 'bg-neutral-900 text-white border border-neutral-900'
-                      : 'bg-neutral-50 border border-neutral-200 hover:bg-neutral-100 text-neutral-700'
-                    }`}
-                >
-                  <Printer size={18} className={selected === p.name ? 'text-[#d4a574]' : 'text-neutral-400'} />
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${selected === p.name ? 'text-white' : 'text-neutral-800'}`}>
-                      {p.displayName || p.name}
-                    </p>
-                    {p.isDefault && (
-                      <span className="text-xs text-[#d4a574] font-medium uppercase tracking-wider">
-                        Par défaut système
-                      </span>
-                    )}
-                  </div>
-                  {selected === p.name && <Check size={16} className="text-[#d4a574]" />}
-                </button>
-              ))}
+              {printers.map((p) => {
+                const active = selected === p.name;
+                return (
+                  <button
+                    key={p.name}
+                    onClick={() => setSelected(p.name)}
+                    className="w-full flex items-center gap-3 p-3.5 text-left transition-colors"
+                    style={{
+                      backgroundColor: active ? '#1A1A1A' : '#F4ECDD',
+                      color: active ? '#FAF6EE' : '#1A1A1A',
+                      border: '1px solid rgba(212, 184, 150, 0.3)',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <MdPrint size={18} style={{ color: active ? '#D4B896' : '#6B5D4F' }} />
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className="truncate"
+                        style={{
+                          fontFamily: 'Inter, sans-serif',
+                          fontWeight: 500,
+                          fontSize: '0.875rem',
+                        }}
+                      >
+                        {p.displayName || p.name}
+                      </p>
+                      {p.isDefault && (
+                        <span
+                          className="label-editorial"
+                          style={{ color: active ? '#D4B896' : '#6B5D4F', fontSize: '0.6875rem' }}
+                        >
+                          Par défaut système
+                        </span>
+                      )}
+                    </div>
+                    {active && <MdCheck size={16} style={{ color: '#D4B896' }} />}
+                  </button>
+                );
+              })}
             </div>
           )}
         </AdminCard>
 
         <AdminCard title="Nombre maximum de copies">
-          <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-3">
+          <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
             Limite : {maxCopies} {maxCopies > 1 ? 'copies' : 'copie'}
           </p>
           <input
@@ -76,7 +94,8 @@ export function PrinterSettings() {
             max={8}
             value={maxCopies}
             onChange={(e) => setMaxCopies(Number(e.target.value))}
-            className="w-full accent-neutral-900"
+            className="w-full"
+            style={{ accentColor: '#1A1A1A' }}
           />
         </AdminCard>
 
@@ -84,20 +103,27 @@ export function PrinterSettings() {
           title="Note pour les imprimantes pro"
           description="DNP, Mitsubishi, Canon Selphy"
         >
-          <p className="text-neutral-500 text-sm leading-relaxed">
+          <p
+            style={{
+              color: '#6B5D4F',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '0.875rem',
+              lineHeight: 1.6,
+            }}
+          >
             En V1, l'impression utilise le pilote système. Pour un contrôle précis (format
-            10×15 sans dialogue, gestion bandeau, fin de papier), prévoyez d'intégrer le SDK
+            10x15 sans dialogue, gestion bandeau, fin de papier), prévoyez d'intégrer le SDK
             officiel de votre imprimante en V2 (DNP fournit un SDK Windows).
           </p>
         </AdminCard>
 
         <Button
-          variant="secondary"
+          variant="primary"
           onClick={save}
-          icon={saved ? <Check size={20} /> : undefined}
+          icon={saved ? <MdCheck size={20} /> : undefined}
           fullWidth
         >
-          {saved ? 'Enregistré !' : 'Enregistrer'}
+          {saved ? 'Enregistré' : 'Enregistrer'}
         </Button>
       </div>
     </>

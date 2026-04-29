@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, Check } from 'lucide-react';
+import { MdCameraAlt, MdCheck } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { AdminCard, AdminPageHeader, AdminToggle } from '../components/AdminUI';
 import { Button } from '@shared/components/Button';
@@ -79,24 +79,28 @@ export function CameraSettings() {
       <div className="space-y-4">
         <AdminCard title="Sélection caméra">
           {devices.length === 0 ? (
-            <p className="text-neutral-500 text-sm">Aucune caméra détectée. Branchez votre webcam ou reflex.</p>
+            <p style={{ color: '#6B5D4F', fontFamily: 'Inter, sans-serif', fontSize: '0.875rem' }}>Aucune caméra détectée. Branchez votre webcam ou reflex.</p>
           ) : (
             <div className="space-y-2">
               {devices.map((d) => (
                 <button
                   key={d.deviceId}
                   onClick={() => setSelectedId(d.deviceId)}
-                  className={`w-full flex items-center gap-3 p-3.5 rounded-xl text-left transition-colors
-                    ${selectedId === d.deviceId
-                      ? 'bg-neutral-900 text-white border border-neutral-900'
-                      : 'bg-neutral-50 border border-neutral-200 hover:bg-neutral-100 text-neutral-700'
-                    }`}
+                  className="w-full flex items-center gap-3 p-3.5 text-left transition-colors"
+                  style={{
+                    backgroundColor: selectedId === d.deviceId ? '#1A1A1A' : '#F4ECDD',
+                    color: selectedId === d.deviceId ? '#FAF6EE' : '#1A1A1A',
+                    border: '1px solid rgba(212, 184, 150, 0.3)',
+                    borderRadius: '4px',
+                    fontFamily: 'Inter, sans-serif',
+                    cursor: 'pointer',
+                  }}
                 >
-                  <Camera size={18} className={selectedId === d.deviceId ? 'text-[#d4a574]' : 'text-neutral-400'} />
+                  <MdCameraAlt size={18} style={{ color: selectedId === d.deviceId ? '#D4B896' : '#6B5D4F' }} />
                   <span className="flex-1 text-sm truncate font-medium">
                     {d.label || `Caméra ${d.deviceId.slice(0, 8)}`}
                   </span>
-                  {selectedId === d.deviceId && <Check size={16} className="text-[#d4a574]" />}
+                  {selectedId === d.deviceId && <MdCheck size={16} style={{ color: '#D4B896' }} />}
                 </button>
               ))}
             </div>
@@ -104,14 +108,14 @@ export function CameraSettings() {
 
           {selectedId && (
             <div className="mt-5">
-              <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-3">Aperçu</p>
+              <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>Aperçu</p>
               <video
                 ref={videoRef}
                 autoPlay
                 playsInline
                 muted
-                className="w-full max-h-64 object-contain bg-neutral-900 rounded-xl"
-                style={{ transform: 'scaleX(-1)' }}
+                className="w-full max-h-64 object-contain"
+                style={{ backgroundColor: '#1A1A1A', borderRadius: '4px', transform: 'scaleX(-1)' }}
               />
             </div>
           )}
@@ -120,7 +124,7 @@ export function CameraSettings() {
         <AdminCard title="Capture">
           <div className="space-y-4">
             <div>
-              <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-3">
+              <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
                 Compte à rebours : {countdown} seconde{countdown > 1 ? 's' : ''}
               </p>
               <input
@@ -129,10 +133,11 @@ export function CameraSettings() {
                 max={10}
                 value={countdown}
                 onChange={(e) => setCountdown(Number(e.target.value))}
-                className="w-full accent-neutral-900"
+                className="w-full"
+                style={{ accentColor: '#1A1A1A' }}
               />
             </div>
-            <div className="divide-y divide-neutral-100">
+            <div className="divide-y" style={{ borderColor: 'rgba(212, 184, 150, 0.2)' }}>
               <AdminToggle
                 label="Effet flash à la prise"
                 description="Un éclair blanc rapide simule le flash"
@@ -149,12 +154,12 @@ export function CameraSettings() {
         </AdminCard>
 
         <Button
-          variant="secondary"
+          variant="primary"
           onClick={save}
-          icon={saved ? <Check size={20} /> : undefined}
+          icon={saved ? <MdCheck size={20} /> : undefined}
           fullWidth
         >
-          {saved ? 'Enregistré !' : 'Enregistrer'}
+          {saved ? 'Enregistré' : 'Enregistrer'}
         </Button>
       </div>
     </>

@@ -8,22 +8,56 @@ interface CardProps {
   accentBar?: boolean;
 }
 
-export function AdminCard({ title, description, children, className = '', accentBar = false }: CardProps) {
+export function AdminCard({
+  title,
+  description,
+  children,
+  className = '',
+  accentBar = false,
+}: CardProps) {
   return (
-    <div className={`bg-white border border-neutral-200 rounded-2xl p-8 shadow-md ${className}`}>
+    <div
+      className={`p-8 ${className}`}
+      style={{
+        backgroundColor: '#FAF6EE',
+        border: '1px solid rgba(212, 184, 150, 0.2)',
+        borderRadius: '24px',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+      }}
+    >
       {title && (
         <div className="mb-6">
           <div className="flex items-center gap-3">
             {accentBar && (
               <div
-                className="w-1 h-5 rounded-full flex-shrink-0"
-                style={{ background: 'linear-gradient(to bottom, #e8c79a, #d4a574)' }}
+                className="w-1 h-5 flex-shrink-0"
+                style={{ backgroundColor: '#1A1A1A' }}
               />
             )}
-            <h3 className="font-semibold text-neutral-900 text-base">{title}</h3>
+            <h3
+              style={{
+                fontFamily: '"Playfair Display", serif',
+                fontWeight: 700,
+                color: '#1A1A1A',
+                fontSize: '1.125rem',
+                letterSpacing: '-0.01em',
+              }}
+            >
+              {title}
+            </h3>
           </div>
           {description && (
-            <p className="text-neutral-500 text-sm mt-1.5 ml-0">{description}</p>
+            <p
+              className="mt-2"
+              style={{
+                color: '#6B5D4F',
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '0.875rem',
+                lineHeight: 1.5,
+              }}
+            >
+              {description}
+            </p>
           )}
         </div>
       )}
@@ -42,17 +76,40 @@ export function AdminPageHeader({
   subtitle?: string;
 }) {
   return (
-    <div className="mb-8">
+    <div className="mb-8 pb-6" style={{ borderBottom: '1px solid #1A1A1A' }}>
       {subtitle && (
         <p
-          className="text-xs font-semibold uppercase tracking-[0.35em] mb-1"
-          style={{ color: '#c8956a' }}
+          className="label-editorial mb-2"
+          style={{ color: '#6B5D4F' }}
         >
           {subtitle}
         </p>
       )}
-      <h1 className="font-bold text-3xl text-neutral-900 leading-tight">{title}</h1>
-      {description && <p className="text-neutral-500 text-sm mt-1.5">{description}</p>}
+      <h1
+        style={{
+          fontFamily: '"Playfair Display", serif',
+          fontWeight: 800,
+          color: '#1A1A1A',
+          fontSize: '2.5rem',
+          letterSpacing: '-0.02em',
+          lineHeight: 1.05,
+        }}
+      >
+        {title}
+      </h1>
+      {description && (
+        <p
+          className="mt-2"
+          style={{
+            color: '#6B5D4F',
+            fontFamily: 'Inter, sans-serif',
+            fontSize: '0.9375rem',
+            lineHeight: 1.5,
+          }}
+        >
+          {description}
+        </p>
+      )}
     </div>
   );
 }
@@ -72,7 +129,10 @@ export function AdminInput({
 }) {
   return (
     <label className="block">
-      <span className="block text-neutral-600 text-xs font-semibold uppercase tracking-wider mb-1.5">
+      <span
+        className="block label-editorial mb-2"
+        style={{ color: '#6B5D4F' }}
+      >
         {label}
       </span>
       <input
@@ -80,17 +140,20 @@ export function AdminInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full bg-white border border-neutral-200 rounded-lg px-3.5 py-2.5 text-neutral-900 placeholder:text-neutral-400 text-sm transition-all duration-150 focus:outline-none"
+        className="w-full px-4 py-3 transition-all duration-150 focus:outline-none"
         style={{
-          boxShadow: 'none',
+          backgroundColor: '#F4ECDD',
+          border: '1px solid rgba(212, 184, 150, 0.4)',
+          color: '#1A1A1A',
+          borderRadius: '4px',
+          fontFamily: 'Inter, sans-serif',
+          fontSize: '0.9375rem',
         }}
         onFocus={(e) => {
-          e.currentTarget.style.borderColor = '#d4a574';
-          e.currentTarget.style.boxShadow = '0 0 0 3px rgba(212,165,116,0.15)';
+          e.currentTarget.style.borderColor = '#1A1A1A';
         }}
         onBlur={(e) => {
-          e.currentTarget.style.borderColor = '';
-          e.currentTarget.style.boxShadow = 'none';
+          e.currentTarget.style.borderColor = 'rgba(212, 184, 150, 0.4)';
         }}
       />
     </label>
@@ -111,23 +174,48 @@ export function AdminToggle({
   return (
     <div className="flex items-center justify-between gap-4 py-3.5">
       <div>
-        <p className="text-neutral-900 font-medium text-sm">{label}</p>
-        {description && <p className="text-neutral-500 text-xs mt-0.5">{description}</p>}
+        <p
+          style={{
+            color: '#1A1A1A',
+            fontFamily: 'Inter, sans-serif',
+            fontWeight: 500,
+            fontSize: '0.875rem',
+          }}
+        >
+          {label}
+        </p>
+        {description && (
+          <p
+            className="mt-0.5"
+            style={{
+              color: '#6B5D4F',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '0.75rem',
+            }}
+          >
+            {description}
+          </p>
+        )}
       </div>
       <button
         onClick={() => onChange(!value)}
-        className="relative w-11 h-6 rounded-full transition-all duration-200 flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-offset-1"
+        className="relative w-11 h-6 transition-all duration-200 flex-shrink-0 focus:outline-none"
         style={{
-          background: value
-            ? 'linear-gradient(135deg, #e8c79a 0%, #d4a574 100%)'
-            : '#e5e7eb',
-          boxShadow: value ? '0 2px 8px rgba(212,165,116,0.4)' : 'none',
+          backgroundColor: value ? '#1A1A1A' : '#E8DCC4',
+          borderRadius: '999px',
+          border: 'none',
+          cursor: 'pointer',
         }}
         aria-pressed={value}
       >
         <span
-          className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow-sm transition-transform duration-200
-            ${value ? 'translate-x-5' : 'translate-x-0'}`}
+          className="absolute top-0.5 left-0.5 w-5 h-5 transition-transform duration-200"
+          style={{
+            backgroundColor: '#FAF6EE',
+            borderRadius: '999px',
+            transform: value ? 'translateX(20px)' : 'translateX(0)',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          }}
         />
       </button>
     </div>
