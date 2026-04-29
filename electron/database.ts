@@ -130,6 +130,12 @@ export async function initDatabase() {
     video_default_question_seconds: 15,
     video_interview_beep: true,
     video_interview_flash: true,
+    // ─── Compilation vidéo ─────────────────────────────────────────────────
+    video_compilation_enabled: true,
+    video_compilation_show_questions: true,
+    video_compilation_show_logo: true,
+    video_compilation_show_event_name: true,
+    video_compilation_intro_duration: 3,
   };
 
   // Upsert : insère seulement les clés manquantes (pour les anciennes BDD)

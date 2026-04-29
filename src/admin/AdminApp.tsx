@@ -13,6 +13,7 @@ import {
   MessageSquareQuote,
   Mail,
   LogOut,
+  BookOpen,
 } from 'lucide-react';
 import { useAppStore } from '@shared/store';
 import { ErrorBoundary } from '@shared/components/ErrorBoundary';
@@ -28,6 +29,7 @@ import { GeneralSettings } from './screens/GeneralSettings';
 import { EmailSettings } from './screens/EmailSettings';
 import { VideoSettings } from './screens/VideoSettings';
 import { InterviewQuestions } from './screens/InterviewQuestions';
+import { Album } from './screens/Album';
 
 type AdminTab =
   | 'dashboard'
@@ -38,6 +40,7 @@ type AdminTab =
   | 'printer'
   | 'templates'
   | 'poses'
+  | 'album'
   | 'theme'
   | 'email'
   | 'general';
@@ -68,6 +71,7 @@ const sections: SidebarSection[] = [
       { id: 'printer', label: 'Imprimante', icon: Printer },
       { id: 'templates', label: 'Templates', icon: ImageIcon },
       { id: 'poses', label: 'Poses challenge', icon: Sparkles },
+      { id: 'album', label: 'Album', icon: BookOpen },
     ],
   },
   {
@@ -189,6 +193,7 @@ export function AdminApp() {
               {tab === 'printer' && <PrinterSettings />}
               {tab === 'templates' && <Templates />}
               {tab === 'poses' && <ChallengePoses />}
+              {tab === 'album' && <Album />}
               {tab === 'theme' && <ThemeSettings />}
               {tab === 'email' && <EmailSettings />}
               {tab === 'general' && <GeneralSettings />}

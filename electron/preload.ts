@@ -41,6 +41,17 @@ contextBridge.exposeInMainWorld('api', {
     list: (eventId: number) => ipcRenderer.invoke('video:list', eventId),
     delete: (id: number) => ipcRenderer.invoke('video:delete', id),
     openFolder: (eventId?: number) => ipcRenderer.invoke('video:openFolder', eventId),
+    compile: (eventId?: number) => ipcRenderer.invoke('video:compile', eventId),
+    onCompileProgress: (
+      callback: (data: { percent: number; stage: string }) => void,
+    ) => {
+      const listener = (_e: unknown, data: { percent: number; stage: string }) =>
+        callback(data);
+      ipcRenderer.on('video:compile-progress', listener);
+      return () => {
+        ipcRenderer.removeListener('video:compile-progress', listener);
+      };
+    },
   },
   // Questions interview
   question: {

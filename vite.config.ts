@@ -18,6 +18,8 @@ export default defineConfig({
                 'electron-updater',
                 'express',
                 'nodemailer',
+                'ffmpeg-static',
+                'fluent-ffmpeg',
                 /^node:.*/,
               ],
             },

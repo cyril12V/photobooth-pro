@@ -359,14 +359,19 @@ export function VideoShareScreen() {
             </motion.div>
           )}
 
-          <button
+          <motion.button
             onClick={resetCapture}
-            className="mt-2 flex items-center justify-center gap-2 py-3 transition-colors hover:opacity-80"
-            style={{ color: '#5a3e2b' }}
+            whileHover={{ scale: 1.03, y: -2 }}
+            whileTap={{ scale: 0.97 }}
+            className="mt-2 self-center flex items-center justify-center gap-3 px-10 py-5 text-base font-semibold uppercase tracking-[0.2em] rounded-full text-white"
+            style={{
+              background: 'linear-gradient(135deg, #f0a090 0%, #e8806a 50%, #d46855 100%)',
+              boxShadow: '0 10px 32px rgba(228,110,90,0.4)',
+            }}
           >
-            <Home size={18} />
-            <span className="text-sm tracking-wide uppercase font-light">Retour à l'accueil</span>
-          </button>
+            <Home size={22} strokeWidth={2.2} />
+            <span>Nouvelle vidéo</span>
+          </motion.button>
         </motion.div>
       </div>
     </Screen>

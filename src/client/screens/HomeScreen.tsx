@@ -224,50 +224,62 @@ export function HomeScreen() {
           {/* Sous-titre invitation */}
           <motion.p
             {...fadeUp(1.05)}
-            className="font-sans text-sm tracking-wide font-light mt-1"
-            style={{ color: '#5a3e2b', opacity: 0.7 }}
+            className="font-sans text-sm tracking-wide font-light mt-2"
+            style={{ color: '#5a3e2b', opacity: 0.75 }}
           >
             Choisissez votre style de photo
           </motion.p>
 
-          {/* Boutons mode — compacts */}
+          {/* Boutons mode — grands avec explications */}
           <motion.div
             {...fadeUp(1.15)}
-            className="flex gap-3 mt-1"
+            className="flex flex-col sm:flex-row gap-4 mt-3 w-full max-w-2xl"
           >
             {/* Classique */}
             <motion.button
               onClick={() => choose('classic')}
-              whileHover={{ y: -3, scale: 1.02 }}
+              whileHover={{ y: -4, scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
-              className="btn-touch shine flex items-center gap-2.5 px-6 py-3 text-white font-sans font-semibold text-sm uppercase tracking-[0.15em] rounded-full"
+              className="btn-touch shine flex-1 flex flex-col items-start gap-2 px-7 py-5 text-white font-sans rounded-3xl text-left"
               style={{
                 background: 'linear-gradient(135deg, #f0a090 0%, #e8806a 50%, #d46855 100%)',
-                boxShadow: '0 6px 22px rgba(228,110,90,0.32)',
+                boxShadow: '0 10px 30px rgba(228,110,90,0.35)',
               }}
             >
-              <Camera size={16} strokeWidth={2.2} />
-              Classique
+              <div className="flex items-center gap-3 w-full">
+                <Camera size={26} strokeWidth={2.2} />
+                <span className="font-bold text-xl uppercase tracking-[0.15em]">Classique</span>
+              </div>
+              <span className="text-sm font-light leading-snug" style={{ opacity: 0.95 }}>
+                Une belle photo naturelle et élégante
+              </span>
             </motion.button>
 
             {/* Challenge */}
             <motion.button
               onClick={() => choose('challenge')}
               disabled={!challengeAvailable}
-              whileHover={challengeAvailable ? { y: -3, scale: 1.02 } : undefined}
+              whileHover={challengeAvailable ? { y: -4, scale: 1.02 } : undefined}
               whileTap={challengeAvailable ? { scale: 0.97 } : undefined}
-              className={`btn-touch shine flex items-center gap-2.5 px-6 py-3 font-sans font-semibold text-sm uppercase tracking-[0.15em] rounded-full transition-opacity ${challengeAvailable ? '' : 'opacity-50 cursor-not-allowed'}`}
+              className={`btn-touch shine flex-1 flex flex-col items-start gap-2 px-7 py-5 font-sans rounded-3xl text-left transition-opacity ${challengeAvailable ? '' : 'opacity-50 cursor-not-allowed'}`}
               style={{
-                background: 'rgba(255,255,255,0.65)',
+                background: 'rgba(255,255,255,0.7)',
                 color: '#5a3e2b',
-                border: '1.5px solid rgba(212,165,116,0.55)',
-                boxShadow: '0 4px 18px rgba(90,60,40,0.08)',
+                border: '2px solid rgba(212,165,116,0.6)',
+                boxShadow: '0 10px 30px rgba(90,60,40,0.1)',
                 backdropFilter: 'blur(8px)',
               }}
               title={challengeAvailable ? 'Reproduire une pose fun' : 'Aucune pose configurée'}
             >
-              <Zap size={16} strokeWidth={2.2} style={{ color: '#e8806a' }} fill="#e8806a" />
-              Challenge
+              <div className="flex items-center gap-3 w-full">
+                <Zap size={26} strokeWidth={2.2} style={{ color: '#e8806a' }} fill="#e8806a" />
+                <span className="font-bold text-xl uppercase tracking-[0.15em]">Challenge</span>
+              </div>
+              <span className="text-sm font-light leading-snug" style={{ opacity: 0.85 }}>
+                {challengeAvailable
+                  ? 'Reproduisez une pose amusante'
+                  : 'Aucune pose disponible'}
+              </span>
             </motion.button>
           </motion.div>
         </div>

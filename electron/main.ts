@@ -6,6 +6,11 @@ import { initDatabase, db } from './database';
 import { handlePrint, listPrinters } from './printer';
 import { shareServer } from './shareServer';
 import { sendPhotoEmail, sendVideoLinkEmail, testSmtp } from './mailer';
+import {
+  compileEventVideos,
+  type VideoCompilerEvent,
+  type VideoCompilerSettings,
+} from './videoCompiler';
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 const KIOSK_MODE = process.env.KIOSK === '1' || process.env.NODE_ENV === 'production';
@@ -319,6 +324,38 @@ function registerIpcHandlers() {
       db.prepare('DELETE FROM videos WHERE id = ?').run(id);
     }
     return { ok: true };
+  });
+
+  ipcMain.handle('video:compile', async (_e, eventId?: number) => {
+    const ev: any = eventId
+      ? db.prepare('SELECT * FROM events WHERE id = ?').get(eventId)
+      : db.prepare('SELECT * FROM events WHERE active = 1 LIMIT 1').get();
+    if (!ev) return { ok: false, error: 'Aucun évènement actif' };
+
+    const s = getSettings();
+    const settings: VideoCompilerSettings = {
+      video_compilation_show_questions: Boolean(s.video_compilation_show_questions),
+      video_compilation_show_logo: Boolean(s.video_compilation_show_logo),
+      video_compilation_show_event_name: Boolean(s.video_compilation_show_event_name),
+      video_compilation_intro_duration: Number(s.video_compilation_intro_duration ?? 3),
+    };
+
+    const event: VideoCompilerEvent = {
+      id: ev.id,
+      name: ev.name,
+      date: ev.date ?? null,
+      logo_path: ev.logo_path ?? null,
+    };
+
+    try {
+      const result = await compileEventVideos(ev.id, settings, event, (percent, stage) => {
+        mainWindow?.webContents.send('video:compile-progress', { percent, stage });
+      });
+      return result;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return { ok: false, error: msg };
+    }
   });
 
   ipcMain.handle('video:openFolder', async (_e, eventId?: number) => {

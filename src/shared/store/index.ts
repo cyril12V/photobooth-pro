@@ -37,6 +37,7 @@ interface AppState {
   mode: CaptureMode;
   videoMode: VideoMode | null;
   selectedPose: ChallengePose | null;
+  selectedPoses: ChallengePose[];
 
   // Photo en cours
   currentPhotoDataUrl: string | null;
@@ -66,6 +67,7 @@ interface AppState {
   setMode: (m: CaptureMode) => void;
   setVideoMode: (m: VideoMode | null) => void;
   setSelectedPose: (p: ChallengePose | null) => void;
+  setSelectedPoses: (p: ChallengePose[]) => void;
   setCurrentPhoto: (dataUrl: string | null, filepath: string | null, shareUrl?: string | null) => void;
   pushPhoto: (dataUrl: string) => void;
   clearPhotos: () => void;
@@ -92,6 +94,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   mode: 'classic',
   videoMode: null,
   selectedPose: null,
+  selectedPoses: [],
   currentPhotoDataUrl: null,
   currentPhotoDataUrls: [],
   currentPhotoFilepath: null,
@@ -114,6 +117,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setMode: (mode) => set({ mode }),
   setVideoMode: (videoMode) => set({ videoMode }),
   setSelectedPose: (selectedPose) => set({ selectedPose }),
+  setSelectedPoses: (selectedPoses) => set({ selectedPoses }),
   setCurrentPhoto: (dataUrl, filepath, shareUrl) =>
     set({
       currentPhotoDataUrl: dataUrl,
@@ -184,6 +188,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       mode: 'classic',
       videoMode: null,
       selectedPose: null,
+      selectedPoses: [],
       currentPhotoDataUrl: null,
       currentPhotoDataUrls: [],
       currentPhotoFilepath: null,

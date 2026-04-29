@@ -8,7 +8,7 @@ import { poseSrc } from '@shared/lib/poseAssets';
 import type { TemplateConfig } from '@shared/types';
 
 export function CaptureScreen() {
-  const { setScreen, setCurrentPhoto, pushPhoto, clearPhotos, mode, selectedPose, settings } = useAppStore();
+  const { setScreen, setCurrentPhoto, pushPhoto, clearPhotos, mode, selectedPose, selectedPoses, settings } = useAppStore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -187,6 +187,7 @@ export function CaptureScreen() {
   }, [countdown, runCapture, soundsOn]);
 
   const aspectRatioString = `${templateRatio.w} / ${templateRatio.h}`;
+  const currentPose = selectedPoses[capturedCount] ?? selectedPose;
 
   return (
     <Screen className="flex items-center justify-center bg-black">
@@ -216,8 +217,9 @@ export function CaptureScreen() {
       )}
 
       {/* Pose à imiter (mode challenge) */}
-      {mode === 'challenge' && selectedPose && (
+      {mode === 'challenge' && currentPose && (
         <motion.div
+          key={currentPose.id}
           initial={{ opacity: 0, scale: 0.8, x: 20 }}
           animate={{ opacity: 1, scale: 1, x: 0 }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
@@ -233,12 +235,12 @@ export function CaptureScreen() {
             À imiter
           </p>
           <img
-            src={poseSrc(selectedPose.image_path)}
-            alt={selectedPose.label}
+            src={poseSrc(currentPose.image_path)}
+            alt={currentPose.label}
             className="w-full h-32 object-contain rounded-xl mb-2"
           />
           <p className="text-sm font-medium text-center" style={{ color: '#2a1a10' }}>
-            {selectedPose.label}
+            {currentPose.label}
           </p>
         </motion.div>
       )}
@@ -329,9 +331,9 @@ export function CaptureScreen() {
         )}
       </AnimatePresence>
 
-      {/* Souriez ! */}
+      {/* Souriez ! — pas en mode challenge (la pose à imiter remplace le message) */}
       <AnimatePresence>
-        {countdown !== null && countdown > 0 && (
+        {mode !== 'challenge' && countdown !== null && countdown > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}

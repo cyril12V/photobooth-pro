@@ -195,6 +195,12 @@ export interface AppSettings {
   video_default_question_seconds: number;
   video_interview_beep: boolean;
   video_interview_flash: boolean;
+  // Compilation vidéo
+  video_compilation_enabled: boolean;
+  video_compilation_show_questions: boolean;
+  video_compilation_show_logo: boolean;
+  video_compilation_show_event_name: boolean;
+  video_compilation_intro_duration: number;
 }
 
 // Bridge IPC exposé au renderer
@@ -245,6 +251,12 @@ declare global {
         list: (eventId: number) => Promise<Video[]>;
         delete: (id: number) => Promise<{ ok: boolean }>;
         openFolder: (eventId?: number) => Promise<{ ok: boolean; path?: string; error?: string }>;
+        compile: (
+          eventId?: number,
+        ) => Promise<{ ok: boolean; filepath?: string; error?: string }>;
+        onCompileProgress: (
+          callback: (data: { percent: number; stage: string }) => void,
+        ) => () => void;
       };
       question: {
         list: () => Promise<InterviewQuestion[]>;
