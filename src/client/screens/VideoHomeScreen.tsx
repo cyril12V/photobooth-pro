@@ -1,19 +1,12 @@
 import { motion } from 'framer-motion';
-import { ArrowLeft, MessageCircle, MicVocal } from 'lucide-react';
+import { MdArrowBack, MdQuestionAnswer, MdMic } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
-import { CornerDecor } from '@client/components/decors';
 
 const fadeUp = (delay: number) => ({
-  initial: { opacity: 0, y: 24 },
+  initial: { opacity: 0, y: 14 },
   animate: { opacity: 1, y: 0 },
-  transition: { delay, duration: 0.8, ease: [0.16, 1, 0.3, 1] as const },
-});
-
-const fadeIn = (delay: number) => ({
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  transition: { delay, duration: 1 },
+  transition: { delay, duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
 });
 
 function formatDateFr(iso?: string): string {
@@ -28,9 +21,7 @@ function formatDateFr(iso?: string): string {
 }
 
 export function VideoHomeScreen() {
-  const { event, settings, setScreen, setVideoMode } = useAppStore();
-  const decorStyle = settings?.decor_style ?? 'floral';
-  const customImagePath = settings?.decor_custom_path ?? null;
+  const { event, setScreen, setVideoMode } = useAppStore();
 
   const eventName = event?.name ?? 'Notre Évènement';
   const eventDate = formatDateFr(event?.date);
@@ -42,172 +33,171 @@ export function VideoHomeScreen() {
   };
 
   return (
-    <Screen className="overflow-hidden bg-wedding">
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(ellipse 80% 60% at 20% 0%, rgba(245,224,205,0.7) 0%, transparent 65%),' +
-            'radial-gradient(ellipse 70% 50% at 80% 100%, rgba(242,196,206,0.4) 0%, transparent 60%),' +
-            '#faf6ef',
-        }}
-      />
-
-      <motion.div {...fadeIn(0.3)} className="absolute top-0 left-0 w-80 h-80 pointer-events-none">
-        <CornerDecor style={decorStyle} position="tl" className="w-full h-full" customImagePath={customImagePath} />
-      </motion.div>
-      <motion.div {...fadeIn(0.4)} className="absolute top-0 right-0 w-80 h-80 pointer-events-none">
-        <CornerDecor style={decorStyle} position="tr" className="w-full h-full" customImagePath={customImagePath} />
-      </motion.div>
-      <motion.div {...fadeIn(0.5)} className="absolute bottom-0 left-0 w-80 h-80 pointer-events-none">
-        <CornerDecor style={decorStyle} position="bl" className="w-full h-full" customImagePath={customImagePath} />
-      </motion.div>
-      <motion.div {...fadeIn(0.6)} className="absolute bottom-0 right-0 w-80 h-80 pointer-events-none">
-        <CornerDecor style={decorStyle} position="br" className="w-full h-full" customImagePath={customImagePath} />
-      </motion.div>
+    <Screen className="overflow-hidden">
+      <div className="absolute inset-0" style={{ backgroundColor: '#F4ECDD' }} />
 
       <button
         onClick={() => setScreen('splash')}
-        className="absolute top-6 left-6 z-30 flex items-center gap-2 px-5 py-3 rounded-full backdrop-blur transition-colors"
-        style={{
-          background: 'rgba(255,255,255,0.7)',
-          border: '1px solid rgba(212,165,116,0.4)',
-          color: '#5a3e2b',
-        }}
+        className="absolute top-8 left-8 z-30 btn-editorial-ghost"
       >
-        <ArrowLeft size={18} />
-        <span className="text-sm tracking-wide">Retour</span>
+        <MdArrowBack size={18} />
+        <span>Retour</span>
       </button>
 
-      <div className="relative z-10 h-full flex flex-col items-center justify-center px-12">
-        <motion.p
-          {...fadeUp(0.3)}
-          className="font-sans text-sm uppercase tracking-[0.45em] font-medium mb-3"
-          style={{ color: '#c8956a' }}
+      <div className="relative z-10 h-full flex flex-col px-16 py-10">
+        {/* Header */}
+        <motion.div
+          {...fadeUp(0.1)}
+          className="flex items-center justify-between pb-4"
+          style={{ borderBottom: '1px solid #1A1A1A' }}
         >
-          Vidéobooth
-        </motion.p>
+          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+            Vidéobooth
+          </span>
+          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+            {eventName}
+          </span>
+          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+            {eventDate || 'En direct'}
+          </span>
+        </motion.div>
 
-        <motion.h1
-          {...fadeUp(0.45)}
-          className="leading-none mb-3 text-center"
-          style={{
-            fontFamily: '"Allura", cursive',
-            fontSize: 'clamp(3.5rem, 6vw, 7rem)',
-            color: '#2a1a10',
-            lineHeight: 1.1,
-          }}
-        >
-          {eventName}
-        </motion.h1>
-
-        {eventDate && (
+        {/* Corps */}
+        <div className="flex-1 flex flex-col items-center justify-center text-center">
           <motion.p
-            {...fadeUp(0.6)}
-            className="font-sans text-sm uppercase tracking-[0.3em] font-light mb-10"
-            style={{ color: '#5a3e2b' }}
+            {...fadeUp(0.25)}
+            className="label-editorial mb-5"
+            style={{ color: '#6B5D4F' }}
           >
-            {eventDate}
+            The Video Issue
           </motion.p>
-        )}
 
-        <motion.p
-          {...fadeUp(0.75)}
-          className="font-sans text-sm tracking-wide font-light mb-8"
-          style={{ color: '#5a3e2b', opacity: 0.7 }}
-        >
-          Choisissez votre style de message
-        </motion.p>
-
-        <div className="flex gap-8">
-          {/* Interview guidée */}
-          <motion.button
-            {...fadeUp(0.9)}
-            whileHover={{ y: -6, scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => choose('interview')}
-            className="btn-touch flex flex-col items-center justify-center gap-5 p-10 rounded-3xl text-center"
+          <motion.h1
+            {...fadeUp(0.35)}
+            className="font-editorial leading-[0.9] mb-6"
             style={{
-              width: 340,
-              minHeight: 340,
-              background:
-                'linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,250,240,0.7) 100%)',
-              border: '1.5px solid rgba(212,165,116,0.45)',
-              boxShadow: '0 18px 48px rgba(90,60,40,0.14)',
-              backdropFilter: 'blur(8px)',
+              fontSize: 'clamp(4rem, 9vw, 9rem)',
+              color: '#1A1A1A',
+              fontWeight: 900,
+              letterSpacing: '-0.04em',
             }}
           >
-            <div
-              className="w-20 h-20 rounded-full flex items-center justify-center"
-              style={{
-                background: 'linear-gradient(135deg, #d4a574 0%, #b88a55 50%, #9c6f3e 100%)',
-                boxShadow: '0 12px 32px rgba(184,138,85,0.32)',
-              }}
-            >
-              <MicVocal size={36} color="#fff" strokeWidth={2.2} />
-            </div>
-            <h2
-              className="leading-none"
-              style={{
-                fontFamily: '"Allura", cursive',
-                fontSize: '3rem',
-                color: '#2a1a10',
-              }}
-            >
-              Interview
-            </h2>
-            <p
-              className="font-sans text-sm font-light"
-              style={{ color: '#5a3e2b', maxWidth: 240 }}
-            >
-              Répondez à une série de questions préparées par les organisateurs
-            </p>
-          </motion.button>
+            VIDÉO
+          </motion.h1>
 
-          {/* Message libre */}
-          <motion.button
-            {...fadeUp(1.05)}
-            whileHover={{ y: -6, scale: 1.02 }}
-            whileTap={{ scale: 0.97 }}
-            onClick={() => choose('free_message')}
-            className="btn-touch flex flex-col items-center justify-center gap-5 p-10 rounded-3xl text-center"
-            style={{
-              width: 340,
-              minHeight: 340,
-              background:
-                'linear-gradient(135deg, rgba(255,255,255,0.85) 0%, rgba(255,250,240,0.7) 100%)',
-              border: '1.5px solid rgba(212,165,116,0.45)',
-              boxShadow: '0 18px 48px rgba(90,60,40,0.14)',
-              backdropFilter: 'blur(8px)',
-            }}
+          <motion.p
+            {...fadeUp(0.5)}
+            className="label-editorial mb-10"
+            style={{ color: '#6B5D4F' }}
           >
-            <div
-              className="w-20 h-20 rounded-full flex items-center justify-center"
-              style={{
-                background: 'linear-gradient(135deg, #f0a090 0%, #e8806a 50%, #d46855 100%)',
-                boxShadow: '0 12px 32px rgba(228,110,90,0.32)',
-              }}
+            Choisissez votre style de message
+          </motion.p>
+
+          <div className="grid grid-cols-2 gap-6 w-full max-w-3xl">
+            {/* Interview */}
+            <motion.button
+              {...fadeUp(0.65)}
+              onClick={() => choose('interview')}
+              className="card-editorial p-10 flex flex-col items-center text-center"
+              style={{ minHeight: 320 }}
             >
-              <MessageCircle size={36} color="#fff" strokeWidth={2.2} />
-            </div>
-            <h2
-              className="leading-none"
-              style={{
-                fontFamily: '"Allura", cursive',
-                fontSize: '3rem',
-                color: '#2a1a10',
-              }}
+              <div
+                className="w-20 h-20 flex items-center justify-center mb-6"
+                style={{
+                  backgroundColor: '#1A1A1A',
+                  borderRadius: '4px',
+                }}
+              >
+                <MdMic size={40} color="#FAF6EE" />
+              </div>
+              <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
+                Format guidé
+              </p>
+              <h2
+                className="font-editorial mb-3"
+                style={{
+                  fontSize: '2.25rem',
+                  color: '#1A1A1A',
+                  fontWeight: 800,
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                Interview
+              </h2>
+              <p
+                style={{
+                  color: '#6B5D4F',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '0.875rem',
+                  lineHeight: 1.5,
+                  maxWidth: 240,
+                }}
+              >
+                Répondez à une série de questions préparées par les organisateurs.
+              </p>
+            </motion.button>
+
+            {/* Message libre */}
+            <motion.button
+              {...fadeUp(0.8)}
+              onClick={() => choose('free_message')}
+              className="card-editorial p-10 flex flex-col items-center text-center"
+              style={{ minHeight: 320 }}
             >
-              Message libre
-            </h2>
-            <p
-              className="font-sans text-sm font-light"
-              style={{ color: '#5a3e2b', maxWidth: 240 }}
-            >
-              Laissez un mot spontané, comme vous le sentez
-            </p>
-          </motion.button>
+              <div
+                className="w-20 h-20 flex items-center justify-center mb-6"
+                style={{
+                  backgroundColor: '#E8DCC4',
+                  borderRadius: '4px',
+                }}
+              >
+                <MdQuestionAnswer size={40} color="#1A1A1A" />
+              </div>
+              <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
+                Format libre
+              </p>
+              <h2
+                className="font-editorial mb-3"
+                style={{
+                  fontSize: '2.25rem',
+                  color: '#1A1A1A',
+                  fontWeight: 800,
+                  letterSpacing: '-0.02em',
+                }}
+              >
+                Message
+              </h2>
+              <p
+                style={{
+                  color: '#6B5D4F',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '0.875rem',
+                  lineHeight: 1.5,
+                  maxWidth: 240,
+                }}
+              >
+                Laissez un mot spontané, comme vous le sentez.
+              </p>
+            </motion.button>
+          </div>
         </div>
+
+        {/* Footer */}
+        <motion.div
+          {...fadeUp(1)}
+          className="flex items-center justify-between pt-4 mt-6"
+          style={{ borderTop: '1px solid #1A1A1A' }}
+        >
+          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+            Édition limitée
+          </span>
+          <span className="label-editorial" style={{ color: '#6B5D4F' }}>
+            Touchez un format pour commencer
+          </span>
+          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+            № 004
+          </span>
+        </motion.div>
       </div>
     </Screen>
   );
