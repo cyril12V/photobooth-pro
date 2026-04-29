@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, KeyRound, Power, Save } from 'lucide-react';
+import { MdCheck, MdKey, MdPowerSettingsNew, MdSave } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { AdminCard, AdminPageHeader, AdminToggle } from '../components/AdminUI';
 import { Button } from '@shared/components/Button';
@@ -119,7 +119,7 @@ export function GeneralSettings() {
               variant="secondary"
               size="md"
               onClick={saveToggles}
-              icon={saved ? <Check size={20} /> : <Save size={20} />}
+              icon={saved ? <MdCheck size={20} /> : <MdSave size={20} />}
               fullWidth
             >
               {saved ? 'Enregistré !' : 'Enregistrer les options'}

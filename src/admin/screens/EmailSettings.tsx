@@ -98,7 +98,7 @@ export function EmailSettings() {
               placeholder="vous@gmail.com"
             />
             <label className="block">
-              <span className="block text-neutral-700 text-xs font-medium uppercase tracking-wider mb-1.5">
+              <span className="block label-editorial mb-2" style={{ color: '#6B5D4F' }}>
                 Mot de passe
               </span>
               <input
@@ -106,9 +106,25 @@ export function EmailSettings() {
                 value={smtpPassword}
                 onChange={(e) => setSmtpPassword(e.target.value)}
                 placeholder="Mot de passe d'application"
-                className="w-full bg-white border border-neutral-300 rounded-lg px-3 py-2.5 text-neutral-900 tracking-widest text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900/10 focus:border-neutral-400 transition-colors"
+                className="w-full px-4 py-3 focus:outline-none"
+                style={{
+                  backgroundColor: '#F4ECDD',
+                  border: '1px solid rgba(212, 184, 150, 0.4)',
+                  color: '#1A1A1A',
+                  borderRadius: '4px',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '0.9375rem',
+                  letterSpacing: '0.1em',
+                }}
               />
-              <span className="block text-neutral-400 text-xs mt-1 italic">
+              <span
+                className="block mt-2 italic"
+                style={{
+                  color: '#6B5D4F',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '0.75rem',
+                }}
+              >
                 Pour Gmail : créez un mot de passe d'application sur myaccount.google.com/apppasswords
               </span>
             </label>
@@ -129,15 +145,21 @@ export function EmailSettings() {
 
             {smtpResult && (
               <div
-                className={`rounded-lg px-4 py-3 text-sm flex items-start gap-2 ${
-                  smtpResult.ok
-                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                    : 'bg-red-50 text-red-700 border border-red-200'
-                }`}
+                className="px-4 py-3 flex items-start gap-2"
+                style={{
+                  backgroundColor: '#F4ECDD',
+                  border: `1px solid ${smtpResult.ok ? '#1A1A1A' : '#1A1A1A'}`,
+                  borderRadius: '4px',
+                  color: '#1A1A1A',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '0.875rem',
+                }}
               >
-                {smtpResult.ok
-                  ? <Check size={16} className="flex-shrink-0 mt-0.5" />
-                  : <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />}
+                {smtpResult.ok ? (
+                  <MdCheck size={16} className="flex-shrink-0 mt-0.5" />
+                ) : (
+                  <MdErrorOutline size={16} className="flex-shrink-0 mt-0.5" />
+                )}
                 <span>{smtpResult.text}</span>
               </div>
             )}
@@ -147,17 +169,17 @@ export function EmailSettings() {
                 variant="ghost"
                 size="md"
                 onClick={testSmtpConn}
-                icon={<Server size={18} />}
+                icon={<MdDns size={18} />}
                 disabled={smtpTesting || !smtpHost}
                 fullWidth
               >
                 {smtpTesting ? 'Test...' : 'Tester'}
               </Button>
               <Button
-                variant="secondary"
+                variant="primary"
                 size="md"
                 onClick={saveSmtp}
-                icon={<Save size={18} />}
+                icon={<MdSave size={18} />}
                 fullWidth
               >
                 Enregistrer
@@ -166,29 +188,75 @@ export function EmailSettings() {
           </div>
         </AdminCard>
 
-        {/* ─── Serveur de partage local ─────────────────────────────────── */}
         <AdminCard
           title="Serveur de partage local"
           description="Permet aux invités de scanner le QR code et télécharger leur photo sur le réseau local"
         >
           {shareInfo?.running ? (
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
-              <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+            <div
+              className="flex items-center gap-3 p-4"
+              style={{
+                backgroundColor: '#F4ECDD',
+                border: '1px solid rgba(212, 184, 150, 0.4)',
+                borderRadius: '4px',
+              }}
+            >
+              <div
+                className="w-2 h-2 animate-pulse"
+                style={{ backgroundColor: '#1A1A1A', borderRadius: '50%' }}
+              />
               <div className="flex-1">
-                <p className="text-neutral-900 font-medium text-sm">Serveur actif</p>
-                <p className="text-neutral-500 text-sm font-mono">
+                <p
+                  style={{
+                    color: '#1A1A1A',
+                    fontFamily: 'Inter, sans-serif',
+                    fontWeight: 500,
+                    fontSize: '0.875rem',
+                  }}
+                >
+                  Serveur actif
+                </p>
+                <p
+                  style={{
+                    color: '#6B5D4F',
+                    fontFamily: 'Inter, monospace',
+                    fontSize: '0.875rem',
+                  }}
+                >
                   http://{shareInfo.ip}:{shareInfo.port}
                 </p>
               </div>
             </div>
           ) : (
-            <div className="flex items-center gap-3 p-4 rounded-xl bg-red-50 border border-red-200">
-              <AlertCircle size={18} className="text-red-500" />
-              <p className="text-neutral-700 text-sm">Serveur non démarré</p>
+            <div
+              className="flex items-center gap-3 p-4"
+              style={{
+                backgroundColor: '#F4ECDD',
+                border: '1px solid #1A1A1A',
+                borderRadius: '4px',
+              }}
+            >
+              <MdErrorOutline size={18} style={{ color: '#1A1A1A' }} />
+              <p
+                style={{
+                  color: '#1A1A1A',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '0.875rem',
+                }}
+              >
+                Serveur non démarré
+              </p>
             </div>
           )}
-          <p className="text-neutral-400 text-xs mt-3 italic flex items-center gap-2">
-            <Mail size={12} />
+          <p
+            className="mt-3 italic flex items-center gap-2"
+            style={{
+              color: '#6B5D4F',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '0.75rem',
+            }}
+          >
+            <MdMail size={12} />
             Les invités doivent être connectés au même Wi-Fi que la borne.
           </p>
         </AdminCard>
