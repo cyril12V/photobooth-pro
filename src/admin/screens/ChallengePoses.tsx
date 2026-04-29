@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, Upload, Sparkles, Check } from 'lucide-react';
+import { MdAdd, MdDelete, MdFileUpload, MdAutoAwesome, MdCheck } from 'react-icons/md';
 import type { ChallengePose } from '@shared/types';
 import { useAppStore } from '@shared/store';
 import { poseSrc, PRESET_POSES, type PresetPose } from '@shared/lib/poseAssets';
@@ -83,15 +83,24 @@ export function ChallengePoses() {
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => setShowPresets((v) => !v)}
-            className="flex items-center gap-2 text-neutral-500 hover:text-neutral-800 text-sm transition-colors"
+            className="flex items-center gap-2 transition-colors"
+            style={{
+              color: '#6B5D4F',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '0.875rem',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+            }}
           >
-            <Sparkles size={15} />
+            <MdAutoAwesome size={15} />
             {showPresets ? 'Masquer les poses' : `Afficher ${PRESET_POSES.length} poses prédéfinies`}
           </button>
           {showPresets && (
             <button
               onClick={addAllPresets}
-              className="text-[#d4a574] hover:text-amber-600 text-sm font-medium transition-colors"
+              className="label-editorial transition-colors"
+              style={{ color: '#1A1A1A', background: 'transparent', border: 'none', cursor: 'pointer' }}
             >
               Tout ajouter
             </button>
@@ -108,11 +117,14 @@ export function ChallengePoses() {
                   key={p.label}
                   onClick={() => addPreset(p)}
                   disabled={already}
-                  className={`group relative rounded-xl p-2 border transition-all ${
-                    already
-                      ? 'bg-neutral-50 border-neutral-200 opacity-40 cursor-not-allowed'
-                      : 'bg-neutral-50 border-neutral-200 hover:border-[#d4a574]/60 hover:bg-amber-50'
-                  }`}
+                  className="group relative p-2 transition-all"
+                  style={{
+                    backgroundColor: '#F4ECDD',
+                    border: '1px solid rgba(212, 184, 150, 0.3)',
+                    borderRadius: '4px',
+                    opacity: already ? 0.4 : 1,
+                    cursor: already ? 'not-allowed' : 'pointer',
+                  }}
                   title={already ? 'Déjà ajoutée' : `Ajouter "${p.label}"`}
                 >
                   <img
@@ -120,17 +132,30 @@ export function ChallengePoses() {
                     alt={p.label}
                     className="w-full aspect-square object-contain"
                   />
-                  <p className="text-neutral-600 text-xs text-center mt-1 truncate">
+                  <p
+                    className="text-center mt-1 truncate"
+                    style={{
+                      color: '#6B5D4F',
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '0.75rem',
+                    }}
+                  >
                     {p.label}
                   </p>
                   {already && (
-                    <div className="absolute top-2 right-2 w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
-                      <Check size={12} className="text-emerald-600" />
+                    <div
+                      className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center"
+                      style={{ backgroundColor: '#1A1A1A', borderRadius: '4px' }}
+                    >
+                      <MdCheck size={12} style={{ color: '#FAF6EE' }} />
                     </div>
                   )}
                   {isJust && (
-                    <div className="absolute inset-0 rounded-xl bg-[#d4a574]/20 flex items-center justify-center pointer-events-none">
-                      <Check size={26} className="text-[#d4a574]" />
+                    <div
+                      className="absolute inset-0 flex items-center justify-center pointer-events-none"
+                      style={{ backgroundColor: 'rgba(26,26,26,0.15)', borderRadius: '4px' }}
+                    >
+                      <MdCheck size={26} style={{ color: '#1A1A1A' }} />
                     </div>
                   )}
                 </button>
@@ -150,7 +175,7 @@ export function ChallengePoses() {
               placeholder="Ex : Saut groupé"
             />
             <div>
-              <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-3">
+              <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
                 Image / icône
               </p>
               {imagePath ? (
@@ -158,11 +183,26 @@ export function ChallengePoses() {
                   <img
                     src={poseSrc(imagePath)}
                     alt="Pose"
-                    className="w-32 h-32 object-contain bg-neutral-50 rounded-xl border border-neutral-200 p-2"
+                    className="w-32 h-32 object-contain p-2"
+                    style={{
+                      backgroundColor: '#F4ECDD',
+                      border: '1px solid rgba(212, 184, 150, 0.4)',
+                      borderRadius: '4px',
+                    }}
                   />
                   <button
                     onClick={pickImage}
-                    className="absolute inset-0 flex items-center justify-center bg-neutral-900/0 hover:bg-neutral-900/60 rounded-xl transition-colors text-white opacity-0 hover:opacity-100 text-xs font-medium"
+                    className="absolute inset-0 flex items-center justify-center transition-colors opacity-0 hover:opacity-100"
+                    style={{
+                      backgroundColor: 'rgba(26,26,26,0.6)',
+                      color: '#FAF6EE',
+                      borderRadius: '4px',
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '0.75rem',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.15em',
+                      cursor: 'pointer',
+                    }}
                   >
                     Changer
                   </button>
@@ -170,10 +210,17 @@ export function ChallengePoses() {
               ) : (
                 <button
                   onClick={pickImage}
-                  className="w-32 h-32 border-2 border-dashed border-neutral-300 rounded-xl flex flex-col items-center justify-center gap-2 text-neutral-400 hover:text-neutral-600 hover:border-neutral-400 transition-colors"
+                  className="w-32 h-32 flex flex-col items-center justify-center gap-2 transition-colors"
+                  style={{
+                    backgroundColor: '#F4ECDD',
+                    border: '1px dashed rgba(212, 184, 150, 0.6)',
+                    color: '#6B5D4F',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
                 >
-                  <Upload size={20} />
-                  <span className="text-xs">Choisir</span>
+                  <MdFileUpload size={20} />
+                  <span className="label-editorial">Choisir</span>
                 </button>
               )}
             </div>
@@ -196,10 +243,22 @@ export function ChallengePoses() {
       )}
 
       {list.length === 0 ? (
-        <div className="bg-white border border-neutral-200 rounded-2xl p-12 text-center mb-4 shadow-sm">
-          <p className="text-neutral-500 mb-2">Aucune pose pour le moment</p>
-          <p className="text-neutral-400 text-sm">
-            Ajoutez des poses fun pour activer le mode challenge
+        <div
+          className="p-12 text-center mb-4"
+          style={{
+            backgroundColor: '#FAF6EE',
+            border: '1px solid rgba(212, 184, 150, 0.2)',
+            borderRadius: '24px',
+          }}
+        >
+          <p
+            className="font-editorial mb-2"
+            style={{ fontSize: '1.5rem', color: '#1A1A1A', fontWeight: 700, letterSpacing: '-0.02em' }}
+          >
+            Aucune pose
+          </p>
+          <p style={{ color: '#6B5D4F', fontFamily: 'Inter, sans-serif', fontSize: '0.875rem' }}>
+            Ajoutez des poses fun pour activer le mode challenge.
           </p>
         </div>
       ) : (
@@ -207,21 +266,42 @@ export function ChallengePoses() {
           {list.map((p) => (
             <div
               key={p.id}
-              className="bg-white border border-neutral-200 rounded-2xl p-4 group relative shadow-sm"
+              className="p-4 group relative"
+              style={{
+                backgroundColor: '#FAF6EE',
+                border: '1px solid rgba(212, 184, 150, 0.2)',
+                borderRadius: '24px',
+              }}
             >
               <img
                 src={poseSrc(p.image_path)}
                 alt={p.label}
-                className="w-full aspect-square object-contain bg-neutral-50 rounded-xl mb-3 p-2"
+                className="w-full aspect-square object-contain mb-3 p-2"
+                style={{ backgroundColor: '#F4ECDD', borderRadius: '4px' }}
               />
-              <p className="text-neutral-800 font-medium text-sm text-center truncate">
+              <p
+                className="text-center truncate"
+                style={{
+                  color: '#1A1A1A',
+                  fontFamily: 'Inter, sans-serif',
+                  fontWeight: 500,
+                  fontSize: '0.875rem',
+                }}
+              >
                 {p.label}
               </p>
               <button
                 onClick={() => remove(p.id)}
-                className="absolute top-3 right-3 p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 opacity-0 group-hover:opacity-100 transition-opacity border border-red-100"
+                className="absolute top-3 right-3 p-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                style={{
+                  backgroundColor: '#1A1A1A',
+                  color: '#FAF6EE',
+                  borderRadius: '4px',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
               >
-                <Trash2 size={14} />
+                <MdDelete size={14} />
               </button>
             </div>
           ))}
@@ -232,7 +312,7 @@ export function ChallengePoses() {
         <Button
           variant="primary"
           onClick={() => setAdding(true)}
-          icon={<Plus size={20} />}
+          icon={<MdAdd size={20} />}
           fullWidth
         >
           Ajouter une pose
