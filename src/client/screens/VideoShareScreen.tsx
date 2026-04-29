@@ -1,22 +1,22 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Mail, QrCode, Home, Check, Loader2, Copy, AlertCircle } from 'lucide-react';
+import {
+  MdMail,
+  MdQrCode2,
+  MdHome,
+  MdCheck,
+  MdRefresh,
+  MdContentCopy,
+  MdErrorOutline,
+} from 'react-icons/md';
 import QRCode from 'qrcode';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
-import { Button } from '@shared/components/Button';
-import { CornerDecor } from '@client/components/decors';
 
 const fadeUp = (delay: number) => ({
-  initial: { opacity: 0, y: 24 },
+  initial: { opacity: 0, y: 14 },
   animate: { opacity: 1, y: 0 },
-  transition: { delay, duration: 0.7, ease: [0.16, 1, 0.3, 1] as const },
-});
-
-const fadeIn = (delay: number) => ({
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  transition: { delay, duration: 0.8 },
+  transition: { delay, duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
 });
 
 export function VideoShareScreen() {
@@ -37,8 +37,6 @@ export function VideoShareScreen() {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const decorStyle = settings?.decor_style ?? 'floral';
-  const customImagePath = settings?.decor_custom_path ?? null;
   const enableEmail = settings?.enable_email ?? true;
   const enableQr = settings?.enable_qr ?? true;
 
@@ -52,7 +50,7 @@ export function VideoShareScreen() {
         const dataUrl = await QRCode.toDataURL(currentVideoShareUrl, {
           width: 400,
           margin: 2,
-          color: { dark: '#2a1a10', light: '#faf6ef' },
+          color: { dark: '#1A1A1A', light: '#FAF6EE' },
         });
         setQrDataUrl(dataUrl);
       } catch (e) {
@@ -102,276 +100,307 @@ export function VideoShareScreen() {
   };
 
   return (
-    <Screen className="overflow-hidden bg-wedding flex items-center justify-center px-12 py-12">
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(ellipse 80% 60% at 20% 0%, rgba(245,224,205,0.7) 0%, transparent 65%),' +
-            'radial-gradient(ellipse 70% 50% at 80% 100%, rgba(242,196,206,0.4) 0%, transparent 60%),' +
-            '#faf6ef',
-        }}
-      />
+    <Screen className="overflow-hidden">
+      <div className="absolute inset-0" style={{ backgroundColor: '#F4ECDD' }} />
 
-      <motion.div {...fadeIn(0.5)} className="absolute top-0 left-0 w-64 h-64 pointer-events-none">
-        <CornerDecor style={decorStyle} position="tl" className="w-full h-full" customImagePath={customImagePath} />
-      </motion.div>
-      <motion.div {...fadeIn(0.6)} className="absolute bottom-0 right-0 w-64 h-64 pointer-events-none">
-        <CornerDecor style={decorStyle} position="br" className="w-full h-full" customImagePath={customImagePath} />
-      </motion.div>
-
-      <div className="relative z-10 grid grid-cols-2 gap-12 max-w-7xl w-full items-center">
-        {/* Vidéo à gauche */}
+      <div className="relative z-10 h-full flex flex-col px-16 py-10">
+        {/* Header */}
         <motion.div
-          initial={{ opacity: 0, x: -30 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="relative"
+          {...fadeUp(0.1)}
+          className="flex items-center justify-between pb-4"
+          style={{ borderBottom: '1px solid #1A1A1A' }}
         >
-          <div
-            className="absolute -inset-3 rounded-3xl blur-2xl"
-            style={{
-              background:
-                'linear-gradient(135deg, rgba(212,165,116,0.3) 0%, rgba(242,196,206,0.2) 100%)',
-            }}
-          />
-          {currentVideoBlobUrl && (
-            <video
-              src={currentVideoBlobUrl}
-              controls
-              playsInline
-              className="relative w-full max-h-[70vh] rounded-3xl bg-black"
-              style={{
-                boxShadow: '0 32px 80px rgba(90,60,40,0.18), 0 0 0 1px rgba(212,165,116,0.25)',
-              }}
-            />
-          )}
+          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+            Partage vidéo
+          </span>
+          <span className="label-editorial" style={{ color: '#6B5D4F' }}>
+            Récupérez votre vidéo
+          </span>
+          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+            № 006
+          </span>
         </motion.div>
 
-        {/* Actions à droite */}
-        <motion.div
-          initial={{ opacity: 0, x: 30 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="flex flex-col gap-5"
-        >
-          <div>
-            <motion.p
-              {...fadeUp(0.3)}
-              className="font-sans text-sm uppercase tracking-[0.45em] font-medium mb-2"
-              style={{ color: '#c8956a' }}
-            >
-              Votre souvenir est prêt
-            </motion.p>
-            <motion.h2
-              {...fadeUp(0.4)}
-              style={{
-                fontFamily: '"Allura", cursive',
-                fontSize: 'clamp(2.5rem, 4vw, 4rem)',
-                color: '#2a1a10',
-              }}
-            >
-              Et maintenant ?
-            </motion.h2>
-            <motion.p
-              {...fadeUp(0.5)}
-              className="font-sans text-base font-light mt-1"
-              style={{ color: '#5a3e2b' }}
-            >
-              Scannez le QR code pour récupérer votre vidéo, ou recevez le lien par email.
-            </motion.p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            {enableQr && (
-              <Button
-                variant="ghost"
-                size="md"
-                icon={<QrCode size={20} />}
-                onClick={() => {
-                  setShowQr(true);
-                  setShowEmail(false);
+        <div className="flex-1 grid grid-cols-12 gap-12 items-center pt-8">
+          {/* Vidéo à gauche */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+            className="col-span-5 relative flex items-center justify-center"
+          >
+            {currentVideoBlobUrl && (
+              <div
+                className="overflow-hidden relative"
+                style={{
+                  borderRadius: '4px',
+                  boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
+                  maxHeight: '70vh',
                 }}
-                fullWidth
               >
-                QR Code
-              </Button>
-            )}
-            {enableEmail && (
-              <Button
-                variant="ghost"
-                size="md"
-                icon={<Mail size={20} />}
-                onClick={() => {
-                  setShowEmail(true);
-                  setShowQr(false);
-                  setEmailError(null);
-                }}
-                fullWidth
-              >
-                Email
-              </Button>
-            )}
-          </div>
-
-          {showQr && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="glass-wedding rounded-3xl p-6"
-            >
-              {currentVideoShareUrl ? (
-                <>
-                  <div className="flex items-center gap-5 mb-4">
-                    {qrDataUrl ? (
-                      <img
-                        src={qrDataUrl}
-                        alt="QR Code"
-                        className="w-32 h-32 rounded-2xl p-2 shrink-0"
-                        style={{ background: '#faf6ef' }}
-                      />
-                    ) : (
-                      <div
-                        className="w-32 h-32 rounded-2xl flex items-center justify-center shrink-0"
-                        style={{ background: 'rgba(212,165,116,0.1)' }}
-                      >
-                        <Loader2 className="animate-spin" size={28} style={{ color: '#c8956a' }} />
-                      </div>
-                    )}
-                    <div>
-                      <p
-                        className="mb-1"
-                        style={{
-                          fontFamily: '"Allura", cursive',
-                          fontSize: '1.4rem',
-                          color: '#2a1a10',
-                        }}
-                      >
-                        Scannez pour récupérer
-                      </p>
-                      <p className="text-sm font-light" style={{ color: '#5a3e2b' }}>
-                        Vous pourrez visionner et télécharger la vidéo
-                      </p>
-                    </div>
-                  </div>
-                  <div
-                    className="flex items-center gap-2 rounded-2xl px-4 py-3"
-                    style={{
-                      background: 'rgba(255,255,255,0.6)',
-                      border: '1px solid rgba(212,165,116,0.2)',
-                    }}
-                  >
-                    <p className="text-xs font-mono flex-1 truncate" style={{ color: '#5a3e2b' }}>
-                      {currentVideoShareUrl}
-                    </p>
-                    <button
-                      onClick={copyUrl}
-                      className="shrink-0 flex items-center gap-1.5 transition-colors"
-                      style={{ color: copied ? '#c8956a' : '#5a3e2b' }}
-                      aria-label="Copier l'URL"
-                    >
-                      {copied ? <Check size={16} /> : <Copy size={16} />}
-                      <span className="text-xs">{copied ? 'Copié' : 'Copier'}</span>
-                    </button>
-                  </div>
-                </>
-              ) : (
-                <p
-                  className="text-sm italic text-center py-2 font-light"
-                  style={{ color: '#5a3e2b' }}
+                <video
+                  src={currentVideoBlobUrl}
+                  controls
+                  playsInline
+                  className="w-full max-h-[70vh] bg-black"
+                />
+                <div
+                  className="absolute -bottom-2 left-2 px-4 py-2 label-editorial"
+                  style={{ backgroundColor: '#1A1A1A', color: '#FAF6EE', fontSize: '0.6875rem' }}
                 >
-                  Lien indisponible
-                </p>
+                  The Take
+                </div>
+              </div>
+            )}
+          </motion.div>
+
+          {/* Actions à droite */}
+          <div className="col-span-7 flex flex-col gap-5">
+            <div>
+              <motion.p
+                {...fadeUp(0.25)}
+                className="label-editorial mb-3"
+                style={{ color: '#6B5D4F' }}
+              >
+                Votre vidéo est prête
+              </motion.p>
+              <motion.h2
+                {...fadeUp(0.35)}
+                className="font-editorial mb-2"
+                style={{
+                  fontSize: 'clamp(3rem, 5vw, 5rem)',
+                  color: '#1A1A1A',
+                  fontWeight: 900,
+                  letterSpacing: '-0.03em',
+                  lineHeight: 0.95,
+                }}
+              >
+                ET MAINTENANT
+              </motion.h2>
+              <motion.div {...fadeUp(0.45)} className="mt-3 mb-4">
+                <div className="editorial-rule-light" style={{ width: '4rem' }} />
+              </motion.div>
+              <motion.p
+                {...fadeUp(0.55)}
+                style={{
+                  color: '#6B5D4F',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '0.9375rem',
+                  lineHeight: 1.6,
+                  maxWidth: '32rem',
+                }}
+              >
+                Scannez le QR code pour récupérer votre vidéo, ou recevez le lien par email.
+              </motion.p>
+            </div>
+
+            <motion.div {...fadeUp(0.65)} className="grid grid-cols-2 gap-3">
+              {enableQr && (
+                <button
+                  onClick={() => {
+                    setShowQr(true);
+                    setShowEmail(false);
+                  }}
+                  className={showQr ? 'btn-editorial-primary' : 'btn-editorial-secondary'}
+                >
+                  <MdQrCode2 size={18} />
+                  QR Code
+                </button>
+              )}
+              {enableEmail && (
+                <button
+                  onClick={() => {
+                    setShowEmail(true);
+                    setShowQr(false);
+                    setEmailError(null);
+                  }}
+                  className={showEmail ? 'btn-editorial-primary' : 'btn-editorial-secondary'}
+                >
+                  <MdMail size={18} />
+                  Email
+                </button>
               )}
             </motion.div>
-          )}
 
-          {showEmail && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="glass-wedding rounded-3xl p-6"
-            >
-              {emailSent ? (
-                <div className="flex items-center gap-3" style={{ color: '#2a1a10' }}>
-                  <Check style={{ color: '#c8956a' }} />
-                  <span
-                    style={{
-                      fontFamily: '"Allura", cursive',
-                      fontSize: '1.4rem',
-                      color: '#2a1a10',
-                    }}
-                  >
-                    Lien envoyé à {email}
-                  </span>
-                </div>
-              ) : (
-                <>
-                  <p
-                    className="font-sans text-xs uppercase tracking-widest mb-3 font-medium"
-                    style={{ color: '#c8956a' }}
-                  >
-                    Votre email
-                  </p>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setEmailError(null);
-                    }}
-                    placeholder="vous@exemple.fr"
-                    className="w-full rounded-2xl px-5 py-4 text-lg placeholder:text-[#5a3e2b]/40 focus:outline-none mb-3"
-                    style={{
-                      background: 'rgba(255,255,255,0.7)',
-                      border: '1px solid rgba(212,165,116,0.3)',
-                      color: '#2a1a10',
-                    }}
-                  />
-                  {emailError && (
+            {showQr && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                className="card-editorial p-6"
+              >
+                {currentVideoShareUrl ? (
+                  <>
+                    <div className="flex items-center gap-5 mb-4">
+                      {qrDataUrl ? (
+                        <img
+                          src={qrDataUrl}
+                          alt="QR Code"
+                          className="w-32 h-32 shrink-0"
+                          style={{
+                            backgroundColor: '#FAF6EE',
+                            padding: '0.5rem',
+                            borderRadius: '4px',
+                          }}
+                        />
+                      ) : (
+                        <div
+                          className="w-32 h-32 flex items-center justify-center shrink-0"
+                          style={{ backgroundColor: '#F4ECDD', borderRadius: '4px' }}
+                        >
+                          <MdRefresh size={28} className="animate-spin" style={{ color: '#1A1A1A' }} />
+                        </div>
+                      )}
+                      <div>
+                        <p className="label-editorial mb-2" style={{ color: '#6B5D4F' }}>
+                          Scannez pour récupérer
+                        </p>
+                        <p
+                          className="font-editorial"
+                          style={{ fontSize: '1.25rem', color: '#1A1A1A', fontWeight: 700 }}
+                        >
+                          Sur votre téléphone
+                        </p>
+                      </div>
+                    </div>
                     <div
-                      className="flex items-start gap-3 rounded-2xl px-4 py-3 mb-3"
+                      className="flex items-center gap-2 px-3 py-2"
                       style={{
-                        background: 'rgba(220,38,38,0.08)',
-                        border: '1px solid rgba(220,38,38,0.2)',
+                        backgroundColor: '#F4ECDD',
+                        border: '1px solid rgba(212, 184, 150, 0.4)',
+                        borderRadius: '4px',
                       }}
                     >
-                      <AlertCircle size={18} className="mt-0.5 shrink-0" style={{ color: '#dc2626' }} />
-                      <p className="text-sm" style={{ color: '#b91c1c' }}>
-                        {emailError}
+                      <p
+                        className="flex-1 truncate"
+                        style={{
+                          fontFamily: 'Inter, monospace',
+                          fontSize: '0.75rem',
+                          color: '#6B5D4F',
+                        }}
+                      >
+                        {currentVideoShareUrl}
                       </p>
+                      <button
+                        onClick={copyUrl}
+                        className="shrink-0 flex items-center gap-1.5"
+                        style={{ color: '#1A1A1A', cursor: 'pointer' }}
+                        aria-label="Copier l'URL"
+                      >
+                        {copied ? <MdCheck size={16} /> : <MdContentCopy size={16} />}
+                        <span className="label-editorial" style={{ fontSize: '0.6875rem' }}>
+                          {copied ? 'Copié' : 'Copier'}
+                        </span>
+                      </button>
                     </div>
-                  )}
-                  <Button
-                    variant="secondary"
-                    size="md"
-                    icon={emailSending ? <Loader2 className="animate-spin" size={18} /> : undefined}
-                    onClick={sendEmail}
-                    disabled={!email.trim() || emailSending}
-                    fullWidth
+                  </>
+                ) : (
+                  <p
+                    className="text-center py-2"
+                    style={{
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '0.875rem',
+                      color: '#6B5D4F',
+                    }}
                   >
-                    {emailSending ? 'Envoi...' : 'Envoyer'}
-                  </Button>
-                </>
-              )}
-            </motion.div>
-          )}
+                    Lien indisponible
+                  </p>
+                )}
+              </motion.div>
+            )}
 
-          <motion.button
-            onClick={resetCapture}
-            whileHover={{ scale: 1.03, y: -2 }}
-            whileTap={{ scale: 0.97 }}
-            className="mt-2 self-center flex items-center justify-center gap-3 px-10 py-5 text-base font-semibold uppercase tracking-[0.2em] rounded-full text-white"
-            style={{
-              background: 'linear-gradient(135deg, #f0a090 0%, #e8806a 50%, #d46855 100%)',
-              boxShadow: '0 10px 32px rgba(228,110,90,0.4)',
-            }}
-          >
-            <Home size={22} strokeWidth={2.2} />
-            <span>Nouvelle vidéo</span>
-          </motion.button>
+            {showEmail && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                className="card-editorial p-6"
+              >
+                {emailSent ? (
+                  <div className="flex items-center gap-3" style={{ color: '#1A1A1A' }}>
+                    <MdCheck size={20} />
+                    <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.9375rem' }}>
+                      Lien envoyé à {email}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
+                      Votre email
+                    </p>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => {
+                        setEmail(e.target.value);
+                        setEmailError(null);
+                      }}
+                      placeholder="vous@exemple.fr"
+                      className="w-full px-4 py-3 mb-3 focus:outline-none"
+                      style={{
+                        backgroundColor: '#F4ECDD',
+                        border: '1px solid rgba(212, 184, 150, 0.4)',
+                        color: '#1A1A1A',
+                        borderRadius: '4px',
+                        fontFamily: 'Inter, sans-serif',
+                        fontSize: '1rem',
+                      }}
+                    />
+                    {emailError && (
+                      <div
+                        className="flex items-start gap-2 px-3 py-2 mb-3"
+                        style={{
+                          backgroundColor: '#F4ECDD',
+                          border: '1px solid #1A1A1A',
+                          borderRadius: '4px',
+                        }}
+                      >
+                        <MdErrorOutline size={16} style={{ color: '#1A1A1A', marginTop: 2 }} />
+                        <p
+                          className="text-sm"
+                          style={{ color: '#1A1A1A', fontFamily: 'Inter, sans-serif' }}
+                        >
+                          {emailError}
+                        </p>
+                      </div>
+                    )}
+                    <button
+                      onClick={sendEmail}
+                      disabled={!email.trim() || emailSending}
+                      className="btn-editorial-primary w-full"
+                    >
+                      {emailSending && <MdRefresh size={18} className="animate-spin" />}
+                      {emailSending ? 'Envoi...' : 'Envoyer'}
+                    </button>
+                  </>
+                )}
+              </motion.div>
+            )}
+
+            <motion.div {...fadeUp(0.85)} className="mt-2">
+              <button onClick={resetCapture} className="btn-editorial-primary w-full">
+                <MdHome size={20} />
+                Nouvelle vidéo
+              </button>
+            </motion.div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <motion.div
+          {...fadeUp(1)}
+          className="flex items-center justify-between pt-4 mt-6"
+          style={{ borderTop: '1px solid #1A1A1A' }}
+        >
+          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+            Édition limitée
+          </span>
+          <span className="label-editorial" style={{ color: '#6B5D4F' }}>
+            Partagez votre souvenir
+          </span>
+          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+            № 006
+          </span>
         </motion.div>
       </div>
     </Screen>

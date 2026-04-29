@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, AlertCircle, Mic, StopCircle } from 'lucide-react';
+import { MdArrowBack, MdErrorOutline, MdMic, MdStop } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
-import { Button } from '@shared/components/Button';
 import { sounds } from '@shared/lib/sounds';
 import { InterviewTimecodeBuilder } from '@shared/lib/videoTimecode';
 import type { InterviewQuestion } from '@shared/types';
@@ -44,14 +43,13 @@ export function VideoInterviewScreen() {
   const currentQuestion = questions[currentIdx];
   const totalQuestions = questions.length;
 
-  // ─── Charge les questions ──────────────────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
         const list = await window.api.question.list();
         if (list.length === 0) {
           setError(
-            'Aucune question configurée. Demandez à l\'organisateur d\'ajouter des questions dans l\'admin.',
+            "Aucune question configurée. Demandez à l'organisateur d'ajouter des questions dans l'admin.",
           );
           setPhase('error');
           return;
@@ -66,7 +64,6 @@ export function VideoInterviewScreen() {
     })();
   }, []);
 
-  // ─── Démarre la caméra dès qu'on est prêt ──────────────────────────────
   useEffect(() => {
     if (phase !== 'preparing') return;
     let cancelled = false;
@@ -118,7 +115,6 @@ export function VideoInterviewScreen() {
     initialCountdown,
   ]);
 
-  // ─── Tick du countdown initial ─────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'countdown') return;
     if (countdown <= 0) {
@@ -131,7 +127,6 @@ export function VideoInterviewScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countdown, phase]);
 
-  // ─── Tick de la question courante (durée + elapsed display) ────────────
   useEffect(() => {
     if (phase !== 'recording' || !currentQuestion) return;
     setQuestionElapsed(0);
@@ -153,7 +148,6 @@ export function VideoInterviewScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentIdx, currentQuestion?.id]);
 
-  // ─── Cleanup au démontage ──────────────────────────────────────────────
   useEffect(() => {
     return () => {
       if (tickerRef.current) window.clearInterval(tickerRef.current);
@@ -169,7 +163,6 @@ export function VideoInterviewScreen() {
     };
   }, []);
 
-  // ─── Démarrer l'enregistrement ─────────────────────────────────────────
   const startRecording = () => {
     if (!streamRef.current) return;
     const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
@@ -199,7 +192,7 @@ export function VideoInterviewScreen() {
     recorder.onstop = () => finalize(mime);
     recorder.onerror = (ev) => {
       console.error('MediaRecorder error', ev);
-      setError('Erreur lors de l\'enregistrement.');
+      setError("Erreur lors de l'enregistrement.");
       setPhase('error');
     };
 
@@ -208,7 +201,6 @@ export function VideoInterviewScreen() {
     builderRef.current = new InterviewTimecodeBuilder(t0Ref.current);
     recorder.start(1000);
 
-    // Démarre la 1ère question
     setCurrentIdx(0);
     setPhase('recording');
   };
@@ -223,11 +215,8 @@ export function VideoInterviewScreen() {
     });
   };
 
-  // Au démarrage de chaque question, on note startMs ; à la sortie endMs.
-  // On stocke le startMs par question dans une ref pour fermer l'entrée à la sortie.
   const questionStartMsRef = useRef<number>(0);
 
-  // Au changement de currentIdx en mode recording, fixer le startMs.
   useEffect(() => {
     if (phase !== 'recording' || !builderRef.current) return;
     questionStartMsRef.current = builderRef.current.elapsed();
@@ -282,7 +271,6 @@ export function VideoInterviewScreen() {
         interviewLog: log,
       });
 
-      // Stop le flux caméra avant de quitter
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
@@ -290,7 +278,7 @@ export function VideoInterviewScreen() {
       setScreen('video-preview');
     } catch (e) {
       console.error(e);
-      setError("Erreur lors de la finalisation.");
+      setError('Erreur lors de la finalisation.');
       setPhase('error');
     }
   };
@@ -314,16 +302,43 @@ export function VideoInterviewScreen() {
   );
 
   return (
-    <Screen className="flex items-center justify-center bg-black">
+    <Screen className="flex items-center justify-center">
+      <div className="absolute inset-0" style={{ backgroundColor: '#1A1A1A' }} />
+
       <button
         onClick={cancel}
-        className="absolute top-6 left-6 z-30 flex items-center gap-2 px-5 py-3 rounded-full bg-black/40 border border-white/20 text-white/80 hover:text-white backdrop-blur transition-colors"
+        className="absolute top-8 left-8 z-30 flex items-center gap-2 px-3 py-2"
+        style={{
+          color: '#FAF6EE',
+          fontFamily: 'Inter, sans-serif',
+          fontWeight: 500,
+          fontSize: '0.875rem',
+          textTransform: 'uppercase',
+          letterSpacing: '0.15em',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+        }}
       >
-        <ArrowLeft size={18} />
-        <span className="text-sm tracking-wide">Annuler</span>
+        <MdArrowBack size={18} />
+        <span>Annuler</span>
       </button>
 
-      {/* Vidéo plein écran */}
+      {/* Bandeau top */}
+      <div
+        className="absolute top-8 left-1/2 -translate-x-1/2 z-30"
+        style={{
+          color: '#FAF6EE',
+          fontFamily: 'Inter, sans-serif',
+          fontWeight: 600,
+          fontSize: '0.75rem',
+          textTransform: 'uppercase',
+          letterSpacing: '0.3em',
+        }}
+      >
+        Interview en cours
+      </div>
+
       <video
         ref={videoRef}
         autoPlay
@@ -338,48 +353,67 @@ export function VideoInterviewScreen() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="absolute top-6 right-6 z-30 flex items-center gap-3 px-4 py-2 rounded-full bg-black/55 backdrop-blur border border-red-500/30"
+          className="absolute top-8 right-8 z-30 flex items-center gap-3 px-4 py-2"
+          style={{
+            backgroundColor: '#FAF6EE',
+            borderRadius: '4px',
+          }}
         >
           <motion.span
             animate={{ opacity: [1, 0.3, 1] }}
             transition={{ duration: 1.2, repeat: Infinity }}
-            className="w-3 h-3 rounded-full bg-red-500 inline-block"
+            className="w-2.5 h-2.5 inline-block"
+            style={{ backgroundColor: '#1A1A1A', borderRadius: '50%' }}
           />
-          <span className="text-white text-sm font-semibold tracking-widest">REC</span>
-          <span className="text-white/70 text-xs tabular-nums">
+          <span
+            style={{
+              color: '#1A1A1A',
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 600,
+              fontSize: '0.75rem',
+              letterSpacing: '0.25em',
+            }}
+          >
+            REC
+          </span>
+          <span
+            style={{
+              color: '#6B5D4F',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '0.75rem',
+            }}
+          >
             {currentIdx + 1} / {totalQuestions}
           </span>
         </motion.div>
       )}
 
-      {/* Question courante */}
+      {/* Question courante — card éditoriale ivoire */}
       {phase === 'recording' && currentQuestion && (
         <motion.div
           key={currentQuestion.id}
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
+          exit={{ opacity: 0, y: -10 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute bottom-32 left-1/2 -translate-x-1/2 z-30 max-w-3xl w-[80%] px-10 py-6 rounded-3xl text-center"
+          className="absolute bottom-32 left-1/2 -translate-x-1/2 z-30 max-w-3xl w-[80%] px-10 py-6 text-center"
           style={{
-            background: 'rgba(0,0,0,0.55)',
-            border: '1px solid rgba(212,165,116,0.45)',
-            backdropFilter: 'blur(16px)',
-            boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
+            backgroundColor: '#FAF6EE',
+            borderRadius: '4px',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.4)',
           }}
         >
-          <p
-            className="text-xs uppercase tracking-[0.4em] mb-3 font-medium"
-            style={{ color: '#e8c79a' }}
-          >
-            Question {currentIdx + 1} / {totalQuestions}
+          <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
+            Question {currentIdx + 1} sur {totalQuestions}
           </p>
           <p
-            className="text-white leading-tight"
+            className="font-editorial"
             style={{
-              fontFamily: '"Allura", cursive',
-              fontSize: 'clamp(2.2rem, 4vw, 3.6rem)',
-              lineHeight: 1.15,
+              fontSize: 'clamp(1.75rem, 3vw, 2.5rem)',
+              color: '#1A1A1A',
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
+              lineHeight: 1.2,
             }}
           >
             {currentQuestion.label}
@@ -387,33 +421,47 @@ export function VideoInterviewScreen() {
         </motion.div>
       )}
 
-      {/* Barre de progression de la question */}
+      {/* Barre de progression */}
       {phase === 'recording' && currentQuestion && (
         <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-3">
-          <div className="w-80 h-2 rounded-full overflow-hidden bg-white/15">
+          <div
+            className="w-80 h-1 overflow-hidden"
+            style={{ backgroundColor: 'rgba(250,246,238,0.2)' }}
+          >
             <motion.div
               key={currentQuestion.id}
               initial={{ width: '0%' }}
               animate={{ width: '100%' }}
-              transition={{
-                duration: currentQuestion.duration_seconds,
-                ease: 'linear',
-              }}
+              transition={{ duration: currentQuestion.duration_seconds, ease: 'linear' }}
               className="h-full"
-              style={{
-                background: 'linear-gradient(90deg, #f0a090 0%, #d46855 100%)',
-              }}
+              style={{ backgroundColor: '#FAF6EE' }}
             />
           </div>
-          <p className="text-white/60 text-xs tabular-nums">
+          <p
+            style={{
+              color: '#FAF6EE',
+              opacity: 0.7,
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '0.75rem',
+              letterSpacing: '0.15em',
+            }}
+          >
             {remainingPerQuestion}s restantes
           </p>
           <button
             onClick={advanceQuestion}
-            className="mt-1 px-5 py-2 rounded-full text-xs uppercase tracking-widest font-semibold text-white/90 hover:text-white transition-colors"
+            className="mt-1 px-5 py-2"
             style={{
-              background: 'rgba(255,255,255,0.1)',
-              border: '1px solid rgba(255,255,255,0.25)',
+              backgroundColor: 'transparent',
+              color: '#FAF6EE',
+              border: '1px solid #FAF6EE',
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 500,
+              fontSize: '0.75rem',
+              textTransform: 'uppercase',
+              letterSpacing: '0.15em',
+              borderRadius: '4px',
+              cursor: 'pointer',
             }}
           >
             Question suivante
@@ -425,15 +473,22 @@ export function VideoInterviewScreen() {
       {phase === 'recording' && (
         <button
           onClick={stopRecording}
-          className="absolute top-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-5 py-3 rounded-full backdrop-blur transition-colors"
+          className="absolute top-20 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-5 py-3"
           style={{
-            background: 'rgba(228,110,90,0.85)',
-            color: '#fff',
-            boxShadow: '0 6px 22px rgba(228,110,90,0.4)',
+            backgroundColor: '#FAF6EE',
+            color: '#1A1A1A',
+            borderRadius: '4px',
+            fontFamily: 'Inter, sans-serif',
+            fontWeight: 500,
+            fontSize: '0.75rem',
+            textTransform: 'uppercase',
+            letterSpacing: '0.15em',
+            border: 'none',
+            cursor: 'pointer',
           }}
         >
-          <StopCircle size={18} />
-          <span className="text-sm font-semibold tracking-wide">Terminer maintenant</span>
+          <MdStop size={18} />
+          <span>Terminer maintenant</span>
         </button>
       )}
 
@@ -442,28 +497,24 @@ export function VideoInterviewScreen() {
         {phase === 'countdown' && countdown > 0 && (
           <motion.div
             key={countdown}
-            initial={{ scale: 0.5, opacity: 0 }}
+            initial={{ scale: 0.7, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 1.5, opacity: 0 }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            exit={{ scale: 1.3, opacity: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute inset-0 flex items-center justify-center pointer-events-none z-30"
           >
-            <div className="relative">
-              <div
-                className="absolute inset-0 blur-3xl"
-                style={{ background: 'rgba(212,165,116,0.35)' }}
-              />
-              <span
-                className="relative leading-none text-gradient-gold"
-                style={{
-                  fontFamily: '"Allura", cursive',
-                  fontSize: '20rem',
-                  fontWeight: 300,
-                }}
-              >
-                {countdown}
-              </span>
-            </div>
+            <span
+              className="font-editorial leading-none"
+              style={{
+                fontSize: 'clamp(14rem, 30vw, 28rem)',
+                fontWeight: 900,
+                color: '#FAF6EE',
+                letterSpacing: '-0.05em',
+                textShadow: '0 0 80px rgba(0,0,0,0.5)',
+              }}
+            >
+              {countdown}
+            </span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -472,14 +523,18 @@ export function VideoInterviewScreen() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="absolute top-32 left-1/2 -translate-x-1/2 px-8 py-4 rounded-full z-30"
+          className="absolute bottom-28 left-1/2 -translate-x-1/2 px-8 py-4 z-30 flex items-center gap-3"
           style={{
-            background: 'rgba(250,246,239,0.95)',
-            border: '1px solid rgba(212,165,116,0.4)',
+            backgroundColor: '#FAF6EE',
+            borderRadius: '4px',
           }}
         >
-          <span className="flex items-center gap-2 text-sm font-medium" style={{ color: '#5a3e2b' }}>
-            <Mic size={16} /> Préparez-vous, on enregistre dans…
+          <MdMic size={16} style={{ color: '#1A1A1A' }} />
+          <span
+            className="label-editorial"
+            style={{ color: '#1A1A1A', fontSize: '0.75rem' }}
+          >
+            Préparez-vous, on enregistre dans...
           </span>
         </motion.div>
       )}
@@ -493,22 +548,27 @@ export function VideoInterviewScreen() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.35 }}
             className="absolute inset-0 z-20 pointer-events-none"
-            style={{ background: '#ffffff' }}
+            style={{ background: '#FAF6EE' }}
           />
         )}
       </AnimatePresence>
 
       {/* Finishing */}
       {phase === 'finishing' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-40">
+        <div
+          className="absolute inset-0 flex items-center justify-center z-40"
+          style={{ backgroundColor: 'rgba(26,26,26,0.85)' }}
+        >
           <p
-            className="text-white"
+            className="font-editorial"
             style={{
-              fontFamily: '"Allura", cursive',
-              fontSize: '3rem',
+              color: '#FAF6EE',
+              fontSize: '2.5rem',
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
             }}
           >
-            Sauvegarde en cours…
+            Sauvegarde en cours...
           </p>
         </div>
       )}
@@ -516,34 +576,39 @@ export function VideoInterviewScreen() {
       {/* Erreur */}
       {phase === 'error' && (
         <div
-          className="absolute inset-0 flex items-center justify-center"
-          style={{ background: 'rgba(250,246,239,0.95)', backdropFilter: 'blur(20px)' }}
+          className="absolute inset-0 flex items-center justify-center z-40"
+          style={{ backgroundColor: '#F4ECDD' }}
         >
-          <div
-            className="rounded-3xl p-12 max-w-lg text-center"
-            style={{
-              background: 'rgba(255,255,255,0.85)',
-              border: '1px solid rgba(212,165,116,0.25)',
-              boxShadow: '0 8px 32px rgba(90,60,40,0.1)',
-            }}
-          >
-            <AlertCircle size={48} className="mx-auto mb-6" style={{ color: '#d46855' }} />
+          <div className="card-editorial p-12 max-w-lg text-center">
+            <MdErrorOutline size={48} className="mx-auto mb-6" style={{ color: '#1A1A1A' }} />
+            <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
+              Erreur
+            </p>
             <h3
-              className="mb-3"
+              className="font-editorial mb-4"
               style={{
-                fontFamily: '"Allura", cursive',
-                fontSize: '2.5rem',
-                color: '#2a1a10',
+                fontSize: '2rem',
+                color: '#1A1A1A',
+                fontWeight: 800,
+                letterSpacing: '-0.02em',
               }}
             >
-              Oups…
+              Oups
             </h3>
-            <p className="text-base mb-6 font-light" style={{ color: '#5a3e2b' }}>
+            <p
+              className="mb-8"
+              style={{
+                color: '#6B5D4F',
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '0.9375rem',
+                lineHeight: 1.6,
+              }}
+            >
               {error}
             </p>
-            <Button variant="ghost" size="md" onClick={() => setScreen('video-home')}>
+            <button onClick={() => setScreen('video-home')} className="btn-editorial-primary">
               Retour
-            </Button>
+            </button>
           </div>
         </div>
       )}

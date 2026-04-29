@@ -1,9 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ArrowLeft, AlertCircle, Mic, StopCircle } from 'lucide-react';
+import { MdArrowBack, MdErrorOutline, MdMic, MdStop } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
-import { Button } from '@shared/components/Button';
 import { sounds } from '@shared/lib/sounds';
 
 type Phase = 'preparing' | 'countdown' | 'recording' | 'finishing' | 'error';
@@ -34,7 +33,6 @@ export function VideoFreeMessageScreen() {
   const soundsOn = settings?.sound_enabled ?? true;
   const resolution = settings?.video_resolution ?? '1080p';
 
-  // ─── Démarre la caméra ─────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -79,7 +77,6 @@ export function VideoFreeMessageScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ─── Tick countdown ────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'countdown') return;
     if (countdown <= 0) {
@@ -92,7 +89,6 @@ export function VideoFreeMessageScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [countdown, phase]);
 
-  // ─── Cleanup ───────────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       if (tickerRef.current) window.clearInterval(tickerRef.current);
@@ -144,7 +140,6 @@ export function VideoFreeMessageScreen() {
     t0Ref.current = performance.now();
     recorder.start(1000);
 
-    // Ticker pour la barre de progression
     tickerRef.current = window.setInterval(() => {
       const e = (performance.now() - t0Ref.current) / 1000;
       setElapsed(e);
@@ -216,14 +211,41 @@ export function VideoFreeMessageScreen() {
   const progressPct = Math.min(100, (elapsed / maxSeconds) * 100);
 
   return (
-    <Screen className="flex items-center justify-center bg-black">
+    <Screen className="flex items-center justify-center">
+      <div className="absolute inset-0" style={{ backgroundColor: '#1A1A1A' }} />
+
       <button
         onClick={cancel}
-        className="absolute top-6 left-6 z-30 flex items-center gap-2 px-5 py-3 rounded-full bg-black/40 border border-white/20 text-white/80 hover:text-white backdrop-blur transition-colors"
+        className="absolute top-8 left-8 z-30 flex items-center gap-2 px-3 py-2"
+        style={{
+          color: '#FAF6EE',
+          fontFamily: 'Inter, sans-serif',
+          fontWeight: 500,
+          fontSize: '0.875rem',
+          textTransform: 'uppercase',
+          letterSpacing: '0.15em',
+          background: 'transparent',
+          border: 'none',
+          cursor: 'pointer',
+        }}
       >
-        <ArrowLeft size={18} />
-        <span className="text-sm tracking-wide">Annuler</span>
+        <MdArrowBack size={18} />
+        <span>Annuler</span>
       </button>
+
+      <div
+        className="absolute top-8 left-1/2 -translate-x-1/2 z-30"
+        style={{
+          color: '#FAF6EE',
+          fontFamily: 'Inter, sans-serif',
+          fontWeight: 600,
+          fontSize: '0.75rem',
+          textTransform: 'uppercase',
+          letterSpacing: '0.3em',
+        }}
+      >
+        Message libre
+      </div>
 
       <video
         ref={videoRef}
@@ -238,44 +260,78 @@ export function VideoFreeMessageScreen() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="absolute top-6 right-6 z-30 flex items-center gap-3 px-4 py-2 rounded-full bg-black/55 backdrop-blur border border-red-500/30"
+          className="absolute top-8 right-8 z-30 flex items-center gap-3 px-4 py-2"
+          style={{ backgroundColor: '#FAF6EE', borderRadius: '4px' }}
         >
           <motion.span
             animate={{ opacity: [1, 0.3, 1] }}
             transition={{ duration: 1.2, repeat: Infinity }}
-            className="w-3 h-3 rounded-full bg-red-500 inline-block"
+            className="w-2.5 h-2.5 inline-block"
+            style={{ backgroundColor: '#1A1A1A', borderRadius: '50%' }}
           />
-          <span className="text-white text-sm font-semibold tracking-widest">REC</span>
-          <span className="text-white/70 text-xs tabular-nums">{remaining.toFixed(0)}s</span>
+          <span
+            style={{
+              color: '#1A1A1A',
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 600,
+              fontSize: '0.75rem',
+              letterSpacing: '0.25em',
+            }}
+          >
+            REC
+          </span>
+          <span
+            style={{
+              color: '#6B5D4F',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '0.75rem',
+            }}
+          >
+            {remaining.toFixed(0)}s
+          </span>
         </motion.div>
       )}
 
-      {/* Barre de progression durée max */}
       {phase === 'recording' && (
         <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-3">
-          <div className="w-96 h-2 rounded-full overflow-hidden bg-white/15">
+          <div
+            className="w-96 h-1 overflow-hidden"
+            style={{ backgroundColor: 'rgba(250,246,238,0.2)' }}
+          >
             <div
               className="h-full transition-all"
-              style={{
-                width: `${progressPct}%`,
-                background: 'linear-gradient(90deg, #f0a090 0%, #d46855 100%)',
-              }}
+              style={{ width: `${progressPct}%`, backgroundColor: '#FAF6EE' }}
             />
           </div>
-          <p className="text-white/60 text-xs tabular-nums">
-            {elapsed.toFixed(1)}s / {maxSeconds}s
+          <p
+            style={{
+              color: '#FAF6EE',
+              opacity: 0.7,
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '0.75rem',
+              letterSpacing: '0.15em',
+            }}
+          >
+            {elapsed.toFixed(1)}s sur {maxSeconds}s
           </p>
           <button
             onClick={stopRecording}
-            className="mt-2 flex items-center gap-2 px-5 py-2.5 rounded-full backdrop-blur transition-colors"
+            className="mt-2 flex items-center gap-2 px-5 py-2.5"
             style={{
-              background: 'rgba(228,110,90,0.85)',
-              color: '#fff',
-              boxShadow: '0 6px 22px rgba(228,110,90,0.4)',
+              backgroundColor: '#FAF6EE',
+              color: '#1A1A1A',
+              border: 'none',
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 500,
+              fontSize: '0.75rem',
+              textTransform: 'uppercase',
+              letterSpacing: '0.15em',
+              borderRadius: '4px',
+              cursor: 'pointer',
             }}
           >
-            <StopCircle size={16} />
-            <span className="text-xs font-semibold tracking-wide uppercase">Terminer</span>
+            <MdStop size={16} />
+            <span>Terminer</span>
           </button>
         </div>
       )}
@@ -284,28 +340,24 @@ export function VideoFreeMessageScreen() {
         {phase === 'countdown' && countdown > 0 && (
           <motion.div
             key={countdown}
-            initial={{ scale: 0.5, opacity: 0 }}
+            initial={{ scale: 0.7, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 1.5, opacity: 0 }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute inset-0 flex items-center justify-center pointer-events-none"
+            exit={{ scale: 1.3, opacity: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute inset-0 flex items-center justify-center pointer-events-none z-30"
           >
-            <div className="relative">
-              <div
-                className="absolute inset-0 blur-3xl"
-                style={{ background: 'rgba(212,165,116,0.35)' }}
-              />
-              <span
-                className="relative leading-none text-gradient-gold"
-                style={{
-                  fontFamily: '"Allura", cursive',
-                  fontSize: '20rem',
-                  fontWeight: 300,
-                }}
-              >
-                {countdown}
-              </span>
-            </div>
+            <span
+              className="font-editorial leading-none"
+              style={{
+                fontSize: 'clamp(14rem, 30vw, 28rem)',
+                fontWeight: 900,
+                color: '#FAF6EE',
+                letterSpacing: '-0.05em',
+                textShadow: '0 0 80px rgba(0,0,0,0.5)',
+              }}
+            >
+              {countdown}
+            </span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -314,59 +366,73 @@ export function VideoFreeMessageScreen() {
         <motion.div
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="absolute top-32 left-1/2 -translate-x-1/2 px-8 py-4 rounded-full z-30"
-          style={{
-            background: 'rgba(250,246,239,0.95)',
-            border: '1px solid rgba(212,165,116,0.4)',
-          }}
+          className="absolute bottom-28 left-1/2 -translate-x-1/2 px-8 py-4 z-30 flex items-center gap-3"
+          style={{ backgroundColor: '#FAF6EE', borderRadius: '4px' }}
         >
-          <span className="flex items-center gap-2 text-sm font-medium" style={{ color: '#5a3e2b' }}>
-            <Mic size={16} /> Vous avez {maxSeconds}s pour votre message
+          <MdMic size={16} style={{ color: '#1A1A1A' }} />
+          <span
+            className="label-editorial"
+            style={{ color: '#1A1A1A', fontSize: '0.75rem' }}
+          >
+            Vous avez {maxSeconds}s pour votre message
           </span>
         </motion.div>
       )}
 
       {phase === 'finishing' && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-40">
+        <div
+          className="absolute inset-0 flex items-center justify-center z-40"
+          style={{ backgroundColor: 'rgba(26,26,26,0.85)' }}
+        >
           <p
-            className="text-white"
-            style={{ fontFamily: '"Allura", cursive', fontSize: '3rem' }}
+            className="font-editorial"
+            style={{
+              color: '#FAF6EE',
+              fontSize: '2.5rem',
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
+            }}
           >
-            Sauvegarde en cours…
+            Sauvegarde en cours...
           </p>
         </div>
       )}
 
       {phase === 'error' && (
         <div
-          className="absolute inset-0 flex items-center justify-center"
-          style={{ background: 'rgba(250,246,239,0.95)', backdropFilter: 'blur(20px)' }}
+          className="absolute inset-0 flex items-center justify-center z-40"
+          style={{ backgroundColor: '#F4ECDD' }}
         >
-          <div
-            className="rounded-3xl p-12 max-w-lg text-center"
-            style={{
-              background: 'rgba(255,255,255,0.85)',
-              border: '1px solid rgba(212,165,116,0.25)',
-              boxShadow: '0 8px 32px rgba(90,60,40,0.1)',
-            }}
-          >
-            <AlertCircle size={48} className="mx-auto mb-6" style={{ color: '#d46855' }} />
+          <div className="card-editorial p-12 max-w-lg text-center">
+            <MdErrorOutline size={48} className="mx-auto mb-6" style={{ color: '#1A1A1A' }} />
+            <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
+              Erreur
+            </p>
             <h3
-              className="mb-3"
+              className="font-editorial mb-4"
               style={{
-                fontFamily: '"Allura", cursive',
-                fontSize: '2.5rem',
-                color: '#2a1a10',
+                fontSize: '2rem',
+                color: '#1A1A1A',
+                fontWeight: 800,
+                letterSpacing: '-0.02em',
               }}
             >
-              Oups…
+              Oups
             </h3>
-            <p className="text-base mb-6 font-light" style={{ color: '#5a3e2b' }}>
+            <p
+              className="mb-8"
+              style={{
+                color: '#6B5D4F',
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '0.9375rem',
+                lineHeight: 1.6,
+              }}
+            >
               {error}
             </p>
-            <Button variant="ghost" size="md" onClick={() => setScreen('video-home')}>
+            <button onClick={() => setScreen('video-home')} className="btn-editorial-primary">
               Retour
-            </Button>
+            </button>
           </div>
         </div>
       )}

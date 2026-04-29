@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, ShieldAlert } from 'lucide-react';
+import { MdLock, MdErrorOutline } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
-import { CornerDecor } from '@client/components/decors';
 
-// Hash SHA-256 client-side (compatible avec celui généré côté Electron)
+// Hash SHA-256 client-side
 async function sha256(text: string): Promise<string> {
   const buf = new TextEncoder().encode(text);
   const hash = await crypto.subtle.digest('SHA-256', buf);
@@ -14,15 +13,13 @@ async function sha256(text: string): Promise<string> {
 }
 
 const fadeUp = (delay: number) => ({
-  initial: { opacity: 0, y: 20 },
+  initial: { opacity: 0, y: 14 },
   animate: { opacity: 1, y: 0 },
-  transition: { delay, duration: 0.7, ease: [0.16, 1, 0.3, 1] as const },
+  transition: { delay, duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
 });
 
 export function AdminLogin() {
   const { settings, setAdminAuthenticated, setAdminMode } = useAppStore();
-  const decorStyle = settings?.decor_style ?? 'floral';
-  const customImagePath = settings?.decor_custom_path ?? null;
   const [password, setPassword] = useState('');
   const [error, setError] = useState(false);
   const [shaking, setShaking] = useState(false);
@@ -41,86 +38,65 @@ export function AdminLogin() {
   return (
     <div
       className="absolute inset-0 flex items-center justify-center overflow-hidden"
-      style={{
-        background:
-          'radial-gradient(ellipse 80% 60% at 20% 0%, rgba(245,224,205,0.7) 0%, transparent 65%),' +
-          'radial-gradient(ellipse 70% 50% at 80% 100%, rgba(242,196,206,0.4) 0%, transparent 60%),' +
-          'radial-gradient(ellipse 50% 50% at 50% 50%, rgba(250,240,220,0.5) 0%, transparent 70%),' +
-          '#faf6ef',
-      }}
+      style={{ backgroundColor: '#F4ECDD' }}
     >
-      {/* Coins décoratifs */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.3, duration: 1 }}
-        className="absolute top-0 left-0 w-48 h-48 pointer-events-none"
+      {/* Header éditorial fin */}
+      <div
+        className="absolute top-0 left-0 right-0 px-12 py-6 flex items-center justify-between z-10"
+        style={{ borderBottom: '1px solid #1A1A1A' }}
       >
-        <CornerDecor style={decorStyle} position="tl" className="w-full h-full" customImagePath={customImagePath} />
-      </motion.div>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5, duration: 1 }}
-        className="absolute bottom-0 right-0 w-48 h-48 pointer-events-none"
-      >
-        <CornerDecor style={decorStyle} position="br" className="w-full h-full" customImagePath={customImagePath} />
-      </motion.div>
+        <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+          Admin
+        </span>
+        <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+          Photobooth Pro
+        </span>
+        <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+          № 000
+        </span>
+      </div>
 
-      {/* Carte centrale */}
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{
           opacity: 1,
           y: 0,
           x: shaking ? [0, -10, 10, -10, 10, 0] : 0,
         }}
-        transition={{ duration: shaking ? 0.5 : 0.7, ease: [0.16, 1, 0.3, 1] }}
-        className="relative z-10 max-w-md w-full mx-6 px-10 py-12 rounded-3xl"
-        style={{
-          background: 'rgba(255,255,255,0.80)',
-          backdropFilter: 'blur(16px)',
-          border: '1px solid rgba(212,165,116,0.30)',
-          boxShadow: '0 24px 64px rgba(90,60,40,0.12)',
-        }}
+        transition={{ duration: shaking ? 0.5 : 0.6, ease: [0.16, 1, 0.3, 1] }}
+        className="card-editorial relative z-10 max-w-md w-full mx-6 p-12"
       >
-        {/* Icône cadenas */}
         <motion.div {...fadeUp(0.1)} className="flex justify-center mb-6">
           <div
-            className="w-20 h-20 rounded-full flex items-center justify-center shadow-lg"
-            style={{
-              background: 'linear-gradient(135deg, #e8c79a 0%, #d4a574 100%)',
-              boxShadow: '0 8px 24px rgba(212,165,116,0.35)',
-            }}
+            className="w-16 h-16 flex items-center justify-center"
+            style={{ backgroundColor: '#1A1A1A', borderRadius: '4px' }}
           >
-            <Lock size={34} color="#2a1a10" strokeWidth={2} />
+            <MdLock size={28} color="#FAF6EE" />
           </div>
         </motion.div>
 
-        {/* Surtitle */}
         <motion.p
           {...fadeUp(0.2)}
-          className="text-center text-xs font-semibold uppercase tracking-[0.4em] mb-2"
-          style={{ color: '#c8956a' }}
+          className="label-editorial text-center mb-3"
+          style={{ color: '#6B5D4F' }}
         >
           Espace privé
         </motion.p>
 
-        {/* Titre Allura */}
         <motion.h1
           {...fadeUp(0.3)}
-          className="text-center mb-6"
+          className="font-editorial text-center mb-8"
           style={{
-            fontFamily: '"Allura", cursive',
-            fontSize: '2.6rem',
-            color: '#2a1a10',
-            lineHeight: 1.2,
+            fontSize: '2.25rem',
+            color: '#1A1A1A',
+            fontWeight: 800,
+            letterSpacing: '-0.02em',
+            lineHeight: 1.1,
           }}
         >
-          Mode administrateur
+          MODE ADMIN
         </motion.h1>
 
-        {/* Input mot de passe */}
         <motion.div {...fadeUp(0.4)}>
           <input
             type="password"
@@ -131,77 +107,63 @@ export function AdminLogin() {
             }}
             onKeyDown={(e) => e.key === 'Enter' && submit()}
             placeholder="••••••••"
-            className="w-full rounded-xl px-5 py-4 text-lg text-center tracking-widest focus:outline-none transition-colors mb-3"
+            className="w-full px-4 py-3 text-center focus:outline-none mb-3"
             style={{
-              background: 'rgba(255,255,255,0.60)',
-              border: error
-                ? '1.5px solid #ef4444'
-                : '1.5px solid rgba(212,165,116,0.30)',
-              color: '#2a1a10',
-            }}
-            onFocus={(e) => {
-              if (!error) {
-                e.currentTarget.style.border = '1.5px solid #d4a574';
-              }
-            }}
-            onBlur={(e) => {
-              if (!error) {
-                e.currentTarget.style.border = '1.5px solid rgba(212,165,116,0.30)';
-              }
+              backgroundColor: '#F4ECDD',
+              border: error ? '1px solid #1A1A1A' : '1px solid rgba(212, 184, 150, 0.4)',
+              color: '#1A1A1A',
+              borderRadius: '4px',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '1rem',
+              letterSpacing: '0.3em',
             }}
             autoFocus
           />
         </motion.div>
 
-        {/* Message d'erreur */}
         {error && (
           <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-center gap-2 text-red-500 text-sm mb-3"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="flex items-center justify-center gap-2 mb-3"
           >
-            <ShieldAlert size={15} />
-            Mot de passe incorrect
+            <MdErrorOutline size={15} style={{ color: '#1A1A1A' }} />
+            <span
+              className="label-editorial"
+              style={{ color: '#1A1A1A', fontSize: '0.6875rem' }}
+            >
+              Mot de passe incorrect
+            </span>
           </motion.div>
         )}
 
-        {/* Bouton Se connecter */}
         <motion.div {...fadeUp(0.5)}>
-          <motion.button
-            onClick={submit}
-            className="w-full py-4 rounded-full text-white font-semibold text-base uppercase tracking-[0.15em] transition-all"
-            style={{
-              background: 'linear-gradient(135deg, #f0a090 0%, #e8806a 50%, #d46855 100%)',
-              boxShadow: '0 8px 28px rgba(228,110,90,0.35)',
-            }}
-            whileHover={{ scale: 1.02, boxShadow: '0 12px 36px rgba(228,110,90,0.5)' }}
-            whileTap={{ scale: 0.97 }}
-          >
+          <button onClick={submit} className="btn-editorial-primary w-full">
             Se connecter
-          </motion.button>
+          </button>
         </motion.div>
 
-        {/* Retour */}
         <motion.div {...fadeUp(0.6)} className="text-center mt-5">
           <button
             onClick={() => setAdminMode(false)}
-            className="text-sm transition-colors"
-            style={{ color: 'rgba(90,62,43,0.45)' }}
-            onMouseEnter={(e) => { e.currentTarget.style.color = 'rgba(90,62,43,0.85)'; }}
-            onMouseLeave={(e) => { e.currentTarget.style.color = 'rgba(90,62,43,0.45)'; }}
+            className="btn-editorial-ghost"
           >
             Retour à l'application
           </button>
         </motion.div>
 
-        {/* Note pied de carte */}
         <motion.p
           {...fadeUp(0.7)}
-          className="text-xs text-center italic mt-8"
-          style={{ color: 'rgba(90,62,43,0.35)' }}
+          className="text-xs text-center mt-8"
+          style={{
+            color: '#6B5D4F',
+            opacity: 0.6,
+            fontFamily: 'Inter, sans-serif',
+            fontStyle: 'italic',
+          }}
         >
           Mot de passe par défaut :{' '}
-          <code style={{ color: 'rgba(212,165,116,0.8)' }}>admin</code>
+          <code style={{ color: '#1A1A1A', fontFamily: 'monospace' }}>admin</code>
         </motion.p>
       </motion.div>
     </div>
