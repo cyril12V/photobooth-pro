@@ -9,7 +9,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.node.json && tsc -p tsconfig.json && vite build && electron-builder",
-    "release": "vite build && electron-builder --publish always",
+    "release": "node scripts/release.mjs",
+    "release:minor": "node scripts/release.mjs minor",
+    "release:major": "node scripts/release.mjs major",
     "preview": "vite preview",
     "lint": "eslint src --ext ts,tsx",
     "start": "electron .",
