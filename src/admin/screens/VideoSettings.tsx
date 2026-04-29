@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Mic, Check, Film, Folder } from 'lucide-react';
+import { MdMic, MdCheck, MdMovie, MdFolder } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { AdminCard, AdminPageHeader, AdminToggle } from '../components/AdminUI';
 import { Button } from '@shared/components/Button';
@@ -149,14 +149,14 @@ export function VideoSettings() {
                         : 'bg-neutral-50 border border-neutral-200 hover:bg-neutral-100 text-neutral-700'
                     }`}
                 >
-                  <Mic
+                  <MdMic
                     size={18}
-                    className={micId === d.deviceId ? 'text-[#d4a574]' : 'text-neutral-400'}
+                    style={{ color: micId === d.deviceId ? '#D4B896' : '#6B5D4F' }}
                   />
                   <span className="flex-1 text-sm truncate font-medium">
                     {d.label || `Micro ${d.deviceId.slice(0, 8)}`}
                   </span>
-                  {micId === d.deviceId && <Check size={16} className="text-[#d4a574]" />}
+                  {micId === d.deviceId && <MdCheck size={16} style={{ color: '#D4B896' }} />}
                 </button>
               ))}
               <button
@@ -168,12 +168,12 @@ export function VideoSettings() {
                       : 'bg-neutral-50 border border-neutral-200 hover:bg-neutral-100 text-neutral-700'
                   }`}
               >
-                <Mic
+                <MdMic
                   size={18}
-                  className={!micId ? 'text-[#d4a574]' : 'text-neutral-400'}
+                  style={{ color: !micId ? '#D4B896' : '#6B5D4F' }}
                 />
                 <span className="flex-1 text-sm font-medium">Micro par défaut du système</span>
-                {!micId && <Check size={16} className="text-[#d4a574]" />}
+                {!micId && <MdCheck size={16} style={{ color: '#D4B896' }} />}
               </button>
             </div>
           )}
@@ -308,7 +308,7 @@ export function VideoSettings() {
               <Button
                 variant="primary"
                 onClick={startCompile}
-                icon={<Film size={20} />}
+                icon={<MdMovie size={20} />}
                 fullWidth
                 disabled={compStatus.kind === 'running' || !compEnabled}
               >
@@ -344,7 +344,7 @@ export function VideoSettings() {
                     onClick={openCompilationFolder}
                     className="mt-2 inline-flex items-center gap-2 text-emerald-800 text-xs font-medium hover:underline"
                   >
-                    <Folder size={14} />
+                    <MdFolder size={14} />
                     Ouvrir le dossier
                   </button>
                 </div>
