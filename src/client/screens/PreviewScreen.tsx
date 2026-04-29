@@ -2,29 +2,32 @@ import { motion } from 'framer-motion';
 import { Check, RotateCcw } from 'lucide-react';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
-import { Button } from '@shared/components/Button';
-import { CornerDecor } from '@client/components/decors';
 import { composePhotoWithTemplate } from '@shared/lib/composer';
 import type { TemplateConfig } from '@shared/types';
 import { useEffect, useState } from 'react';
 
-const fadeIn = (delay: number) => ({
-  initial: { opacity: 0 },
-  animate: { opacity: 1 },
-  transition: { delay, duration: 0.8 },
+const fadeUp = (delay: number) => ({
+  initial: { opacity: 0, y: 16 },
+  animate: { opacity: 1, y: 0 },
+  transition: { delay, duration: 0.7, ease: [0.16, 1, 0.3, 1] as const },
 });
 
 export function PreviewScreen() {
-  const { currentPhotoDataUrl, currentPhotoDataUrls, event, mode, setScreen, setCurrentPhoto, clearPhotos, settings } = useAppStore();
-  const decorStyle = settings?.decor_style ?? 'floral';
-  const customImagePath = settings?.decor_custom_path ?? null;
+  const {
+    currentPhotoDataUrl,
+    currentPhotoDataUrls,
+    event,
+    mode,
+    setScreen,
+    setCurrentPhoto,
+  } = useAppStore();
   const [saving, setSaving] = useState(false);
 
-  // Utilise le tableau si disponible, sinon fallback sur le single
-  const photos = currentPhotoDataUrls.length > 0 ? currentPhotoDataUrls : (currentPhotoDataUrl ? [currentPhotoDataUrl] : []);
+  const photos = currentPhotoDataUrls.length > 0
+    ? currentPhotoDataUrls
+    : currentPhotoDataUrl ? [currentPhotoDataUrl] : [];
   const isMulti = photos.length > 1;
 
-  // Garde anti-arrivée directe (sans photo).
   useEffect(() => {
     if (photos.length === 0) setScreen('home');
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -61,149 +64,213 @@ export function PreviewScreen() {
     }
   };
 
-  const retake = () => {
-    // setScreen avant clearPhotos pour éviter qu'un re-render intermédiaire
-    // de PreviewScreen avec photos vides ne déclenche d'effet bizarre.
-    // CaptureScreen fait déjà clearPhotos() à son montage avant la séquence.
-    setScreen('capture');
-  };
+  const retake = () => setScreen('capture');
+
+  const eventNameUp = (event?.name ?? 'Wedding').toUpperCase();
+  const dateStr = event?.date
+    ? new Date(event.date)
+        .toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' })
+        .toUpperCase()
+    : '';
 
   return (
-    <Screen className="overflow-hidden bg-wedding flex flex-col items-center justify-center px-12">
-      {/* Fond cream avec gradients */}
-      <div
-        className="absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(ellipse 80% 60% at 20% 0%, rgba(245,224,205,0.7) 0%, transparent 65%),' +
-            'radial-gradient(ellipse 70% 50% at 80% 100%, rgba(242,196,206,0.4) 0%, transparent 60%),' +
-            '#faf6ef',
-        }}
-      />
+    <Screen className="overflow-hidden">
+      <div className="absolute inset-0" style={{ backgroundColor: '#F4ECDD' }} />
 
-      {/* Coins décoratifs */}
-      <motion.div {...fadeIn(0.4)} className="absolute top-0 right-0 w-64 h-64 pointer-events-none">
-        <CornerDecor style={decorStyle} position="tr" className="w-full h-full" customImagePath={customImagePath} />
-      </motion.div>
-      <motion.div {...fadeIn(0.5)} className="absolute bottom-0 left-0 w-64 h-64 pointer-events-none">
-        <CornerDecor style={decorStyle} position="bl" className="w-full h-full" customImagePath={customImagePath} />
-      </motion.div>
-
-      {/* Contenu */}
-      <div className="relative z-10 flex flex-col items-center w-full">
-        {/* Titre */}
-        <motion.p
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="font-sans text-sm uppercase tracking-[0.45em] font-medium mb-2"
-          style={{ color: '#c8956a' }}
-        >
-          Aperçu
-        </motion.p>
-
-        <motion.h2
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="text-center mb-2"
-          style={{
-            fontFamily: '"Allura", cursive',
-            fontSize: 'clamp(3rem, 6vw, 5.5rem)',
-            color: '#2a1a10',
-          }}
-        >
-          Magnifique !
-        </motion.h2>
-
-        <motion.p
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.25 }}
-          className="font-sans text-base font-light mb-8"
-          style={{ color: '#5a3e2b' }}
-        >
-          Vous gardez celle-ci ?
-        </motion.p>
-
-        {/* Photo principale ou strip multi-photos */}
-        {isMulti ? (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            className="flex gap-3 mb-10"
-          >
-            {photos.map((url, i) => (
-              <div key={i} className="relative">
-                <div
-                  className="absolute -inset-2 rounded-2xl blur-xl"
-                  style={{ background: 'linear-gradient(135deg, rgba(212,165,116,0.25) 0%, rgba(242,196,206,0.15) 100%)' }}
-                />
-                <img
-                  src={url}
-                  alt={`Photo ${i + 1}`}
-                  className="relative max-h-[48vh] rounded-2xl"
-                  style={{
-                    boxShadow: '0 16px 48px rgba(90,60,40,0.15), 0 0 0 1px rgba(212,165,116,0.2)',
-                  }}
-                />
-                <div
-                  className="absolute bottom-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
-                  style={{ background: 'rgba(212,165,116,0.9)', color: '#2a1a10' }}
-                >
-                  {i + 1}
-                </div>
-              </div>
-            ))}
-          </motion.div>
-        ) : (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            className="relative mb-10"
-          >
-            <div
-              className="absolute -inset-3 rounded-3xl blur-2xl"
-              style={{ background: 'linear-gradient(135deg, rgba(212,165,116,0.3) 0%, rgba(242,196,206,0.2) 100%)' }}
-            />
-            <img
-              src={photos[0]}
-              alt="Aperçu"
-              className="relative max-h-[58vh] max-w-[80vw] rounded-3xl"
-              style={{
-                boxShadow: '0 24px 64px rgba(90,60,40,0.18), 0 0 0 1px rgba(212,165,116,0.25)',
-              }}
-            />
-          </motion.div>
-        )}
-
-        {/* Actions */}
+      <div className="relative z-10 h-full flex flex-col px-16 py-12">
+        {/* Bandeau top éditorial */}
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.35, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="flex gap-6"
+          {...fadeUp(0.1)}
+          className="flex items-center justify-between pb-4"
+          style={{ borderBottom: '1px solid #1A1A1A' }}
         >
-          <Button
-            variant="ghost"
-            size="lg"
-            icon={<RotateCcw size={22} />}
-            onClick={retake}
-            disabled={saving}
-          >
-            Reprendre
-          </Button>
-          <Button
-            variant="primary"
-            size="lg"
-            icon={<Check size={26} strokeWidth={2.5} />}
-            onClick={validate}
-            disabled={saving}
-          >
-            {saving ? 'Sauvegarde...' : 'Je la garde'}
-          </Button>
+          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+            Aperçu
+          </span>
+          <span className="label-editorial" style={{ color: '#6B5D4F' }}>
+            Validation du souvenir
+          </span>
+          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+            {dateStr}
+          </span>
+        </motion.div>
+
+        {/* Corps */}
+        <div className="flex-1 grid grid-cols-12 gap-12 items-center pt-10">
+          {/* COLONNE GAUCHE : titre + meta éditoriale */}
+          <div className="col-span-5 flex flex-col justify-center">
+            <motion.p
+              {...fadeUp(0.25)}
+              className="label-editorial mb-6"
+              style={{ color: '#6B5D4F' }}
+            >
+              The Cover Story
+            </motion.p>
+
+            <motion.h1
+              {...fadeUp(0.35)}
+              className="font-editorial leading-[0.9]"
+              style={{
+                fontSize: 'clamp(4rem, 8vw, 8rem)',
+                color: '#1A1A1A',
+                fontWeight: 900,
+                letterSpacing: '-0.03em',
+              }}
+            >
+              {eventNameUp}
+            </motion.h1>
+
+            <motion.p
+              {...fadeUp(0.5)}
+              className="mt-4"
+              style={{
+                fontFamily: '"Pinyon Script", cursive',
+                fontSize: 'clamp(2rem, 3vw, 3rem)',
+                color: '#1A1A1A',
+                lineHeight: 1,
+              }}
+            >
+              {event?.name ?? 'Wedding'}
+            </motion.p>
+
+            <motion.div {...fadeUp(0.65)} className="mt-10">
+              <div className="editorial-rule-light mb-4" style={{ width: '4rem' }} />
+              <p
+                className="text-base"
+                style={{
+                  color: '#6B5D4F',
+                  fontFamily: 'Inter, sans-serif',
+                  lineHeight: 1.6,
+                  maxWidth: '28rem',
+                }}
+              >
+                {isMulti
+                  ? `${photos.length} clichés capturés. Validez pour les composer en une couverture unique, ou recommencez la séance.`
+                  : 'Votre cliché est prêt. Validez pour l\'imprimer et le partager, ou recommencez si vous souhaitez une autre prise.'}
+              </p>
+            </motion.div>
+
+            {/* Actions */}
+            <motion.div {...fadeUp(0.85)} className="mt-12 flex flex-wrap gap-3">
+              <button
+                onClick={validate}
+                disabled={saving}
+                className="btn-editorial-primary"
+              >
+                <Check size={18} strokeWidth={2.5} />
+                {saving ? 'Sauvegarde...' : 'Je la garde'}
+              </button>
+
+              <button
+                onClick={retake}
+                disabled={saving}
+                className="btn-editorial-secondary"
+              >
+                <RotateCcw size={18} strokeWidth={2.2} />
+                Reprendre
+              </button>
+            </motion.div>
+          </div>
+
+          {/* COLONNE DROITE : photo(s) en portrait magazine */}
+          <div className="col-span-7 flex items-center justify-center">
+            {isMulti ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.3, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                className="grid gap-4"
+                style={{
+                  gridTemplateColumns: photos.length === 2 ? '1fr 1fr' : 'repeat(3, 1fr)',
+                  maxHeight: '75vh',
+                }}
+              >
+                {photos.map((url, i) => (
+                  <div
+                    key={i}
+                    className="relative overflow-hidden"
+                    style={{
+                      borderRadius: '4px',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
+                      aspectRatio: '3/4',
+                    }}
+                  >
+                    <img
+                      src={url}
+                      alt={`Cliché ${i + 1}`}
+                      className="w-full h-full object-cover photo-warm"
+                    />
+                    <div
+                      className="absolute top-3 left-3 px-2 py-1"
+                      style={{
+                        backgroundColor: '#1A1A1A',
+                        color: '#FAF6EE',
+                        fontFamily: 'Inter, sans-serif',
+                        fontWeight: 600,
+                        fontSize: '10px',
+                        letterSpacing: '0.2em',
+                      }}
+                    >
+                      №{String(i + 1).padStart(2, '0')}
+                    </div>
+                  </div>
+                ))}
+              </motion.div>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: 0.3, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                className="relative"
+                style={{ aspectRatio: '3/4', maxHeight: '75vh' }}
+              >
+                <div
+                  className="overflow-hidden h-full"
+                  style={{
+                    borderRadius: '4px',
+                    boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
+                  }}
+                >
+                  <img
+                    src={photos[0]}
+                    alt="Aperçu"
+                    className="w-full h-full object-cover photo-warm"
+                  />
+                </div>
+                <div
+                  className="absolute -bottom-2 -right-2 px-4 py-2"
+                  style={{
+                    backgroundColor: '#1A1A1A',
+                    color: '#FAF6EE',
+                    fontFamily: 'Inter, sans-serif',
+                    fontWeight: 600,
+                    fontSize: '11px',
+                    letterSpacing: '0.25em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  The Shot
+                </div>
+              </motion.div>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <motion.div
+          {...fadeUp(1)}
+          className="flex items-center justify-between pt-4 mt-8"
+          style={{ borderTop: '1px solid #1A1A1A' }}
+        >
+          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+            Édition limitée
+          </span>
+          <span className="label-editorial" style={{ color: '#6B5D4F' }}>
+            Validez ou recommencez
+          </span>
+          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+            № 001
+          </span>
         </motion.div>
       </div>
     </Screen>
