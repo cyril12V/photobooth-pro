@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { AlertCircle, Check, Mail, Save, Server } from 'lucide-react';
+import { MdErrorOutline, MdCheck, MdMail, MdSave, MdDns } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { AdminCard, AdminInput, AdminPageHeader, AdminToggle } from '../components/AdminUI';
 import { Button } from '@shared/components/Button';

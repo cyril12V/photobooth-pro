@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, Save, Upload, Image } from 'lucide-react';
+import { MdCheck, MdSave, MdFileUpload, MdImage } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { AdminCard, AdminPageHeader } from '../components/AdminUI';
 import { Button } from '@shared/components/Button';
@@ -91,7 +91,7 @@ export function ThemeSettings() {
                   <p className="text-xs font-medium text-neutral-700">{opt.label}</p>
                   {isSelected && (
                     <span className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center bg-[#d4a574]">
-                      <Check size={11} color="white" strokeWidth={3} />
+                      <MdCheck size={11} color="#FAF6EE" />
                     </span>
                   )}
                 </button>
@@ -120,7 +120,7 @@ export function ThemeSettings() {
                       onClick={pickCustomImage}
                       className="mt-1 flex items-center gap-1.5 text-xs font-medium text-[#d4a574] hover:text-[#c8956a] transition-colors"
                     >
-                      <Upload size={12} />
+                      <MdFileUpload size={12} />
                       Changer l'image
                     </button>
                   </div>
@@ -130,7 +130,7 @@ export function ThemeSettings() {
                   onClick={pickCustomImage}
                   className="flex items-center gap-2 w-full justify-center px-4 py-3 rounded-xl border-2 border-dashed border-neutral-300 text-neutral-500 text-sm hover:border-[#d4a574] hover:text-[#d4a574] transition-colors"
                 >
-                  <Image size={16} />
+                  <MdImage size={16} />
                   Choisir une image
                 </button>
               )}
@@ -229,12 +229,12 @@ export function ThemeSettings() {
         </AdminCard>
 
         <Button
-          variant="secondary"
+          variant="primary"
           onClick={save}
-          icon={saved ? <Check size={20} /> : <Save size={20} />}
+          icon={saved ? <MdCheck size={20} /> : <MdSave size={20} />}
           fullWidth
         >
-          {saved ? 'Enregistré !' : 'Appliquer le thème'}
+          {saved ? 'Enregistré' : 'Appliquer le thème'}
         </Button>
       </div>
     </>
