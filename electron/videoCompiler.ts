@@ -325,17 +325,22 @@ export async function compileEventVideos(
   event: VideoCompilerEvent,
   onProgress?: CompileProgress,
 ): Promise<CompileResult> {
+  // Inclut interview ET free_message — la compilation regroupe toutes les vidéos
+  // de l'évènement, peu importe leur mode. Les questions ne s'affichent
+  // évidemment que pour les interviews (qui ont un interview_log_path).
   const rows = db
     .prepare(
       `SELECT * FROM videos
-       WHERE event_id = ? AND mode = ?
+       WHERE event_id = ?
        ORDER BY datetime(created_at) ASC, id ASC`,
     )
-    .all(eventId, 'interview') as VideoRow[];
+    .all(eventId) as VideoRow[];
 
   if (rows.length === 0) {
-    return { ok: false, error: 'Aucune vidéo à compiler' };
+    return { ok: false, error: 'Aucune vidéo à compiler. Enregistrez au moins une interview ou un message libre avant.' };
   }
+
+  console.log(`[videoCompiler] ${rows.length} vidéo(s) trouvée(s) pour event ${eventId}`);
 
   const tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'photobooth-compile-'));
 
@@ -349,37 +354,70 @@ export async function compileEventVideos(
 
     const processedClips: string[] = [introFile];
     const totalSteps = rows.length;
+    const skipped: string[] = [];
 
     for (let i = 0; i < rows.length; i++) {
       const v = rows[i];
       const clipOut = path.join(tempDir, `clip_${i.toString().padStart(3, '0')}.mp4`);
 
+      // 1. Vérification existence du fichier (la BDD peut pointer vers un fichier supprimé)
       try {
-        // Probe pour vérifier que le fichier est lisible
-        await probe(v.filepath);
-      } catch (e) {
-        console.warn('[videoCompiler] Vidéo illisible, skip:', v.filepath, e);
+        await fs.access(v.filepath);
+      } catch {
+        console.warn('[videoCompiler] Fichier introuvable, skip:', v.filepath);
+        skipped.push(`${path.basename(v.filepath)} (fichier introuvable)`);
         continue;
       }
 
-      const log = settings.video_compilation_show_questions
+      // 2. Probe pour vérifier que le fichier est lisible par ffmpeg
+      try {
+        await probe(v.filepath);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn('[videoCompiler] Vidéo illisible, skip:', v.filepath, msg);
+        skipped.push(`${path.basename(v.filepath)} (probe ffmpeg: ${msg.slice(0, 80)})`);
+        continue;
+      }
+
+      // Pour les free_message, pas de log interview à charger
+      const log = (settings.video_compilation_show_questions && v.mode === 'interview')
         ? await readInterviewLog(v.interview_log_path)
         : null;
 
+      // 3. Traitement avec overlays. Si ça échoue, fallback : normalisation simple sans overlays.
+      let success = false;
       try {
         await processClip(v.filepath, clipOut, {
-          showQuestions: settings.video_compilation_show_questions,
+          showQuestions: settings.video_compilation_show_questions && v.mode === 'interview',
           showLogo: settings.video_compilation_show_logo,
           showEventName: settings.video_compilation_show_event_name,
           logoPath: event.logo_path,
           eventName: event.name,
           log,
         });
-        processedClips.push(clipOut);
+        success = true;
       } catch (e) {
-        console.warn('[videoCompiler] Échec traitement clip, skip:', v.filepath, e);
-        continue;
+        const msg = e instanceof Error ? e.message : String(e);
+        console.warn('[videoCompiler] Échec processClip avec overlays, fallback simple:', v.filepath, msg);
+        // Fallback : tente une normalisation minimale sans overlays
+        try {
+          await processClip(v.filepath, clipOut, {
+            showQuestions: false,
+            showLogo: false,
+            showEventName: false,
+            logoPath: null,
+            eventName: '',
+            log: null,
+          });
+          success = true;
+        } catch (e2) {
+          const msg2 = e2 instanceof Error ? e2.message : String(e2);
+          console.warn('[videoCompiler] Fallback échoué aussi, skip:', v.filepath, msg2);
+          skipped.push(`${path.basename(v.filepath)} (encode: ${msg2.slice(0, 80)})`);
+        }
       }
+
+      if (success) processedClips.push(clipOut);
 
       const pct = 5 + Math.round(((i + 1) / totalSteps) * 80);
       onProgress?.(pct, `Clip ${i + 1}/${totalSteps}`);
@@ -387,7 +425,15 @@ export async function compileEventVideos(
 
     if (processedClips.length <= 1) {
       // Seulement l'intro — pas de vidéo lisible
-      return { ok: false, error: 'Aucune vidéo exploitable' };
+      const detail = skipped.length > 0 ? ` Détail : ${skipped.slice(0, 3).join(' · ')}` : '';
+      return {
+        ok: false,
+        error: `Aucune vidéo exploitable parmi les ${rows.length} trouvée(s).${detail}`,
+      };
+    }
+
+    if (skipped.length > 0) {
+      console.warn(`[videoCompiler] ${skipped.length} vidéo(s) skippée(s) :`, skipped);
     }
 
     onProgress?.(88, 'Assemblage final');

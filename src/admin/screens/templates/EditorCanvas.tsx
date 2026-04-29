@@ -76,6 +76,35 @@ function CanvasElement({ el, scale, selected, event, onSelect, onUpdate }: Eleme
 
   const content = renderContent(el, scale, event);
 
+  // Poignées visibles aux 8 points quand l'élément est sélectionné — carrés dorés.
+  const handleSize = 14;
+  const cornerStyle: React.CSSProperties = {
+    width: handleSize,
+    height: handleSize,
+    background: '#d4a574',
+    border: '2px solid white',
+    borderRadius: 4,
+    boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+  };
+  const edgeStyle: React.CSSProperties = {
+    background: '#d4a574',
+    border: '1.5px solid white',
+    borderRadius: 3,
+    boxShadow: '0 2px 6px rgba(0,0,0,0.3)',
+  };
+  const resizeHandleStyles = selected
+    ? {
+        topLeft: { ...cornerStyle, marginLeft: -handleSize / 2, marginTop: -handleSize / 2 },
+        topRight: { ...cornerStyle, marginRight: -handleSize / 2, marginTop: -handleSize / 2 },
+        bottomLeft: { ...cornerStyle, marginLeft: -handleSize / 2, marginBottom: -handleSize / 2 },
+        bottomRight: { ...cornerStyle, marginRight: -handleSize / 2, marginBottom: -handleSize / 2 },
+        top: { ...edgeStyle, height: 8, width: 32, left: '50%', marginLeft: -16, marginTop: -4 },
+        bottom: { ...edgeStyle, height: 8, width: 32, left: '50%', marginLeft: -16, marginBottom: -4 },
+        left: { ...edgeStyle, width: 8, height: 32, top: '50%', marginTop: -16, marginLeft: -4 },
+        right: { ...edgeStyle, width: 8, height: 32, top: '50%', marginTop: -16, marginRight: -4 },
+      }
+    : undefined;
+
   return (
     <Rnd
       position={{ x: el.x * scale, y: el.y * scale }}
@@ -88,6 +117,7 @@ function CanvasElement({ el, scale, selected, event, onSelect, onUpdate }: Eleme
         cursor: 'move',
       }}
       enableResizing={selected}
+      resizeHandleStyles={resizeHandleStyles}
       disableDragging={el.locked}
       bounds="parent"
       onDragStart={() => { isDragging.current = true; }}
@@ -107,16 +137,6 @@ function CanvasElement({ el, scale, selected, event, onSelect, onUpdate }: Eleme
       onClick={handleClick}
     >
       {content}
-      {selected && (
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            pointerEvents: 'none',
-            boxSizing: 'border-box',
-          }}
-        />
-      )}
     </Rnd>
   );
 }
