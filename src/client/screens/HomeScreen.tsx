@@ -12,7 +12,7 @@ function CouplePlaceholder() {
       className="w-full h-full flex flex-col items-center justify-center gap-3"
       style={{ backgroundColor: '#E8DCC4' }}
     >
-      <MdImageNotSupported size={56} style={{ color: '#6B5D4F', opacity: 0.5 }} />
+      <MdImageNotSupported size={48} style={{ color: '#6B5D4F', opacity: 0.5 }} />
       <p className="label-editorial" style={{ color: '#6B5D4F', opacity: 0.7 }}>
         Photo couple
       </p>
@@ -37,12 +37,12 @@ function formatDate(iso?: string): { day: string; month: string; year: string } 
 }
 
 const fadeUp = (delay: number) => ({
-  initial: { opacity: 0, y: 14 },
+  initial: { opacity: 0, y: 12 },
   animate: { opacity: 1, y: 0 },
   transition: { delay, duration: 0.7, ease: [0.16, 1, 0.3, 1] as const },
 });
 
-// ─── HomeScreen — Couverture éditoriale ──────────────────────────────────────
+// ─── HomeScreen ──────────────────────────────────────────────────────────────
 
 export function HomeScreen() {
   const { event, setScreen, setMode, poses, settings } = useAppStore();
@@ -76,18 +76,15 @@ export function HomeScreen() {
         </motion.button>
       )}
 
-      <div className="relative z-10 h-full flex flex-col px-16 py-10">
-        {/* HEADER éditorial — pas de tirets */}
+      <div className="relative z-10 h-full flex flex-col" style={{ padding: '2.5rem 5rem' }}>
+        {/* HEADER éditorial sobre */}
         <motion.div
           {...fadeUp(0.1)}
-          className="flex items-center justify-between pb-4"
+          className="flex items-center justify-between pt-3 pb-3"
           style={{ borderBottom: '1px solid #1A1A1A' }}
         >
           <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            Bienvenue
-          </span>
-          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            Photobooth Pro
+            Photo
           </span>
           <span className="label-editorial" style={{ color: '#1A1A1A' }}>
             Issue {date?.year ?? new Date().getFullYear()}
@@ -95,67 +92,136 @@ export function HomeScreen() {
         </motion.div>
 
         {/* CORPS */}
-        <div className="flex-1 grid grid-cols-12 gap-12 items-center pt-8">
-          {/* GAUCHE : titre éditorial */}
-          <div className="col-span-7 flex flex-col justify-center min-w-0">
+        {hasPhoto ? (
+          <div
+            className="flex-1 grid items-center"
+            style={{ gridTemplateColumns: '1fr auto', gap: '4rem', paddingTop: '3rem', paddingBottom: '3rem' }}
+          >
+            {/* GAUCHE : titre éditorial calme */}
+            <div className="flex flex-col justify-center min-w-0" style={{ maxWidth: '32rem' }}>
+              <motion.p
+                {...fadeUp(0.25)}
+                className="label-editorial"
+                style={{ color: '#6B5D4F', marginBottom: '1.25rem' }}
+              >
+                Photo
+              </motion.p>
+
+              <motion.h1
+                {...fadeUp(0.35)}
+                className="font-editorial"
+                style={{
+                  fontSize: 'clamp(2.5rem, 5vw, 4rem)',
+                  color: '#1A1A1A',
+                  letterSpacing: '-0.02em',
+                  fontWeight: 700,
+                  lineHeight: 1.05,
+                  wordBreak: 'break-word',
+                }}
+              >
+                {coupleName}
+              </motion.h1>
+
+              {date && (
+                <motion.p
+                  {...fadeUp(0.5)}
+                  style={{
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '1.25rem',
+                    color: '#6B5D4F',
+                    marginTop: '1.25rem',
+                    letterSpacing: '0.02em',
+                  }}
+                >
+                  {date.day} {date.month.toLowerCase()} {date.year}
+                </motion.p>
+              )}
+
+              <motion.div {...fadeUp(0.75)} className="flex flex-wrap gap-3" style={{ marginTop: '3rem' }}>
+                <button onClick={() => choose('classic')} className="btn-editorial-primary">
+                  <MdCameraAlt size={18} />
+                  Photo classique
+                </button>
+
+                <button
+                  onClick={() => choose('challenge')}
+                  disabled={!challengeAvailable}
+                  className="btn-editorial-secondary"
+                  title={challengeAvailable ? '' : 'Aucune pose configurée'}
+                >
+                  <MdBolt size={18} />
+                  Challenge
+                </button>
+              </motion.div>
+            </div>
+
+            {/* DROITE : photo couple, taille modérée */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.45, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+              className="relative shrink-0"
+              style={{ width: '24rem', aspectRatio: '3/4', maxHeight: '60vh' }}
+            >
+              <div
+                className="absolute inset-0 overflow-hidden"
+                style={{ borderRadius: '4px', boxShadow: '0 8px 32px rgba(0,0,0,0.06)' }}
+              >
+                {photoSrc ? (
+                  <img
+                    src={photoSrc}
+                    alt="Couple"
+                    className="w-full h-full object-cover photo-warm"
+                    draggable={false}
+                  />
+                ) : (
+                  <CouplePlaceholder />
+                )}
+              </div>
+            </motion.div>
+          </div>
+        ) : (
+          // ─── Pas de photo : layout 1 colonne centré ────────────────────────
+          <div className="flex-1 flex flex-col items-center justify-center text-center" style={{ paddingTop: '3rem', paddingBottom: '3rem' }}>
             <motion.p
               {...fadeUp(0.25)}
-              className="label-editorial mb-5"
-              style={{ color: '#6B5D4F' }}
+              className="label-editorial"
+              style={{ color: '#6B5D4F', marginBottom: '1.25rem' }}
             >
-              The Wedding Issue
+              Photo
             </motion.p>
 
-            {/* Titre fixe court qui ne déborde jamais */}
             <motion.h1
               {...fadeUp(0.35)}
-              className="font-editorial leading-[0.85]"
+              className="font-editorial"
               style={{
-                fontSize: 'clamp(7rem, 13vw, 14rem)',
+                fontSize: 'clamp(2.5rem, 5vw, 4rem)',
                 color: '#1A1A1A',
-                letterSpacing: '-0.045em',
-                fontWeight: 900,
-                whiteSpace: 'nowrap',
-              }}
-            >
-              MARIAGE
-            </motion.h1>
-
-            {/* Nom du couple en script Pinyon — wrap si long */}
-            <motion.p
-              {...fadeUp(0.5)}
-              className="mt-3"
-              style={{
-                fontFamily: '"Pinyon Script", cursive',
-                fontSize: 'clamp(2.25rem, 4vw, 3.5rem)',
-                color: '#1A1A1A',
-                lineHeight: 1.1,
-                wordBreak: 'break-word',
+                letterSpacing: '-0.02em',
+                fontWeight: 700,
+                lineHeight: 1.05,
+                maxWidth: '40rem',
               }}
             >
               {coupleName}
-            </motion.p>
+            </motion.h1>
 
-            {/* Date format magazine — sans points médians */}
             {date && (
-              <motion.div {...fadeUp(0.65)} className="mt-8 flex items-center gap-5">
-                <div className="editorial-rule-light" style={{ width: '3.5rem' }} />
-                <div className="flex items-baseline gap-3">
-                  <span className="font-editorial" style={{ fontSize: '2.25rem', color: '#1A1A1A', fontWeight: 700 }}>
-                    {date.day}
-                  </span>
-                  <span className="label-editorial" style={{ color: '#1A1A1A', fontSize: '0.875rem' }}>
-                    {date.month}
-                  </span>
-                  <span className="font-editorial" style={{ fontSize: '2.25rem', color: '#1A1A1A', fontWeight: 700 }}>
-                    {date.year}
-                  </span>
-                </div>
-              </motion.div>
+              <motion.p
+                {...fadeUp(0.5)}
+                style={{
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '1.25rem',
+                  color: '#6B5D4F',
+                  marginTop: '1.25rem',
+                  letterSpacing: '0.02em',
+                }}
+              >
+                {date.day} {date.month.toLowerCase()} {date.year}
+              </motion.p>
             )}
 
-            {/* CTAs */}
-            <motion.div {...fadeUp(0.8)} className="mt-10 flex flex-wrap gap-3">
+            <motion.div {...fadeUp(0.75)} className="flex flex-wrap items-center justify-center gap-3" style={{ marginTop: '3rem' }}>
               <button onClick={() => choose('classic')} className="btn-editorial-primary">
                 <MdCameraAlt size={18} />
                 Photo classique
@@ -171,53 +237,17 @@ export function HomeScreen() {
                 Challenge
               </button>
             </motion.div>
-
           </div>
-
-          {/* DROITE : photo couple */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.45, duration: 1, ease: [0.16, 1, 0.3, 1] }}
-            className="col-span-5 relative"
-            style={{ aspectRatio: '3/4' }}
-          >
-            <div
-              className="absolute inset-0 overflow-hidden"
-              style={{ borderRadius: '4px', boxShadow: '0 8px 32px rgba(0,0,0,0.06)' }}
-            >
-              {photoSrc ? (
-                <img
-                  src={photoSrc}
-                  alt="Couple"
-                  className="w-full h-full object-cover photo-warm"
-                  draggable={false}
-                />
-              ) : (
-                <CouplePlaceholder />
-              )}
-            </div>
-
-            <div
-              className="absolute -bottom-2 -right-2 px-4 py-2 label-editorial"
-              style={{ backgroundColor: '#1A1A1A', color: '#FAF6EE', fontSize: '0.6875rem' }}
-            >
-              Cover Photo
-            </div>
-          </motion.div>
-        </div>
+        )}
 
         {/* FOOTER */}
         <motion.div
           {...fadeUp(1.05)}
-          className="flex items-center justify-between pt-4 mt-6"
+          className="flex items-center justify-between pt-3 pb-3"
           style={{ borderTop: '1px solid #1A1A1A' }}
         >
           <span className="label-editorial" style={{ color: '#1A1A1A' }}>
             Édition limitée
-          </span>
-          <span className="label-editorial" style={{ color: '#6B5D4F' }}>
-            Touchez un mode pour commencer
           </span>
           <span className="label-editorial" style={{ color: '#1A1A1A' }}>
             № 001

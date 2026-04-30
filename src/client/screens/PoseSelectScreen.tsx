@@ -105,18 +105,15 @@ export function PoseSelectScreen() {
         <span>Retour</span>
       </button>
 
-      <div className="relative z-10 h-full flex flex-col px-16 py-10">
+      <div className="relative z-10 h-full flex flex-col" style={{ padding: '2.5rem 5rem' }}>
         {/* Header */}
         <motion.div
           {...fadeUp(0.1)}
-          className="flex items-center justify-between pb-4"
+          className="flex items-center justify-between pt-3 pb-3"
           style={{ borderBottom: '1px solid #1A1A1A' }}
         >
           <span className="label-editorial" style={{ color: '#1A1A1A' }}>
             Mode challenge
-          </span>
-          <span className="label-editorial" style={{ color: '#6B5D4F' }}>
-            {headingSub}
           </span>
           <span className="label-editorial" style={{ color: '#1A1A1A' }}>
             № 002
@@ -124,26 +121,26 @@ export function PoseSelectScreen() {
         </motion.div>
 
         {/* Titre */}
-        <div className="pt-10 pb-6 text-center">
+        <div className="text-center" style={{ paddingTop: '3rem', paddingBottom: '2rem' }}>
           <motion.p
             {...fadeUp(0.2)}
-            className="label-editorial mb-4"
-            style={{ color: '#6B5D4F' }}
+            className="label-editorial"
+            style={{ color: '#6B5D4F', marginBottom: '1rem' }}
           >
-            The Challenge
+            {headingSub}
           </motion.p>
           <motion.h1
             {...fadeUp(0.3)}
             className="font-editorial"
             style={{
-              fontSize: 'clamp(3rem, 6vw, 5.5rem)',
+              fontSize: 'clamp(2rem, 3.5vw, 2.75rem)',
               color: '#1A1A1A',
-              fontWeight: 900,
-              letterSpacing: '-0.03em',
-              lineHeight: 0.95,
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
+              lineHeight: 1.1,
             }}
           >
-            {headingTitle.toUpperCase()}
+            {headingTitle}
           </motion.h1>
         </div>
 
@@ -261,14 +258,11 @@ export function PoseSelectScreen() {
         {/* Footer */}
         <motion.div
           {...fadeUp(1)}
-          className="flex items-center justify-between pt-4 mt-6"
+          className="flex items-center justify-between pt-3 pb-3 mt-4"
           style={{ borderTop: '1px solid #1A1A1A' }}
         >
           <span className="label-editorial" style={{ color: '#1A1A1A' }}>
             Édition limitée
-          </span>
-          <span className="label-editorial" style={{ color: '#6B5D4F' }}>
-            Sélectionnez votre pose
           </span>
           <span className="label-editorial" style={{ color: '#1A1A1A' }}>
             № 002

@@ -205,9 +205,9 @@ export function CaptureScreen() {
           color: '#FAF6EE',
           fontFamily: 'Inter, sans-serif',
           fontWeight: 500,
-          fontSize: '0.875rem',
+          fontSize: '0.8125rem',
           textTransform: 'uppercase',
-          letterSpacing: '0.15em',
+          letterSpacing: '0.18em',
           background: 'transparent',
           border: 'none',
           cursor: 'pointer',
@@ -217,46 +217,51 @@ export function CaptureScreen() {
         <span>Annuler</span>
       </button>
 
-      {/* Bandeau top — label éditorial */}
+      {/* Label discret en haut (sans pastille pleine) */}
       <div
-        className="absolute top-8 left-1/2 -translate-x-1/2 z-30 px-6"
+        className="absolute top-10 left-1/2 -translate-x-1/2 z-30"
         style={{
           color: '#FAF6EE',
           fontFamily: 'Inter, sans-serif',
-          fontWeight: 600,
-          fontSize: '0.75rem',
+          fontWeight: 500,
+          fontSize: '0.7rem',
           textTransform: 'uppercase',
-          letterSpacing: '0.3em',
+          letterSpacing: '0.32em',
+          opacity: 0.85,
         }}
       >
         {totalSlots > 1
           ? `Cliché ${Math.min(capturedCount + 1, totalSlots)} sur ${totalSlots}`
-          : 'Capture en cours'}
+          : 'Capture'}
       </div>
 
-      {/* Pose à imiter — card éditoriale crème, en bas-droite pour ne pas chevaucher le retour */}
+      {/* Pose à imiter — card discrète bas-droite */}
       {mode === 'challenge' && currentPose && (
         <motion.div
           key={currentPose.id}
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute bottom-8 right-8 z-30 p-4 w-56"
+          className="absolute z-30"
           style={{
+            bottom: '3rem',
+            right: '3rem',
+            width: '11rem',
+            padding: '0.875rem',
             backgroundColor: '#FAF6EE',
             borderRadius: '4px',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
           }}
         >
           <p
-            className="mb-2"
             style={{
               fontFamily: 'Inter, sans-serif',
               fontWeight: 600,
-              fontSize: '10px',
+              fontSize: '0.625rem',
               letterSpacing: '0.25em',
               textTransform: 'uppercase',
-              color: '#1A1A1A',
+              color: '#6B5D4F',
+              marginBottom: '0.5rem',
             }}
           >
             À imiter
@@ -264,17 +269,17 @@ export function CaptureScreen() {
           <img
             src={poseSrc(currentPose.image_path)}
             alt={currentPose.label}
-            className="w-full h-32 object-contain mb-2"
-            style={{ borderRadius: '2px' }}
+            className="w-full object-contain"
+            style={{ height: '6rem', borderRadius: '2px', marginBottom: '0.5rem' }}
           />
           <p
             className="text-center"
             style={{
               fontFamily: '"Playfair Display", serif',
-              fontWeight: 600,
-              fontSize: '1rem',
+              fontWeight: 500,
+              fontSize: '0.875rem',
               color: '#1A1A1A',
-              letterSpacing: '0.02em',
+              letterSpacing: '0.01em',
             }}
           >
             {currentPose.label}
@@ -372,10 +377,10 @@ export function CaptureScreen() {
             <span
               className="font-editorial leading-none"
               style={{
-                fontSize: 'clamp(14rem, 30vw, 28rem)',
-                fontWeight: 900,
+                fontSize: 'clamp(8rem, 20vw, 16rem)',
+                fontWeight: 700,
                 color: '#FAF6EE',
-                letterSpacing: '-0.05em',
+                letterSpacing: '-0.03em',
                 textShadow: '0 0 80px rgba(0,0,0,0.5)',
               }}
             >
@@ -389,22 +394,23 @@ export function CaptureScreen() {
       <AnimatePresence>
         {mode !== 'challenge' && countdown !== null && countdown > 0 && (
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: -8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
             className="absolute z-30"
-            style={{ bottom: '7rem', left: '50%', transform: 'translateX(-50%)' }}
+            style={{ bottom: '4rem', left: '50%', transform: 'translateX(-50%)' }}
           >
             <span
-              className="label-editorial px-8 py-4"
               style={{
-                color: '#1A1A1A',
-                backgroundColor: '#FAF6EE',
-                fontSize: '0.875rem',
-                letterSpacing: '0.4em',
-                fontWeight: 600,
+                color: '#FAF6EE',
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '0.75rem',
+                letterSpacing: '0.35em',
+                textTransform: 'uppercase',
+                fontWeight: 500,
                 whiteSpace: 'nowrap',
+                opacity: 0.85,
               }}
             >
               Souriez

@@ -4,22 +4,17 @@ import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 
 const fadeUp = (delay: number) => ({
-  initial: { opacity: 0, y: 16 },
+  initial: { opacity: 0, y: 12 },
   animate: { opacity: 1, y: 0 },
   transition: { delay, duration: 0.7, ease: [0.16, 1, 0.3, 1] as const },
 });
 
-function formatDateFr(iso?: string): { day: string; month: string; year: string } | null {
-  if (!iso) return null;
+function formatYear(iso?: string): string {
+  if (!iso) return String(new Date().getFullYear());
   try {
-    const d = new Date(iso);
-    return {
-      day: d.toLocaleDateString('fr-FR', { day: '2-digit' }),
-      month: d.toLocaleDateString('fr-FR', { month: 'long' }).toUpperCase(),
-      year: d.toLocaleDateString('fr-FR', { year: 'numeric' }),
-    };
+    return new Date(iso).toLocaleDateString('fr-FR', { year: 'numeric' });
   } catch {
-    return null;
+    return String(new Date().getFullYear());
   }
 }
 
@@ -28,7 +23,7 @@ export function SplashScreen() {
   const videoEnabled = settings?.video_enabled ?? true;
 
   const eventName = event?.name ?? 'Notre Évènement';
-  const eventDate = formatDateFr(event?.date);
+  const year = formatYear(event?.date);
 
   const choosePhoto = () => {
     setFlow('photo');
@@ -45,147 +40,116 @@ export function SplashScreen() {
     <Screen className="overflow-hidden">
       <div className="absolute inset-0" style={{ backgroundColor: '#F4ECDD' }} />
 
-      <div className="relative z-10 h-full flex flex-col px-16 py-10">
-        {/* HEADER éditorial */}
+      <div className="relative z-10 h-full flex flex-col" style={{ padding: '2.5rem 5rem' }}>
+        {/* HEADER éditorial sobre */}
         <motion.div
           {...fadeUp(0.1)}
-          className="flex items-center justify-between pb-4"
+          className="flex items-center justify-between pt-3 pb-3"
           style={{ borderBottom: '1px solid #1A1A1A' }}
         >
           <span className="label-editorial" style={{ color: '#1A1A1A' }}>
             Bienvenue
           </span>
           <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            Photobooth Pro
-          </span>
-          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            Issue {eventDate?.year ?? new Date().getFullYear()}
+            Issue {year}
           </span>
         </motion.div>
 
-        {/* CORPS */}
-        <div className="flex-1 flex flex-col items-center justify-center text-center">
+        {/* CORPS centré */}
+        <div className="flex-1 flex flex-col items-center justify-center text-center" style={{ paddingTop: '3rem', paddingBottom: '3rem' }}>
           <motion.p
             {...fadeUp(0.25)}
-            className="label-editorial mb-5"
-            style={{ color: '#6B5D4F' }}
+            className="label-editorial"
+            style={{ color: '#6B5D4F', marginBottom: '1.5rem' }}
           >
-            The Wedding Issue
+            Bienvenue
           </motion.p>
 
           <motion.h1
             {...fadeUp(0.35)}
-            className="font-editorial leading-[0.9] mb-3"
+            className="font-editorial"
             style={{
-              fontSize: 'clamp(4.5rem, 10vw, 10rem)',
+              fontSize: 'clamp(2.25rem, 4vw, 3rem)',
               color: '#1A1A1A',
-              fontWeight: 900,
-              letterSpacing: '-0.04em',
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
+              lineHeight: 1.1,
+              maxWidth: '36rem',
             }}
           >
-            {eventName.toUpperCase()}
+            {eventName}
           </motion.h1>
 
-          {eventDate && (
-            <motion.div {...fadeUp(0.5)} className="flex items-center gap-5 mt-2 mb-12">
-              <div className="editorial-rule-light" style={{ width: '3rem' }} />
-              <div className="flex items-baseline gap-3">
-                <span
-                  className="font-editorial"
-                  style={{ fontSize: '1.75rem', color: '#1A1A1A', fontWeight: 700 }}
-                >
-                  {eventDate.day}
-                </span>
-                <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-                  {eventDate.month}
-                </span>
-                <span
-                  className="font-editorial"
-                  style={{ fontSize: '1.75rem', color: '#1A1A1A', fontWeight: 700 }}
-                >
-                  {eventDate.year}
-                </span>
-              </div>
-              <div className="editorial-rule-light" style={{ width: '3rem' }} />
-            </motion.div>
-          )}
-
           <motion.p
-            {...fadeUp(0.7)}
-            className="label-editorial mb-8"
-            style={{ color: '#6B5D4F' }}
+            {...fadeUp(0.55)}
+            className="label-editorial"
+            style={{ color: '#6B5D4F', marginTop: '4rem', marginBottom: '2.5rem' }}
           >
             Choisissez votre format
           </motion.p>
 
-          {/* Cards Photo / Vidéo — agrandies, sans sous-textes */}
-          <div className="grid grid-cols-2 gap-8 w-full max-w-5xl">
+          {/* Cards Photo / Vidéo — petites, centrées, espacées */}
+          <div className="flex items-center justify-center" style={{ gap: '3rem' }}>
             <motion.button
-              {...fadeUp(0.85)}
+              {...fadeUp(0.7)}
               onClick={choosePhoto}
-              className="card-editorial flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02]"
-              style={{ minHeight: 460, padding: '4rem 3rem' }}
+              className="flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02]"
+              style={{
+                width: 280,
+                height: 320,
+                backgroundColor: '#FAF6EE',
+                borderRadius: '24px',
+                border: '1px solid rgba(212, 184, 150, 0.4)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+                cursor: 'pointer',
+                gap: '1.75rem',
+              }}
             >
-              <div
-                className="flex items-center justify-center mb-10"
-                style={{
-                  width: 140,
-                  height: 140,
-                  backgroundColor: '#1A1A1A',
-                  borderRadius: '8px',
-                }}
-              >
-                <MdCameraAlt size={72} color="#FAF6EE" />
-              </div>
+              <MdCameraAlt size={56} color="#1A1A1A" />
               <h2
                 className="font-editorial"
                 style={{
-                  fontSize: 'clamp(3rem, 5vw, 4.5rem)',
+                  fontSize: '2rem',
                   color: '#1A1A1A',
-                  fontWeight: 900,
-                  letterSpacing: '-0.03em',
+                  fontWeight: 600,
+                  letterSpacing: '-0.01em',
                   lineHeight: 1,
                 }}
               >
-                PHOTO
+                Photo
               </h2>
             </motion.button>
 
             <motion.button
-              {...fadeUp(1)}
+              {...fadeUp(0.85)}
               onClick={chooseVideo}
               disabled={!videoEnabled}
-              className="card-editorial flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02]"
+              className="flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02]"
               style={{
-                minHeight: 460,
-                padding: '4rem 3rem',
+                width: 280,
+                height: 320,
+                backgroundColor: '#FAF6EE',
+                borderRadius: '24px',
+                border: '1px solid rgba(212, 184, 150, 0.4)',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
                 opacity: videoEnabled ? 1 : 0.4,
                 cursor: videoEnabled ? 'pointer' : 'not-allowed',
+                gap: '1.75rem',
               }}
               title={videoEnabled ? 'Enregistrer une vidéo' : 'Mode vidéo désactivé'}
             >
-              <div
-                className="flex items-center justify-center mb-10"
-                style={{
-                  width: 140,
-                  height: 140,
-                  backgroundColor: '#E8DCC4',
-                  borderRadius: '8px',
-                }}
-              >
-                <MdVideocam size={72} color="#1A1A1A" />
-              </div>
+              <MdVideocam size={56} color="#1A1A1A" />
               <h2
                 className="font-editorial"
                 style={{
-                  fontSize: 'clamp(3rem, 5vw, 4.5rem)',
+                  fontSize: '2rem',
                   color: '#1A1A1A',
-                  fontWeight: 900,
-                  letterSpacing: '-0.03em',
+                  fontWeight: 600,
+                  letterSpacing: '-0.01em',
                   lineHeight: 1,
                 }}
               >
-                VIDÉO
+                Vidéo
               </h2>
             </motion.button>
           </div>
@@ -193,15 +157,12 @@ export function SplashScreen() {
 
         {/* FOOTER */}
         <motion.div
-          {...fadeUp(1.1)}
-          className="flex items-center justify-between pt-4 mt-6"
+          {...fadeUp(1)}
+          className="flex items-center justify-between pt-3 pb-3"
           style={{ borderTop: '1px solid #1A1A1A' }}
         >
           <span className="label-editorial" style={{ color: '#1A1A1A' }}>
             Édition limitée
-          </span>
-          <span className="label-editorial" style={{ color: '#6B5D4F' }}>
-            Touchez un format pour commencer
           </span>
           <span className="label-editorial" style={{ color: '#1A1A1A' }}>
             № 001
