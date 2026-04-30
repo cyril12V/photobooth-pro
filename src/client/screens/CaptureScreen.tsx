@@ -4,8 +4,8 @@ import { MdArrowBack, MdErrorOutline } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { sounds } from '@shared/lib/sounds';
-import { poseSrc, localFileUrl } from '@shared/lib/poseAssets';
-import type { TemplateConfig, TemplateElement } from '@shared/types';
+import { poseSrc } from '@shared/lib/poseAssets';
+import type { TemplateConfig } from '@shared/types';
 
 export function CaptureScreen() {
   const { setScreen, setCurrentPhoto, pushPhoto, clearPhotos, mode, selectedPose, selectedPoses, settings } = useAppStore();
@@ -19,7 +19,6 @@ export function CaptureScreen() {
   // Données du template actif (ratio + nombre de slots)
   const [templateRatio, setTemplateRatio] = useState<{ w: number; h: number }>({ w: 1200, h: 1800 });
   const [totalSlots, setTotalSlots] = useState(1);
-  const [templateElements, setTemplateElements] = useState<TemplateElement[]>([]);
   const [capturedCount, setCapturedCount] = useState(0);
   // Ref pour lire capturedCount synchroniquement dans les callbacks
   const capturedCountRef = useRef(0);
@@ -39,7 +38,6 @@ export function CaptureScreen() {
           const h = config.canvas_height || 1800;
           setTemplateRatio({ w, h });
           const elements = Array.isArray(config.elements) ? config.elements : [];
-          setTemplateElements(elements);
           const slots = elements.filter((el) => el.type === 'photo-slot').length;
           setTotalSlots(slots > 0 ? slots : 1);
         }
@@ -417,219 +415,3 @@ export function CaptureScreen() {
   );
 }
 
-// ─── Overlay du template sur la vidéo ─────────────────────────────────────
-// Affiche les éléments du template actif en semi-transparent sur la vidéo
-// caméra, à l'intérieur du guide de cadrage, pour aider les sujets à se
-// positionner. Les positions sont scalées en pourcentage du canvas afin de
-// suivre exactement le ratio du template (1200×1800 par défaut).
-interface TemplateOverlayProps {
-  elements: TemplateElement[];
-  canvasW: number;
-  canvasH: number;
-}
-
-function TemplateOverlay({ elements, canvasW, canvasH }: TemplateOverlayProps) {
-  const sorted = [...elements].sort((a, b) => a.z - b.z);
-
-  return (
-    <div
-      className="absolute inset-0 pointer-events-none overflow-hidden"
-      style={{ borderRadius: '4px' }}
-    >
-      {sorted.map((el) => {
-        const leftPct = (el.x / canvasW) * 100;
-        const topPct = (el.y / canvasH) * 100;
-        const widthPct = (el.width / canvasW) * 100;
-        const heightPct = (el.height / canvasH) * 100;
-
-        const baseStyle: React.CSSProperties = {
-          position: 'absolute',
-          left: `${leftPct}%`,
-          top: `${topPct}%`,
-          width: `${widthPct}%`,
-          height: `${heightPct}%`,
-          transform: el.rotation ? `rotate(${el.rotation}deg)` : undefined,
-        };
-
-        if (el.type === 'photo-slot') {
-          return (
-            <div
-              key={el.id}
-              style={{
-                ...baseStyle,
-                border: '3px solid rgba(212, 165, 116, 0.9)',
-                boxShadow: '0 0 0 1px rgba(0,0,0,0.25), 0 0 24px rgba(212, 165, 116, 0.35)',
-                borderRadius: el.border_radius
-                  ? `${(el.border_radius / canvasW) * 100}%`
-                  : undefined,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: 'transparent',
-              }}
-            >
-              <span
-                style={{
-                  color: '#FAF6EE',
-                  fontFamily: 'Inter, sans-serif',
-                  fontWeight: 600,
-                  fontSize: '0.625rem',
-                  letterSpacing: '0.3em',
-                  textTransform: 'uppercase',
-                  textShadow: '0 1px 4px rgba(0,0,0,0.7)',
-                }}
-              >
-                Zone photo
-              </span>
-            </div>
-          );
-        }
-
-        if (el.type === 'text') {
-          // On utilise une scale en vw pour garder une taille proche de la
-          // proportion réelle. Comme la zone d'affichage a une hauteur de
-          // 86vh, on convertit la font_size en pourcentage de la hauteur du
-          // canvas.
-          const fontSizePct = (el.font_size / canvasH) * 100;
-          return (
-            <div
-              key={el.id}
-              style={{
-                ...baseStyle,
-                opacity: 0.75,
-                fontFamily: el.font_family,
-                fontSize: `${fontSizePct}cqh`,
-                fontWeight: el.font_weight,
-                fontStyle: el.italic ? 'italic' : 'normal',
-                color: el.color,
-                textAlign: el.align,
-                letterSpacing: `${(el.letter_spacing / canvasW) * 100}cqw`,
-                textShadow: '0 1px 4px rgba(0,0,0,0.5)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent:
-                  el.align === 'left'
-                    ? 'flex-start'
-                    : el.align === 'right'
-                      ? 'flex-end'
-                      : 'center',
-                overflow: 'hidden',
-                whiteSpace: 'nowrap',
-                containerType: 'size',
-              }}
-            >
-              {el.text}
-            </div>
-          );
-        }
-
-        if (el.type === 'frame') {
-          const strokePct = Math.max(
-            (el.stroke_width / canvasW) * 100,
-            0.1,
-          );
-          return (
-            <div
-              key={el.id}
-              style={{
-                ...baseStyle,
-                border: `${strokePct}cqw solid ${el.stroke}`,
-                borderRadius: el.border_radius
-                  ? `${(el.border_radius / canvasW) * 100}%`
-                  : undefined,
-                background: 'transparent',
-                opacity: 0.7,
-                containerType: 'size',
-              }}
-            />
-          );
-        }
-
-        if (el.type === 'shape') {
-          const strokePct = Math.max(
-            (el.stroke_width / canvasW) * 100,
-            0,
-          );
-          if (el.shape === 'circle') {
-            return (
-              <div
-                key={el.id}
-                style={{
-                  ...baseStyle,
-                  borderRadius: '50%',
-                  background: el.fill,
-                  border:
-                    el.stroke_width > 0
-                      ? `${strokePct}cqw solid ${el.stroke}`
-                      : undefined,
-                  opacity: el.opacity * 0.5,
-                  containerType: 'size',
-                }}
-              />
-            );
-          }
-          if (el.shape === 'line') {
-            return (
-              <div
-                key={el.id}
-                style={{
-                  ...baseStyle,
-                  background: el.stroke,
-                  opacity: el.opacity * 0.6,
-                }}
-              />
-            );
-          }
-          return (
-            <div
-              key={el.id}
-              style={{
-                ...baseStyle,
-                background: el.fill,
-                border:
-                  el.stroke_width > 0
-                    ? `${strokePct}cqw solid ${el.stroke}`
-                    : undefined,
-                borderRadius: el.border_radius
-                  ? `${(el.border_radius / canvasW) * 100}%`
-                  : undefined,
-                opacity: el.opacity * 0.5,
-                containerType: 'size',
-              }}
-            />
-          );
-        }
-
-        if (el.type === 'image' || el.type === 'logo') {
-          return (
-            <div
-              key={el.id}
-              style={{
-                ...baseStyle,
-                opacity: 0.5,
-                borderRadius: el.border_radius
-                  ? `${(el.border_radius / canvasW) * 100}%`
-                  : undefined,
-                overflow: 'hidden',
-              }}
-            >
-              {el.src ? (
-                <img
-                  src={localFileUrl(el.src)}
-                  alt=""
-                  style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: el.fit,
-                  }}
-                />
-              ) : null}
-            </div>
-          );
-        }
-
-        return null;
-      })}
-    </div>
-  );
-}
