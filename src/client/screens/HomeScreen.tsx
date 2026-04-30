@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { MdCameraAlt, MdArrowBack, MdImageNotSupported } from 'react-icons/md';
+import { MdCameraAlt, MdBolt, MdArrowBack, MdImageNotSupported } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { localFileUrl } from '@shared/lib/poseAssets';
