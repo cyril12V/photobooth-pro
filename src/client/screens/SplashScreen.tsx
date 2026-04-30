@@ -118,96 +118,75 @@ export function SplashScreen() {
             Choisissez votre format
           </motion.p>
 
-          {/* Cards Photo / Vidéo */}
-          <div className="grid grid-cols-2 gap-6 w-full max-w-3xl">
+          {/* Cards Photo / Vidéo — agrandies, sans sous-textes */}
+          <div className="grid grid-cols-2 gap-8 w-full max-w-5xl">
             <motion.button
               {...fadeUp(0.85)}
               onClick={choosePhoto}
-              className="card-editorial p-10 flex flex-col items-center text-center"
-              style={{ minHeight: 320 }}
+              className="card-editorial flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02]"
+              style={{ minHeight: 460, padding: '4rem 3rem' }}
             >
               <div
-                className="w-20 h-20 flex items-center justify-center mb-6"
+                className="flex items-center justify-center mb-10"
                 style={{
+                  width: 140,
+                  height: 140,
                   backgroundColor: '#1A1A1A',
-                  borderRadius: '4px',
+                  borderRadius: '8px',
                 }}
               >
-                <MdCameraAlt size={40} color="#FAF6EE" />
+                <MdCameraAlt size={72} color="#FAF6EE" />
               </div>
-              <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
-                Photo
-              </p>
               <h2
-                className="font-editorial mb-3"
+                className="font-editorial"
                 style={{
-                  fontSize: '2.25rem',
+                  fontSize: 'clamp(3rem, 5vw, 4.5rem)',
                   color: '#1A1A1A',
-                  fontWeight: 800,
-                  letterSpacing: '-0.02em',
+                  fontWeight: 900,
+                  letterSpacing: '-0.03em',
+                  lineHeight: 1,
                 }}
               >
-                Classique
+                PHOTO
               </h2>
-              <p
-                style={{
-                  color: '#6B5D4F',
-                  fontFamily: 'Inter, sans-serif',
-                  fontSize: '0.875rem',
-                  lineHeight: 1.5,
-                  maxWidth: 240,
-                }}
-              >
-                Capturez un instant à imprimer ou à recevoir par email.
-              </p>
             </motion.button>
 
             <motion.button
               {...fadeUp(1)}
               onClick={chooseVideo}
               disabled={!videoEnabled}
-              className="card-editorial p-10 flex flex-col items-center text-center"
+              className="card-editorial flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02]"
               style={{
-                minHeight: 320,
+                minHeight: 460,
+                padding: '4rem 3rem',
                 opacity: videoEnabled ? 1 : 0.4,
                 cursor: videoEnabled ? 'pointer' : 'not-allowed',
               }}
               title={videoEnabled ? 'Enregistrer une vidéo' : 'Mode vidéo désactivé'}
             >
               <div
-                className="w-20 h-20 flex items-center justify-center mb-6"
+                className="flex items-center justify-center mb-10"
                 style={{
+                  width: 140,
+                  height: 140,
                   backgroundColor: '#E8DCC4',
-                  borderRadius: '4px',
+                  borderRadius: '8px',
                 }}
               >
-                <MdVideocam size={40} color="#1A1A1A" />
+                <MdVideocam size={72} color="#1A1A1A" />
               </div>
-              <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
-                Vidéo
-              </p>
               <h2
-                className="font-editorial mb-3"
+                className="font-editorial"
                 style={{
-                  fontSize: '2.25rem',
+                  fontSize: 'clamp(3rem, 5vw, 4.5rem)',
                   color: '#1A1A1A',
-                  fontWeight: 800,
-                  letterSpacing: '-0.02em',
+                  fontWeight: 900,
+                  letterSpacing: '-0.03em',
+                  lineHeight: 1,
                 }}
               >
-                Message
+                VIDÉO
               </h2>
-              <p
-                style={{
-                  color: '#6B5D4F',
-                  fontFamily: 'Inter, sans-serif',
-                  fontSize: '0.875rem',
-                  lineHeight: 1.5,
-                  maxWidth: 240,
-                }}
-              >
-                Laissez un message ou répondez à des questions.
-              </p>
             </motion.button>
           </div>
         </div>

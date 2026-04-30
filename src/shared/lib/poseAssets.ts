@@ -18,26 +18,77 @@ export function localFileUrl(p: string): string {
 export const poseSrc = localFileUrl;
 
 /**
- * Génère une SVG data URL pour une pose prédéfinie.
- * Format : carré 200×200, fond cream, emoji centré + label.
+ * Échappe les caractères XML pour insertion sécurisée dans un attribut/texte SVG.
  */
-function makePoseSvg(emoji: string, label: string): string {
+function escapeXml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+/**
+ * Choisit un pictogramme géométrique éditorial (purement décoratif) en fonction
+ * de l'index — un point, un filet, un rond, une croix fine. Le rendu est
+ * indépendant du sens de la pose : c'est un ornement, pas une icône.
+ */
+function ornamentSvg(index: number): string {
+  const variant = index % 4;
+  const stroke = '#1A1A1A';
+  switch (variant) {
+    case 0:
+      // Filet horizontal centré
+      return `<line x1="86" y1="48" x2="114" y2="48" stroke="${stroke}" stroke-width="1"/>`;
+    case 1:
+      // Petit point
+      return `<circle cx="100" cy="48" r="2" fill="${stroke}"/>`;
+    case 2:
+      // Rond fin
+      return `<circle cx="100" cy="48" r="5" fill="none" stroke="${stroke}" stroke-width="1"/>`;
+    default:
+      // Croix fine
+      return `<line x1="94" y1="48" x2="106" y2="48" stroke="${stroke}" stroke-width="1"/><line x1="100" y1="42" x2="100" y2="54" stroke="${stroke}" stroke-width="1"/>`;
+  }
+}
+
+/**
+ * Adapte la taille de la typographie en fonction de la longueur du label
+ * pour rester lisible et bien centré dans le carré 200×200.
+ */
+function fontSizeForLabel(label: string): number {
+  const len = label.length;
+  if (len <= 5) return 28;
+  if (len <= 8) return 24;
+  if (len <= 12) return 20;
+  if (len <= 16) return 16;
+  return 14;
+}
+
+/**
+ * Génère une SVG data URL pour une pose prédéfinie — DA éditoriale Vogue.
+ * Format carré 200×200, fond ivoire, rectangle interne plus clair, label en
+ * Playfair Display capitales, numérotation magazine "№ XX" et un petit
+ * pictogramme géométrique discret en ornement.
+ *
+ * @param _emoji — ignoré (conservé pour rétro-compatibilité de signature)
+ * @param label — texte affiché en gros (mis en majuscules)
+ * @param index — numéro éditorial 1-based pour la mention "№ XX"
+ */
+function makePoseSvg(_emoji: string, label: string, index: number): string {
+  const safeLabel = escapeXml(label.toUpperCase());
+  const number = String(index).padStart(2, '0');
+  const fontSize = fontSizeForLabel(label);
+
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
-    <defs>
-      <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#faf6ef"/>
-        <stop offset="100%" stop-color="#f5e6d3"/>
-      </linearGradient>
-      <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#e8c79a"/>
-        <stop offset="100%" stop-color="#d4a574"/>
-      </linearGradient>
-    </defs>
-    <rect width="200" height="200" rx="24" fill="url(#bg)"/>
-    <rect x="6" y="6" width="188" height="188" rx="20" fill="none" stroke="url(#ring)" stroke-width="1.5" opacity="0.6"/>
-    <text x="100" y="118" font-size="84" text-anchor="middle" dominant-baseline="middle" font-family="Apple Color Emoji, Segoe UI Emoji, Noto Color Emoji, sans-serif">${emoji}</text>
-    <text x="100" y="172" font-size="13" letter-spacing="2" text-anchor="middle" fill="#5a3e2b" font-family="Manrope, sans-serif" font-weight="600">${label.toUpperCase()}</text>
-  </svg>`;
+  <rect width="200" height="200" fill="#F4ECDD"/>
+  <rect x="12" y="12" width="176" height="176" fill="#FAF6EE" stroke="#1A1A1A" stroke-width="1"/>
+  ${ornamentSvg(index)}
+  <text x="100" y="78" text-anchor="middle" fill="#6B5D4F" font-family="Inter, system-ui, sans-serif" font-size="9" font-weight="600" letter-spacing="2.7">N&#176; ${number}</text>
+  <text x="100" y="118" text-anchor="middle" dominant-baseline="middle" fill="#1A1A1A" font-family="Playfair Display, Bodoni Moda, Didot, serif" font-weight="900" font-size="${fontSize}" letter-spacing="1">${safeLabel}</text>
+  <line x1="86" y1="148" x2="114" y2="148" stroke="#1A1A1A" stroke-width="0.75"/>
+</svg>`;
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
@@ -47,25 +98,29 @@ export interface PresetPose {
   image_path: string;
 }
 
-function pose(label: string, emoji: string): PresetPose {
-  return { label, emoji, image_path: makePoseSvg(emoji, label) };
+function pose(label: string, emoji: string, index: number): PresetPose {
+  return { label, emoji, image_path: makePoseSvg(emoji, label, index) };
 }
 
-export const PRESET_POSES: PresetPose[] = [
-  pose('Câlin', '🤗'),
-  pose('Bisou', '💋'),
-  pose('Saut groupé', '🦘'),
-  pose('Danse', '💃'),
-  pose('Cœur mains', '🫶'),
-  pose('Rock & Roll', '🤘'),
-  pose('Peace', '✌️'),
-  pose('Bras levés', '🙌'),
-  pose('Cool', '😎'),
-  pose('Toast', '🥂'),
-  pose('Surprise', '😲'),
-  pose('Grimace', '😜'),
-  pose('Selfie', '🤳'),
-  pose('Doigts croisés', '🤞'),
-  pose('Pouce en l\'air', '👍'),
-  pose('Mains jointes', '🙏'),
+const POSE_LABELS: Array<{ label: string; emoji: string }> = [
+  { label: 'Câlin', emoji: '🤗' },
+  { label: 'Bisou', emoji: '💋' },
+  { label: 'Saut groupé', emoji: '🦘' },
+  { label: 'Danse', emoji: '💃' },
+  { label: 'Cœur mains', emoji: '🫶' },
+  { label: 'Rock & Roll', emoji: '🤘' },
+  { label: 'Peace', emoji: '✌️' },
+  { label: 'Bras levés', emoji: '🙌' },
+  { label: 'Cool', emoji: '😎' },
+  { label: 'Toast', emoji: '🥂' },
+  { label: 'Surprise', emoji: '😲' },
+  { label: 'Grimace', emoji: '😜' },
+  { label: 'Selfie', emoji: '🤳' },
+  { label: 'Doigts croisés', emoji: '🤞' },
+  { label: "Pouce en l'air", emoji: '👍' },
+  { label: 'Mains jointes', emoji: '🙏' },
 ];
+
+export const PRESET_POSES: PresetPose[] = POSE_LABELS.map((p, i) =>
+  pose(p.label, p.emoji, i + 1),
+);

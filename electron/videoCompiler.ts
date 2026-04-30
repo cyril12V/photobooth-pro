@@ -98,12 +98,21 @@ async function readInterviewLog(p: string | null): Promise<InterviewLog | null> 
   }
 }
 
-function probe(filepath: string): Promise<ffmpeg.FfprobeData> {
+/**
+ * Validation rapide qu'un fichier est lisible par ffmpeg.
+ * On n'utilise PAS ffprobe (le binaire ffprobe n'est pas inclus dans
+ * ffmpeg-static), donc on lance ffmpeg en mode "info" qui sort avec
+ * un code 0 si le fichier est valide.
+ */
+function probe(filepath: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    ffmpeg.ffprobe(filepath, (err, data) => {
-      if (err) reject(err);
-      else resolve(data);
-    });
+    ffmpeg(filepath)
+      .outputOptions(['-f', 'null'])
+      .output('-')
+      .duration(0.1)
+      .on('end', () => resolve())
+      .on('error', (err) => reject(err))
+      .run();
   });
 }
 

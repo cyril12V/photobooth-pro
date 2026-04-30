@@ -4,8 +4,8 @@ import { MdArrowBack, MdErrorOutline } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { sounds } from '@shared/lib/sounds';
-import { poseSrc } from '@shared/lib/poseAssets';
-import type { TemplateConfig } from '@shared/types';
+import { poseSrc, localFileUrl } from '@shared/lib/poseAssets';
+import type { TemplateConfig, TemplateElement } from '@shared/types';
 
 export function CaptureScreen() {
   const { setScreen, setCurrentPhoto, pushPhoto, clearPhotos, mode, selectedPose, selectedPoses, settings } = useAppStore();
@@ -19,6 +19,7 @@ export function CaptureScreen() {
   // Données du template actif (ratio + nombre de slots)
   const [templateRatio, setTemplateRatio] = useState<{ w: number; h: number }>({ w: 1200, h: 1800 });
   const [totalSlots, setTotalSlots] = useState(1);
+  const [templateElements, setTemplateElements] = useState<TemplateElement[]>([]);
   const [capturedCount, setCapturedCount] = useState(0);
   // Ref pour lire capturedCount synchroniquement dans les callbacks
   const capturedCountRef = useRef(0);
@@ -37,7 +38,9 @@ export function CaptureScreen() {
           const w = config.canvas_width || 1200;
           const h = config.canvas_height || 1800;
           setTemplateRatio({ w, h });
-          const slots = config.elements.filter((el) => el.type === 'photo-slot').length;
+          const elements = Array.isArray(config.elements) ? config.elements : [];
+          setTemplateElements(elements);
+          const slots = elements.filter((el) => el.type === 'photo-slot').length;
           setTotalSlots(slots > 0 ? slots : 1);
         }
       } catch {
@@ -231,14 +234,14 @@ export function CaptureScreen() {
           : 'Capture en cours'}
       </div>
 
-      {/* Pose à imiter — card éditoriale crème */}
+      {/* Pose à imiter — card éditoriale crème, en bas-droite pour ne pas chevaucher le retour */}
       {mode === 'challenge' && currentPose && (
         <motion.div
           key={currentPose.id}
           initial={{ opacity: 0, x: 20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute top-20 right-8 z-30 p-4 w-52"
+          className="absolute bottom-8 right-8 z-30 p-4 w-56"
           style={{
             backgroundColor: '#FAF6EE',
             borderRadius: '4px',
@@ -301,6 +304,14 @@ export function CaptureScreen() {
               borderRadius: '4px',
             }}
           >
+            {/* Overlay du template — masqué pendant le snap pour ne pas polluer la photo */}
+            {templateElements.length > 0 && countdown !== 0 && (
+              <TemplateOverlay
+                elements={templateElements}
+                canvasW={templateRatio.w}
+                canvasH={templateRatio.h}
+              />
+            )}
             {/* Coins éditoriaux */}
             <div className="absolute -top-1 -left-1 w-8 h-8" style={{ borderTop: '2px solid #FAF6EE', borderLeft: '2px solid #FAF6EE' }} />
             <div className="absolute -top-1 -right-1 w-8 h-8" style={{ borderTop: '2px solid #FAF6EE', borderRight: '2px solid #FAF6EE' }} />

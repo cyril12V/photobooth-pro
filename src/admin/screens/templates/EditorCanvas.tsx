@@ -116,7 +116,7 @@ function CanvasElement({ el, scale, selected, event, onSelect, onUpdate }: Eleme
         outlineOffset: '2px',
         cursor: 'move',
       }}
-      enableResizing={selected}
+      enableResizing={!el.locked}
       resizeHandleStyles={resizeHandleStyles}
       disableDragging={el.locked}
       bounds="parent"

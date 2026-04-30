@@ -172,19 +172,6 @@ export function HomeScreen() {
               </button>
             </motion.div>
 
-            <motion.p
-              {...fadeUp(0.95)}
-              className="mt-5 text-sm"
-              style={{
-                color: '#6B5D4F',
-                fontFamily: 'Inter, sans-serif',
-                lineHeight: 1.5,
-                maxWidth: '32rem',
-              }}
-            >
-              Capturez l'instant. Une photo classique pour l'élégance, un défi pour l'amusement.
-              Chaque souvenir devient une couverture éditoriale.
-            </motion.p>
           </div>
 
           {/* DROITE : photo couple */}
