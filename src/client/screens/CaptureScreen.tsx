@@ -309,14 +309,6 @@ export function CaptureScreen() {
               borderRadius: '4px',
             }}
           >
-            {/* Overlay du template — masqué pendant le snap pour ne pas polluer la photo */}
-            {templateElements.length > 0 && countdown !== 0 && (
-              <TemplateOverlay
-                elements={templateElements}
-                canvasW={templateRatio.w}
-                canvasH={templateRatio.h}
-              />
-            )}
             {/* Coins éditoriaux */}
             <div className="absolute -top-1 -left-1 w-8 h-8" style={{ borderTop: '2px solid #FAF6EE', borderLeft: '2px solid #FAF6EE' }} />
             <div className="absolute -top-1 -right-1 w-8 h-8" style={{ borderTop: '2px solid #FAF6EE', borderRight: '2px solid #FAF6EE' }} />
