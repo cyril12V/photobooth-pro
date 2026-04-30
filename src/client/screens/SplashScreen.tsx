@@ -96,7 +96,7 @@ export function SplashScreen() {
               className="flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02]"
               style={{
                 width: 280,
-                height: 320,
+                height: 280,
                 backgroundColor: '#FAF6EE',
                 borderRadius: '24px',
                 border: '1px solid rgba(212, 184, 150, 0.4)',
@@ -127,7 +127,7 @@ export function SplashScreen() {
               className="flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02]"
               style={{
                 width: 280,
-                height: 320,
+                height: 280,
                 backgroundColor: '#FAF6EE',
                 borderRadius: '24px',
                 border: '1px solid rgba(212, 184, 150, 0.4)',

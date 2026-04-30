@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { MdCameraAlt, MdBolt, MdArrowBack, MdImageNotSupported } from 'react-icons/md';
+import { MdCameraAlt, MdArrowBack, MdImageNotSupported } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { localFileUrl } from '@shared/lib/poseAssets';
@@ -65,17 +65,6 @@ export function HomeScreen() {
     <Screen className="overflow-hidden">
       <div className="absolute inset-0" style={{ backgroundColor: '#F4ECDD' }} />
 
-      {videoEnabled && (
-        <motion.button
-          {...fadeUp(0.05)}
-          onClick={() => setScreen('splash')}
-          className="absolute top-8 left-8 z-30 btn-editorial-ghost"
-        >
-          <MdArrowBack size={18} />
-          <span>Retour</span>
-        </motion.button>
-      )}
-
       <div className="relative z-10 h-full flex flex-col" style={{ padding: '2.5rem 5rem' }}>
         {/* HEADER éditorial sobre */}
         <motion.div
@@ -83,9 +72,19 @@ export function HomeScreen() {
           className="flex items-center justify-between pt-3 pb-3"
           style={{ borderBottom: '1px solid #1A1A1A' }}
         >
-          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            Photo
-          </span>
+          {videoEnabled ? (
+            <button
+              onClick={() => setScreen('splash')}
+              className="btn-editorial-ghost"
+            >
+              <MdArrowBack size={18} />
+              <span>Retour</span>
+            </button>
+          ) : (
+            <span className="label-editorial" style={{ color: '#1A1A1A' }}>
+              Photo
+            </span>
+          )}
           <span className="label-editorial" style={{ color: '#1A1A1A' }}>
             Issue {date?.year ?? new Date().getFullYear()}
           </span>
