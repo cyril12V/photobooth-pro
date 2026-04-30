@@ -4,8 +4,6 @@ import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { localFileUrl } from '@shared/lib/poseAssets';
 
-// ─── Formatage date ───────────────────────────────────────────────────────────
-
 function formatDate(iso?: string): { day: string; month: string; year: string } | null {
   if (!iso) return null;
   try {
@@ -23,13 +21,13 @@ function formatDate(iso?: string): { day: string; month: string; year: string } 
 const fadeUp = (delay: number) => ({
   initial: { opacity: 0, y: 14 },
   animate: { opacity: 1, y: 0 },
-  transition: { delay, duration: 0.9, ease: [0.16, 1, 0.3, 1] as const },
+  transition: { delay, duration: 0.85, ease: [0.16, 1, 0.3, 1] as const },
 });
 
 const fadeIn = (delay: number) => ({
   initial: { opacity: 0 },
   animate: { opacity: 1 },
-  transition: { delay, duration: 1.4, ease: [0.16, 1, 0.3, 1] as const },
+  transition: { delay, duration: 1.2, ease: [0.16, 1, 0.3, 1] as const },
 });
 
 export function HomeScreen() {
@@ -51,50 +49,22 @@ export function HomeScreen() {
 
   return (
     <Screen className="overflow-hidden">
-      {/* PHOTO HERO — plein écran, c'est ELLE qui crée la vibe */}
-      <div className="absolute inset-0" style={{ backgroundColor: '#1A1A1A' }}>
-        {photoSrc ? (
-          <motion.img
-            {...fadeIn(0)}
-            src={photoSrc}
-            alt="Couple"
-            className="w-full h-full object-cover photo-warm"
-            draggable={false}
-          />
-        ) : (
-          // Fallback texturé crème quand pas de photo
-          <div
-            className="w-full h-full"
-            style={{
-              background:
-                'radial-gradient(ellipse 90% 70% at 50% 30%, #E8DCC4 0%, #D4B896 60%, #6B5D4F 100%)',
-            }}
-          />
-        )}
-      </div>
+      {/* Fond ivoire */}
+      <div className="absolute inset-0" style={{ backgroundColor: '#F4ECDD' }} />
 
-      {/* OVERLAY dégradé pour lisibilité du texte (vignette légère) */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.05) 22%, rgba(0,0,0,0.05) 60%, rgba(0,0,0,0.65) 100%)',
-        }}
-      />
-
-      {/* Bouton retour ghost (vidéo activée) */}
+      {/* Bouton retour */}
       {videoEnabled && (
         <motion.button
-          {...fadeUp(0.4)}
+          {...fadeUp(0.2)}
           onClick={() => setScreen('splash')}
           className="absolute top-8 left-8 z-30 flex items-center gap-2 px-3 py-2"
           style={{
-            color: '#FAF6EE',
+            color: '#1A1A1A',
             fontFamily: 'Inter, sans-serif',
             fontWeight: 500,
-            fontSize: '0.75rem',
+            fontSize: '0.7rem',
             textTransform: 'uppercase',
-            letterSpacing: '0.2em',
+            letterSpacing: '0.25em',
             background: 'transparent',
             border: 'none',
             cursor: 'pointer',
@@ -105,18 +75,18 @@ export function HomeScreen() {
         </motion.button>
       )}
 
-      {/* Numéro éditorial latéral droit (signature magazine) */}
+      {/* Numéro éditorial vertical droit */}
       <motion.div
-        {...fadeIn(0.6)}
-        className="absolute right-8 top-1/2 z-20 pointer-events-none"
+        {...fadeIn(0.5)}
+        className="absolute right-7 top-1/2 z-20 pointer-events-none"
         style={{
           transform: 'rotate(90deg) translateX(50%)',
           transformOrigin: 'right center',
-          color: '#FAF6EE',
-          opacity: 0.85,
+          color: '#1A1A1A',
+          opacity: 0.55,
           fontFamily: 'Inter, sans-serif',
           fontWeight: 500,
-          fontSize: '0.7rem',
+          fontSize: '0.65rem',
           letterSpacing: '0.45em',
           textTransform: 'uppercase',
           whiteSpace: 'nowrap',
@@ -125,17 +95,17 @@ export function HomeScreen() {
         Issue №01 · {date?.year ?? new Date().getFullYear()}
       </motion.div>
 
-      {/* CONTENU ÉDITORIAL — superposé à la photo */}
-      <div className="relative z-10 h-full flex flex-col" style={{ padding: '3rem 5rem' }}>
-        {/* HEADER bandeau haut sur la photo (filet ivoire fin) */}
+      {/* CONTENU */}
+      <div className="relative z-10 h-full flex flex-col" style={{ padding: '2.5rem 5rem' }}>
+        {/* HEADER éditorial */}
         <motion.div
-          {...fadeUp(0.3)}
-          className="flex items-center justify-between pb-3"
-          style={{ borderBottom: '1px solid rgba(250, 246, 239, 0.5)' }}
+          {...fadeUp(0.15)}
+          className="flex items-center justify-between pt-2 pb-3"
+          style={{ borderBottom: '1px solid #1A1A1A' }}
         >
           <span
             style={{
-              color: '#FAF6EE',
+              color: '#1A1A1A',
               fontFamily: 'Inter, sans-serif',
               fontWeight: 600,
               fontSize: '0.7rem',
@@ -150,7 +120,7 @@ export function HomeScreen() {
               fontFamily: '"Playfair Display", serif',
               fontStyle: 'italic',
               fontWeight: 700,
-              color: '#FAF6EE',
+              color: '#1A1A1A',
               fontSize: '1.5rem',
               letterSpacing: '-0.01em',
             }}
@@ -159,7 +129,7 @@ export function HomeScreen() {
           </span>
           <span
             style={{
-              color: '#FAF6EE',
+              color: '#1A1A1A',
               fontFamily: 'Inter, sans-serif',
               fontWeight: 600,
               fontSize: '0.7rem',
@@ -171,73 +141,124 @@ export function HomeScreen() {
           </span>
         </motion.div>
 
-        {/* CŒUR — typo Playfair italic centrée bas, le wow est ici */}
-        <div className="flex-1 flex flex-col justify-end items-center text-center">
-          <motion.p
-            {...fadeUp(0.7)}
-            style={{
-              color: '#FAF6EE',
-              fontFamily: 'Inter, sans-serif',
-              fontWeight: 500,
-              fontSize: '0.7rem',
-              letterSpacing: '0.45em',
-              textTransform: 'uppercase',
-              opacity: 0.85,
-              marginBottom: '1.25rem',
-            }}
-          >
-            Le mariage de
-          </motion.p>
-
-          {/* Nom couple en Playfair italic — la signature magazine */}
+        {/* SCÈNE CENTRALE — titre en italic LARGE + photo qui se superpose */}
+        <div className="relative flex-1 flex flex-col items-center justify-center">
+          {/* Titre Playfair italic immense, derrière la photo */}
           <motion.h1
-            {...fadeUp(0.85)}
+            {...fadeUp(0.4)}
+            className="absolute top-[18%] left-1/2 -translate-x-1/2 z-10 text-center pointer-events-none whitespace-nowrap"
             style={{
               fontFamily: '"Playfair Display", "Bodoni Moda", Didot, serif',
               fontStyle: 'italic',
               fontWeight: 500,
-              fontSize: 'clamp(3.5rem, 8vw, 7rem)',
-              color: '#FAF6EE',
-              letterSpacing: '-0.02em',
-              lineHeight: 1,
-              textShadow: '0 4px 30px rgba(0,0,0,0.3)',
-              maxWidth: '56rem',
-              wordBreak: 'break-word',
+              fontSize: 'clamp(4.5rem, 11vw, 10rem)',
+              color: '#1A1A1A',
+              letterSpacing: '-0.025em',
+              lineHeight: 0.95,
+              maxWidth: '95vw',
             }}
           >
             {coupleName}
           </motion.h1>
 
-          {/* Filet décoratif + date */}
+          {/* Photo couple — décalée pour passer DEVANT le titre */}
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.55, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+            className="relative z-20"
+            style={{
+              width: 'clamp(16rem, 26vw, 22rem)',
+              aspectRatio: '3/4',
+              marginTop: '6vh',
+            }}
+          >
+            <div
+              className="w-full h-full overflow-hidden"
+              style={{
+                borderRadius: '4px',
+                boxShadow: '0 24px 60px rgba(0,0,0,0.18)',
+                background: '#E8DCC4',
+              }}
+            >
+              {photoSrc ? (
+                <img
+                  src={photoSrc}
+                  alt="Couple"
+                  className="w-full h-full object-cover photo-warm"
+                  draggable={false}
+                />
+              ) : (
+                <div
+                  className="w-full h-full flex items-center justify-center"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, #E8DCC4 0%, #D4B896 100%)',
+                  }}
+                >
+                  <span
+                    style={{
+                      color: '#6B5D4F',
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '0.65rem',
+                      letterSpacing: '0.35em',
+                      textTransform: 'uppercase',
+                      opacity: 0.7,
+                    }}
+                  >
+                    Photo couple
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Petite étiquette discrète en bas-droite */}
+            <div
+              className="absolute -bottom-3 -right-3 px-3 py-1.5"
+              style={{
+                backgroundColor: '#1A1A1A',
+                color: '#FAF6EE',
+                fontFamily: 'Inter, sans-serif',
+                fontWeight: 600,
+                fontSize: '0.6rem',
+                letterSpacing: '0.3em',
+                textTransform: 'uppercase',
+              }}
+            >
+              The Cover
+            </div>
+          </motion.div>
+        </div>
+
+        {/* BAS — date + CTAs */}
+        <div className="flex flex-col items-center" style={{ paddingBottom: '0.5rem' }}>
           {date && (
             <motion.div
-              {...fadeUp(1)}
-              className="flex items-center justify-center mt-8"
+              {...fadeUp(0.85)}
+              className="flex items-center justify-center mb-7"
               style={{ gap: '1.5rem' }}
             >
-              <div style={{ width: '3rem', height: '1px', backgroundColor: '#FAF6EE', opacity: 0.7 }} />
+              <div style={{ width: '3rem', height: '1px', backgroundColor: '#1A1A1A', opacity: 0.5 }} />
               <span
                 style={{
-                  color: '#FAF6EE',
+                  color: '#1A1A1A',
                   fontFamily: 'Inter, sans-serif',
                   fontWeight: 500,
-                  fontSize: '0.75rem',
+                  fontSize: '0.7rem',
                   letterSpacing: '0.4em',
                   textTransform: 'uppercase',
-                  opacity: 0.85,
                 }}
               >
                 {date.day} {date.month} {date.year}
               </span>
-              <div style={{ width: '3rem', height: '1px', backgroundColor: '#FAF6EE', opacity: 0.7 }} />
+              <div style={{ width: '3rem', height: '1px', backgroundColor: '#1A1A1A', opacity: 0.5 }} />
             </motion.div>
           )}
 
-          {/* CTAs — minimaux, posés sous la signature */}
           <motion.div
-            {...fadeUp(1.2)}
-            className="flex flex-wrap items-center justify-center gap-3"
-            style={{ marginTop: '3rem', marginBottom: '0.5rem' }}
+            {...fadeUp(1)}
+            className="flex flex-wrap items-center justify-center"
+            style={{ gap: '0.875rem' }}
           >
             <button
               onClick={() => choose('classic')}
@@ -245,8 +266,8 @@ export function HomeScreen() {
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: '0.625rem',
-                background: '#FAF6EE',
-                color: '#1A1A1A',
+                background: '#1A1A1A',
+                color: '#FAF6EE',
                 fontFamily: 'Inter, sans-serif',
                 fontWeight: 500,
                 fontSize: '0.8125rem',
@@ -256,10 +277,10 @@ export function HomeScreen() {
                 borderRadius: '999px',
                 border: 'none',
                 cursor: 'pointer',
-                transition: 'transform 0.2s ease, background 0.2s ease',
+                transition: 'background 0.2s ease',
               }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#FFFFFF'; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#FAF6EE'; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#2B2B2B'; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = '#1A1A1A'; }}
             >
               <MdCameraAlt size={16} />
               Classique
@@ -273,7 +294,7 @@ export function HomeScreen() {
                 alignItems: 'center',
                 gap: '0.625rem',
                 background: 'transparent',
-                color: '#FAF6EE',
+                color: '#1A1A1A',
                 fontFamily: 'Inter, sans-serif',
                 fontWeight: 500,
                 fontSize: '0.8125rem',
@@ -281,14 +302,14 @@ export function HomeScreen() {
                 letterSpacing: '0.2em',
                 padding: '0.875rem 2rem',
                 borderRadius: '999px',
-                border: '1px solid rgba(250, 246, 239, 0.7)',
+                border: '1px solid #1A1A1A',
                 cursor: challengeAvailable ? 'pointer' : 'not-allowed',
-                opacity: challengeAvailable ? 1 : 0.5,
+                opacity: challengeAvailable ? 1 : 0.4,
                 transition: 'background 0.2s ease',
               }}
               title={challengeAvailable ? '' : 'Aucune pose configurée'}
               onMouseEnter={(e) => {
-                if (challengeAvailable) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(250, 246, 239, 0.12)';
+                if (challengeAvailable) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(26,26,26,0.06)';
               }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = 'transparent'; }}
             >

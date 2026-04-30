@@ -7,13 +7,13 @@ import { localFileUrl } from '@shared/lib/poseAssets';
 const fadeUp = (delay: number) => ({
   initial: { opacity: 0, y: 14 },
   animate: { opacity: 1, y: 0 },
-  transition: { delay, duration: 0.9, ease: [0.16, 1, 0.3, 1] as const },
+  transition: { delay, duration: 0.85, ease: [0.16, 1, 0.3, 1] as const },
 });
 
 const fadeIn = (delay: number) => ({
   initial: { opacity: 0 },
   animate: { opacity: 1 },
-  transition: { delay, duration: 1.4, ease: [0.16, 1, 0.3, 1] as const },
+  transition: { delay, duration: 1.2, ease: [0.16, 1, 0.3, 1] as const },
 });
 
 function formatYear(iso?: string): string {
@@ -47,48 +47,21 @@ export function SplashScreen() {
 
   return (
     <Screen className="overflow-hidden">
-      {/* PHOTO HERO en background */}
-      <div className="absolute inset-0" style={{ backgroundColor: '#1A1A1A' }}>
-        {photoSrc ? (
-          <motion.img
-            {...fadeIn(0)}
-            src={photoSrc}
-            alt="Couple"
-            className="w-full h-full object-cover photo-warm"
-            draggable={false}
-          />
-        ) : (
-          <div
-            className="w-full h-full"
-            style={{
-              background:
-                'radial-gradient(ellipse 90% 70% at 50% 30%, #E8DCC4 0%, #D4B896 60%, #6B5D4F 100%)',
-            }}
-          />
-        )}
-      </div>
+      {/* Fond ivoire */}
+      <div className="absolute inset-0" style={{ backgroundColor: '#F4ECDD' }} />
 
-      {/* Overlay gradient pour lisibilité */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.25) 30%, rgba(0,0,0,0.4) 70%, rgba(0,0,0,0.75) 100%)',
-        }}
-      />
-
-      {/* Numéro éditorial latéral droit */}
+      {/* Numéro éditorial vertical droit */}
       <motion.div
-        {...fadeIn(0.6)}
-        className="absolute right-8 top-1/2 z-20 pointer-events-none"
+        {...fadeIn(0.5)}
+        className="absolute right-7 top-1/2 z-20 pointer-events-none"
         style={{
           transform: 'rotate(90deg) translateX(50%)',
           transformOrigin: 'right center',
-          color: '#FAF6EE',
-          opacity: 0.85,
+          color: '#1A1A1A',
+          opacity: 0.55,
           fontFamily: 'Inter, sans-serif',
           fontWeight: 500,
-          fontSize: '0.7rem',
+          fontSize: '0.65rem',
           letterSpacing: '0.45em',
           textTransform: 'uppercase',
           whiteSpace: 'nowrap',
@@ -98,16 +71,16 @@ export function SplashScreen() {
       </motion.div>
 
       {/* CONTENU */}
-      <div className="relative z-10 h-full flex flex-col" style={{ padding: '3rem 5rem' }}>
+      <div className="relative z-10 h-full flex flex-col" style={{ padding: '2.5rem 5rem' }}>
         {/* HEADER */}
         <motion.div
-          {...fadeUp(0.3)}
-          className="flex items-center justify-between pb-3"
-          style={{ borderBottom: '1px solid rgba(250, 246, 239, 0.5)' }}
+          {...fadeUp(0.15)}
+          className="flex items-center justify-between pt-2 pb-3"
+          style={{ borderBottom: '1px solid #1A1A1A' }}
         >
           <span
             style={{
-              color: '#FAF6EE',
+              color: '#1A1A1A',
               fontFamily: 'Inter, sans-serif',
               fontWeight: 600,
               fontSize: '0.7rem',
@@ -122,7 +95,7 @@ export function SplashScreen() {
               fontFamily: '"Playfair Display", serif',
               fontStyle: 'italic',
               fontWeight: 700,
-              color: '#FAF6EE',
+              color: '#1A1A1A',
               fontSize: '1.5rem',
               letterSpacing: '-0.01em',
             }}
@@ -131,7 +104,7 @@ export function SplashScreen() {
           </span>
           <span
             style={{
-              color: '#FAF6EE',
+              color: '#1A1A1A',
               fontFamily: 'Inter, sans-serif',
               fontWeight: 600,
               fontSize: '0.7rem',
@@ -143,153 +116,101 @@ export function SplashScreen() {
           </span>
         </motion.div>
 
-        {/* CŒUR : nom event en italic, et 2 cards superposées */}
-        <div className="flex-1 flex flex-col justify-center items-center text-center">
-          <motion.p
-            {...fadeUp(0.6)}
-            style={{
-              color: '#FAF6EE',
-              fontFamily: 'Inter, sans-serif',
-              fontWeight: 500,
-              fontSize: '0.7rem',
-              letterSpacing: '0.45em',
-              textTransform: 'uppercase',
-              opacity: 0.85,
-              marginBottom: '1.5rem',
-            }}
-          >
-            Le mariage de
-          </motion.p>
-
+        {/* SCÈNE — titre italic large derrière, petite photo au centre */}
+        <div className="relative flex-1 flex flex-col items-center justify-center">
+          {/* Titre Playfair italic en arrière-plan */}
           <motion.h1
-            {...fadeUp(0.75)}
+            {...fadeUp(0.4)}
+            className="absolute top-[20%] left-1/2 -translate-x-1/2 z-10 text-center pointer-events-none whitespace-nowrap"
             style={{
               fontFamily: '"Playfair Display", "Bodoni Moda", Didot, serif',
               fontStyle: 'italic',
               fontWeight: 500,
-              fontSize: 'clamp(3rem, 7vw, 6rem)',
-              color: '#FAF6EE',
-              letterSpacing: '-0.02em',
-              lineHeight: 1,
-              textShadow: '0 4px 30px rgba(0,0,0,0.3)',
-              maxWidth: '56rem',
-              marginBottom: '4rem',
+              fontSize: 'clamp(4rem, 10vw, 9rem)',
+              color: '#1A1A1A',
+              letterSpacing: '-0.025em',
+              lineHeight: 0.95,
+              maxWidth: '95vw',
             }}
           >
             {eventName}
           </motion.h1>
 
-          {/* 2 cards Photo / Vidéo en glassmorphism subtil */}
-          <div className="flex items-center justify-center" style={{ gap: '1.5rem' }}>
-            <motion.button
-              {...fadeUp(0.95)}
-              onClick={choosePhoto}
-              className="flex flex-col items-center justify-center transition-all"
+          {/* Petite photo couple au centre — passe DEVANT le titre */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.55, duration: 1, ease: [0.16, 1, 0.3, 1] }}
+            className="relative z-20"
+            style={{
+              width: 'clamp(13rem, 18vw, 17rem)',
+              aspectRatio: '3/4',
+              marginTop: '8vh',
+            }}
+          >
+            <div
+              className="w-full h-full overflow-hidden"
               style={{
-                width: 220,
-                height: 260,
-                background: 'rgba(250, 246, 239, 0.94)',
-                borderRadius: '8px',
-                border: '1px solid rgba(250, 246, 239, 0.4)',
-                cursor: 'pointer',
-                gap: '1.5rem',
-                backdropFilter: 'blur(10px)',
+                borderRadius: '4px',
+                boxShadow: '0 18px 50px rgba(0,0,0,0.18)',
+                background: '#E8DCC4',
               }}
-              whileHover={{ y: -6, background: '#FAF6EE' }}
-              whileTap={{ scale: 0.98 }}
             >
-              <MdCameraAlt size={48} color="#1A1A1A" />
-              <div className="text-center">
-                <p
+              {photoSrc ? (
+                <img
+                  src={photoSrc}
+                  alt="Couple"
+                  className="w-full h-full object-cover photo-warm"
+                  draggable={false}
+                />
+              ) : (
+                <div
+                  className="w-full h-full flex items-center justify-center"
                   style={{
-                    color: '#6B5D4F',
-                    fontFamily: 'Inter, sans-serif',
-                    fontWeight: 500,
-                    fontSize: '0.7rem',
-                    letterSpacing: '0.35em',
-                    textTransform: 'uppercase',
-                    marginBottom: '0.5rem',
+                    background:
+                      'linear-gradient(135deg, #E8DCC4 0%, #D4B896 100%)',
                   }}
                 >
-                  Mode
-                </p>
-                <h2
-                  style={{
-                    fontFamily: '"Playfair Display", serif',
-                    fontStyle: 'italic',
-                    fontWeight: 600,
-                    fontSize: '1.875rem',
-                    color: '#1A1A1A',
-                    letterSpacing: '-0.01em',
-                    lineHeight: 1,
-                  }}
-                >
-                  Photo
-                </h2>
-              </div>
-            </motion.button>
+                  <span
+                    style={{
+                      color: '#6B5D4F',
+                      fontFamily: 'Inter, sans-serif',
+                      fontSize: '0.6rem',
+                      letterSpacing: '0.35em',
+                      textTransform: 'uppercase',
+                      opacity: 0.7,
+                    }}
+                  >
+                    Couple
+                  </span>
+                </div>
+              )}
+            </div>
 
-            <motion.button
-              {...fadeUp(1.1)}
-              onClick={chooseVideo}
-              disabled={!videoEnabled}
-              className="flex flex-col items-center justify-center transition-all"
+            <div
+              className="absolute -bottom-3 -right-3 px-3 py-1.5"
               style={{
-                width: 220,
-                height: 260,
-                background: 'rgba(250, 246, 239, 0.94)',
-                borderRadius: '8px',
-                border: '1px solid rgba(250, 246, 239, 0.4)',
-                cursor: videoEnabled ? 'pointer' : 'not-allowed',
-                opacity: videoEnabled ? 1 : 0.4,
-                gap: '1.5rem',
-                backdropFilter: 'blur(10px)',
+                backgroundColor: '#1A1A1A',
+                color: '#FAF6EE',
+                fontFamily: 'Inter, sans-serif',
+                fontWeight: 600,
+                fontSize: '0.6rem',
+                letterSpacing: '0.3em',
+                textTransform: 'uppercase',
               }}
-              whileHover={videoEnabled ? { y: -6, background: '#FAF6EE' } : undefined}
-              whileTap={videoEnabled ? { scale: 0.98 } : undefined}
-              title={videoEnabled ? '' : 'Mode vidéo désactivé'}
             >
-              <MdVideocam size={48} color="#1A1A1A" />
-              <div className="text-center">
-                <p
-                  style={{
-                    color: '#6B5D4F',
-                    fontFamily: 'Inter, sans-serif',
-                    fontWeight: 500,
-                    fontSize: '0.7rem',
-                    letterSpacing: '0.35em',
-                    textTransform: 'uppercase',
-                    marginBottom: '0.5rem',
-                  }}
-                >
-                  Mode
-                </p>
-                <h2
-                  style={{
-                    fontFamily: '"Playfair Display", serif',
-                    fontStyle: 'italic',
-                    fontWeight: 600,
-                    fontSize: '1.875rem',
-                    color: '#1A1A1A',
-                    letterSpacing: '-0.01em',
-                    lineHeight: 1,
-                  }}
-                >
-                  Vidéo
-                </h2>
-              </div>
-            </motion.button>
-          </div>
+              Cover
+            </div>
+          </motion.div>
         </div>
 
-        {/* FOOTER discret */}
-        <motion.div
-          {...fadeUp(1.3)}
-          className="flex items-center justify-center pt-3"
-        >
-          <span
+        {/* BAS — 2 cards Photo / Vidéo */}
+        <div className="flex flex-col items-center" style={{ paddingBottom: '0.5rem' }}>
+          <motion.p
+            {...fadeUp(0.85)}
+            className="mb-5"
             style={{
-              color: '#FAF6EE',
+              color: '#1A1A1A',
               fontFamily: 'Inter, sans-serif',
               fontWeight: 500,
               fontSize: '0.7rem',
@@ -298,9 +219,76 @@ export function SplashScreen() {
               opacity: 0.7,
             }}
           >
-            Touchez un mode pour commencer
-          </span>
-        </motion.div>
+            Choisissez votre format
+          </motion.p>
+
+          <div className="flex items-center justify-center" style={{ gap: '1rem' }}>
+            <motion.button
+              {...fadeUp(1)}
+              onClick={choosePhoto}
+              className="flex items-center justify-center transition-all"
+              style={{
+                width: 200,
+                height: 64,
+                background: '#1A1A1A',
+                color: '#FAF6EE',
+                borderRadius: '999px',
+                border: 'none',
+                cursor: 'pointer',
+                gap: '0.75rem',
+              }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+            >
+              <MdCameraAlt size={20} />
+              <span
+                style={{
+                  fontFamily: '"Playfair Display", serif',
+                  fontStyle: 'italic',
+                  fontWeight: 600,
+                  fontSize: '1.5rem',
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                Photo
+              </span>
+            </motion.button>
+
+            <motion.button
+              {...fadeUp(1.1)}
+              onClick={chooseVideo}
+              disabled={!videoEnabled}
+              className="flex items-center justify-center transition-all"
+              style={{
+                width: 200,
+                height: 64,
+                background: 'transparent',
+                color: '#1A1A1A',
+                borderRadius: '999px',
+                border: '1px solid #1A1A1A',
+                cursor: videoEnabled ? 'pointer' : 'not-allowed',
+                opacity: videoEnabled ? 1 : 0.4,
+                gap: '0.75rem',
+              }}
+              whileHover={videoEnabled ? { scale: 1.02 } : undefined}
+              whileTap={videoEnabled ? { scale: 0.97 } : undefined}
+              title={videoEnabled ? '' : 'Mode vidéo désactivé'}
+            >
+              <MdVideocam size={20} />
+              <span
+                style={{
+                  fontFamily: '"Playfair Display", serif',
+                  fontStyle: 'italic',
+                  fontWeight: 600,
+                  fontSize: '1.5rem',
+                  letterSpacing: '-0.01em',
+                }}
+              >
+                Vidéo
+              </span>
+            </motion.button>
+          </div>
+        </div>
       </div>
     </Screen>
   );
