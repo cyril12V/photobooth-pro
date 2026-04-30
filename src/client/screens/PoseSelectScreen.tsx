@@ -97,14 +97,6 @@ export function PoseSelectScreen() {
     <Screen className="overflow-hidden">
       <div className="absolute inset-0" style={{ backgroundColor: '#F4ECDD' }} />
 
-      <button
-        onClick={() => setScreen('home')}
-        className="absolute top-8 left-8 z-30 btn-editorial-ghost"
-      >
-        <MdArrowBack size={18} />
-        <span>Retour</span>
-      </button>
-
       <div className="relative z-10 h-full flex flex-col" style={{ padding: '2.5rem 5rem' }}>
         {/* Header */}
         <motion.div
@@ -112,6 +104,13 @@ export function PoseSelectScreen() {
           className="flex items-center justify-between pt-3 pb-3"
           style={{ borderBottom: '1px solid #1A1A1A' }}
         >
+          <button
+            onClick={() => setScreen('home')}
+            className="btn-editorial-ghost"
+          >
+            <MdArrowBack size={18} />
+            <span>Retour</span>
+          </button>
           <span className="label-editorial" style={{ color: '#1A1A1A' }}>
             Mode challenge
           </span>

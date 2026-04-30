@@ -465,7 +465,8 @@ function TemplateOverlay({ elements, canvasW, canvasH }: TemplateOverlayProps) {
               key={el.id}
               style={{
                 ...baseStyle,
-                border: '2px dashed #FAF6EE',
+                border: '3px solid rgba(212, 165, 116, 0.9)',
+                boxShadow: '0 0 0 1px rgba(0,0,0,0.25), 0 0 24px rgba(212, 165, 116, 0.35)',
                 borderRadius: el.border_radius
                   ? `${(el.border_radius / canvasW) * 100}%`
                   : undefined,
@@ -483,7 +484,7 @@ function TemplateOverlay({ elements, canvasW, canvasH }: TemplateOverlayProps) {
                   fontSize: '0.625rem',
                   letterSpacing: '0.3em',
                   textTransform: 'uppercase',
-                  textShadow: '0 1px 4px rgba(0,0,0,0.6)',
+                  textShadow: '0 1px 4px rgba(0,0,0,0.7)',
                 }}
               >
                 Zone photo
@@ -503,7 +504,7 @@ function TemplateOverlay({ elements, canvasW, canvasH }: TemplateOverlayProps) {
               key={el.id}
               style={{
                 ...baseStyle,
-                opacity: 0.5,
+                opacity: 0.75,
                 fontFamily: el.font_family,
                 fontSize: `${fontSizePct}cqh`,
                 fontWeight: el.font_weight,
@@ -511,6 +512,7 @@ function TemplateOverlay({ elements, canvasW, canvasH }: TemplateOverlayProps) {
                 color: el.color,
                 textAlign: el.align,
                 letterSpacing: `${(el.letter_spacing / canvasW) * 100}cqw`,
+                textShadow: '0 1px 4px rgba(0,0,0,0.5)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent:
@@ -544,7 +546,7 @@ function TemplateOverlay({ elements, canvasW, canvasH }: TemplateOverlayProps) {
                   ? `${(el.border_radius / canvasW) * 100}%`
                   : undefined,
                 background: 'transparent',
-                opacity: 0.5,
+                opacity: 0.7,
                 containerType: 'size',
               }}
             />
@@ -568,7 +570,7 @@ function TemplateOverlay({ elements, canvasW, canvasH }: TemplateOverlayProps) {
                     el.stroke_width > 0
                       ? `${strokePct}cqw solid ${el.stroke}`
                       : undefined,
-                  opacity: el.opacity * 0.3,
+                  opacity: el.opacity * 0.5,
                   containerType: 'size',
                 }}
               />
@@ -581,7 +583,7 @@ function TemplateOverlay({ elements, canvasW, canvasH }: TemplateOverlayProps) {
                 style={{
                   ...baseStyle,
                   background: el.stroke,
-                  opacity: el.opacity * 0.3,
+                  opacity: el.opacity * 0.6,
                 }}
               />
             );
@@ -599,7 +601,7 @@ function TemplateOverlay({ elements, canvasW, canvasH }: TemplateOverlayProps) {
                 borderRadius: el.border_radius
                   ? `${(el.border_radius / canvasW) * 100}%`
                   : undefined,
-                opacity: el.opacity * 0.3,
+                opacity: el.opacity * 0.5,
                 containerType: 'size',
               }}
             />
@@ -612,7 +614,7 @@ function TemplateOverlay({ elements, canvasW, canvasH }: TemplateOverlayProps) {
               key={el.id}
               style={{
                 ...baseStyle,
-                opacity: 0.3,
+                opacity: 0.5,
                 borderRadius: el.border_radius
                   ? `${(el.border_radius / canvasW) * 100}%`
                   : undefined,

@@ -288,7 +288,25 @@ function registerIpcHandlers() {
       const filepath = path.join(dir, filename);
 
       const data = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
-      await fs.writeFile(filepath, data);
+      if (data.byteLength === 0) {
+        throw new Error('Buffer vidéo vide reçu côté main process');
+      }
+
+      // Écriture + fsync pour garantir que le fichier est entièrement flushé
+      // avant que l'IPC ne retourne — sinon la compilation lue immédiatement
+      // après peut tomber sur un fichier tronqué.
+      const fh = await fs.open(filepath, 'w');
+      try {
+        await fh.write(data);
+        await fh.sync();
+      } finally {
+        await fh.close();
+      }
+
+      const stat = await fs.stat(filepath);
+      console.log(
+        `[video:save] ${path.basename(filepath)} — ${(stat.size / 1024).toFixed(0)} KB (mode=${mode}, durationMs=${durationMs})`,
+      );
 
       let interview_log_path: string | null = null;
       if (mode === 'interview' && interviewLog && interviewLog.questions.length > 0) {

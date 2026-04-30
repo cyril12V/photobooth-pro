@@ -24,6 +24,53 @@ export const FONT_FAMILIES = [
 
 export type FontFamily = (typeof FONT_FAMILIES)[number];
 
+// ─── Presets de format (portrait par défaut, ratio respecté) ───────────────
+// Les dimensions sont stockées en portrait : si l'utilisateur choisit un
+// preset alors que le canvas est en paysage, le toggle d'orientation reste
+// disponible.
+export interface FormatPreset {
+  id: string;
+  label: string;
+  width: number;
+  height: number;
+}
+
+export const FORMAT_PRESETS: FormatPreset[] = [
+  { id: '10x15', label: '10 × 15 cm', width: 1200, height: 1800 },
+  { id: '13x18', label: '13 × 18 cm', width: 1560, height: 2160 },
+  { id: 'a6', label: 'A6', width: 1240, height: 1748 },
+  { id: 'a5', label: 'A5', width: 1748, height: 2480 },
+  { id: 'a4', label: 'A4', width: 2480, height: 3508 },
+  { id: 'square', label: 'Carré', width: 1500, height: 1500 },
+  { id: 'polaroid', label: 'Polaroid', width: 1200, height: 1500 },
+];
+
+export const CANVAS_MIN = 400;
+export const CANVAS_MAX = 6000;
+
+// ─── Redimensionne un canvas en re-positionnant proportionnellement les
+// éléments existants. Utilisé par l'éditeur pour : toggle orientation,
+// changement de preset, saisie de dimensions custom.
+export function resizeCanvas(
+  prev: TemplateConfig,
+  newW: number,
+  newH: number,
+): TemplateConfig {
+  const oldW = prev.canvas_width || CANVAS_W;
+  const oldH = prev.canvas_height || CANVAS_H;
+  if (oldW === newW && oldH === newH) return prev;
+  const scaleX = newW / oldW;
+  const scaleY = newH / oldH;
+  const elements = prev.elements.map((el) => ({
+    ...el,
+    x: Math.round(el.x * scaleX),
+    y: Math.round(el.y * scaleY),
+    width: Math.round(el.width * scaleX),
+    height: Math.round(el.height * scaleY),
+  }));
+  return { ...prev, canvas_width: newW, canvas_height: newH, elements };
+}
+
 // ─── Template par défaut (nouveau template vierge) ──────────────────────────
 export function makeDefaultTemplate(): TemplateConfig {
   const titleEl: TextElement = {

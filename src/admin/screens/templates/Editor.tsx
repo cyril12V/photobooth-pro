@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Save,
   X,
@@ -17,8 +17,6 @@ import {
 } from 'lucide-react';
 import type { TemplateConfig, TemplateElement } from '@shared/types';
 import { useAppStore } from '@shared/store';
-import { Button } from '@shared/components/Button';
-import { AdminInput } from '../../components/AdminUI';
 import { EditorCanvas } from './EditorCanvas';
 import { PropertiesPanel } from './PropertiesPanel';
 import {
@@ -27,6 +25,8 @@ import {
   makePresetWedding,
   makePresetPolaroid,
   makePresetGeometric,
+  resizeCanvas,
+  FORMAT_PRESETS,
   CANVAS_W,
   CANVAS_H,
 } from './defaults';
@@ -240,23 +240,48 @@ export function Editor({ templateId, templateName, initialConfig, onSaved, onCan
 
   // ─── Toggle orientation portrait / paysage ────────────────────────────────
   const toggleOrientation = useCallback(() => {
+    setConfig((prev) =>
+      resizeCanvas(prev, prev.canvas_height, prev.canvas_width),
+    );
+  }, []);
+
+  // ─── Application d'un preset de format ───────────────────────────────────
+  // Conserve l'orientation actuelle (si paysage, on swap width/height du preset).
+  const applyFormatPreset = useCallback((presetId: string) => {
+    const preset = FORMAT_PRESETS.find((p) => p.id === presetId);
+    if (!preset) return;
     setConfig((prev) => {
-      const oldW = prev.canvas_width;
-      const oldH = prev.canvas_height;
-      const newW = oldH;
-      const newH = oldW;
-      const scaleX = newW / oldW;
-      const scaleY = newH / oldH;
-      const resizedElements = prev.elements.map((el) => ({
-        ...el,
-        x: Math.round(el.x * scaleX),
-        y: Math.round(el.y * scaleY),
-        width: Math.round(el.width * scaleX),
-        height: Math.round(el.height * scaleY),
-      }));
-      return { ...prev, canvas_width: newW, canvas_height: newH, elements: resizedElements };
+      const isLandscape = prev.canvas_width > prev.canvas_height;
+      const targetW = isLandscape ? preset.height : preset.width;
+      const targetH = isLandscape ? preset.width : preset.height;
+      return resizeCanvas(prev, targetW, targetH);
     });
   }, []);
+
+  // ─── Application d'une dimension custom (width/height en pixels) ────────
+  const applyCustomDimension = useCallback(
+    (axis: 'width' | 'height', value: number) => {
+      const clamped = Math.max(400, Math.min(6000, Math.round(value)));
+      setConfig((prev) => {
+        const newW = axis === 'width' ? clamped : prev.canvas_width;
+        const newH = axis === 'height' ? clamped : prev.canvas_height;
+        return resizeCanvas(prev, newW, newH);
+      });
+    },
+    [],
+  );
+
+  // Détecte si le format actuel correspond exactement à un preset (les deux
+  // sens portrait/paysage sont acceptés) pour mettre en valeur le bouton actif.
+  const activePresetId = useMemo(() => {
+    const w = config.canvas_width;
+    const h = config.canvas_height;
+    return (
+      FORMAT_PRESETS.find(
+        (p) => (p.width === w && p.height === h) || (p.width === h && p.height === w),
+      )?.id ?? null
+    );
+  }, [config.canvas_width, config.canvas_height]);
 
   const save = async () => {
     setSaving(true);
@@ -449,8 +474,51 @@ export function Editor({ templateId, templateName, initialConfig, onSaved, onCan
         </div>
 
         <div className="flex items-center gap-2 ml-auto">
+          {/* Presets de format */}
+          <div className="flex items-center gap-1 border-l border-white/10 pl-4">
+            <span className="text-cream/50 text-xs uppercase tracking-widest mr-2">Format</span>
+            <select
+              value={activePresetId ?? ''}
+              onChange={(e) => e.target.value && applyFormatPreset(e.target.value)}
+              className="bg-white/5 border border-white/10 rounded-lg text-cream/80 text-xs px-2 py-1.5 focus:outline-none focus:border-gold cursor-pointer"
+            >
+              <option value="" disabled>
+                Custom
+              </option>
+              {FORMAT_PRESETS.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Dimensions custom width × height */}
+          <div className="flex items-center gap-1 border-l border-white/10 pl-3">
+            <input
+              type="number"
+              min={400}
+              max={6000}
+              value={config.canvas_width}
+              onChange={(e) => applyCustomDimension('width', Number(e.target.value))}
+              className="w-16 bg-white/5 border border-white/10 rounded-lg text-cream/80 text-xs px-2 py-1.5 focus:outline-none focus:border-gold"
+              title="Largeur en pixels"
+            />
+            <span className="text-cream/40 text-xs">×</span>
+            <input
+              type="number"
+              min={400}
+              max={6000}
+              value={config.canvas_height}
+              onChange={(e) => applyCustomDimension('height', Number(e.target.value))}
+              className="w-16 bg-white/5 border border-white/10 rounded-lg text-cream/80 text-xs px-2 py-1.5 focus:outline-none focus:border-gold"
+              title="Hauteur en pixels"
+            />
+            <span className="text-cream/40 text-xs ml-1">px</span>
+          </div>
+
           {/* Toggle portrait / paysage */}
-          <div className="flex items-center rounded-lg border border-white/10 overflow-hidden">
+          <div className="flex items-center rounded-lg border border-white/10 overflow-hidden ml-2">
             <button
               onClick={() => config.canvas_width < config.canvas_height ? undefined : toggleOrientation()}
               title="Portrait"
@@ -476,9 +544,6 @@ export function Editor({ templateId, templateName, initialConfig, onSaved, onCan
               Paysage
             </button>
           </div>
-          <span className="text-cream/40 text-xs">
-            {config.canvas_width} × {config.canvas_height}px
-          </span>
         </div>
       </div>
     </div>

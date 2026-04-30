@@ -106,10 +106,13 @@ export function VideoFreeMessageScreen() {
 
   const startRecording = () => {
     if (!streamRef.current) return;
-    const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
-      ? 'video/webm;codecs=vp9,opus'
-      : MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
-        ? 'video/webm;codecs=vp8,opus'
+    // VP8 prioritaire : c'est le codec WebM le plus largement supporté par
+    // les builds ffmpeg-static (VP9 peut manquer du support de décodage et
+    // faire échouer la compilation).
+    const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
+      ? 'video/webm;codecs=vp8,opus'
+      : MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
+        ? 'video/webm;codecs=vp9,opus'
         : 'video/webm';
 
     let recorder: MediaRecorder;

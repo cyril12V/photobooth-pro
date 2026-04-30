@@ -103,15 +103,25 @@ async function readInterviewLog(p: string | null): Promise<InterviewLog | null> 
  * On n'utilise PAS ffprobe (le binaire ffprobe n'est pas inclus dans
  * ffmpeg-static), donc on lance ffmpeg en mode "info" qui sort avec
  * un code 0 si le fichier est valide.
+ *
+ * Capture stderr pour faire remonter le vrai motif d'échec (codec
+ * non supporté, fichier tronqué, etc.) au lieu d'un message générique.
  */
 function probe(filepath: string): Promise<void> {
   return new Promise((resolve, reject) => {
+    let stderrTail = '';
     ffmpeg(filepath)
-      .outputOptions(['-f', 'null'])
+      .outputOptions(['-f', 'null', '-t', '1'])
       .output('-')
-      .duration(0.1)
+      .on('stderr', (line: string) => {
+        stderrTail = `${stderrTail}\n${line}`.slice(-800);
+      })
       .on('end', () => resolve())
-      .on('error', (err) => reject(err))
+      .on('error', (err) => {
+        const detail = stderrTail.trim().split('\n').slice(-3).join(' | ');
+        const msg = err instanceof Error ? err.message : String(err);
+        reject(new Error(`${msg}${detail ? ` :: ${detail}` : ''}`));
+      })
       .run();
   });
 }
@@ -225,6 +235,7 @@ function processClip(
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     const cmd = ffmpeg(inputFile);
+    let stderrTail = '';
 
     const filters = buildClipFilters(params);
 
@@ -280,8 +291,15 @@ function processClip(
         ]);
     }
 
+    cmd.on('stderr', (line: string) => {
+      stderrTail = `${stderrTail}\n${line}`.slice(-1200);
+    });
     cmd.on('end', () => resolve());
-    cmd.on('error', (err) => reject(err));
+    cmd.on('error', (err) => {
+      const detail = stderrTail.trim().split('\n').slice(-3).join(' | ');
+      const msg = err instanceof Error ? err.message : String(err);
+      reject(new Error(`${msg}${detail ? ` :: ${detail}` : ''}`));
+    });
     cmd.save(outputFile);
   });
 }
@@ -369,23 +387,33 @@ export async function compileEventVideos(
       const v = rows[i];
       const clipOut = path.join(tempDir, `clip_${i.toString().padStart(3, '0')}.mp4`);
 
-      // 1. Vérification existence du fichier (la BDD peut pointer vers un fichier supprimé)
+      // 1. Vérification existence + taille du fichier
+      let fileSize = 0;
       try {
-        await fs.access(v.filepath);
+        const stat = await fs.stat(v.filepath);
+        fileSize = stat.size;
+        if (fileSize === 0) {
+          console.warn('[videoCompiler] Fichier vide, skip:', v.filepath);
+          skipped.push(`${path.basename(v.filepath)} (fichier vide 0 octet)`);
+          continue;
+        }
+        console.log(
+          `[videoCompiler] Clip ${i + 1}/${rows.length}: ${path.basename(v.filepath)} (${(fileSize / 1024).toFixed(0)} KB, mode=${v.mode})`,
+        );
       } catch {
         console.warn('[videoCompiler] Fichier introuvable, skip:', v.filepath);
         skipped.push(`${path.basename(v.filepath)} (fichier introuvable)`);
         continue;
       }
 
-      // 2. Probe pour vérifier que le fichier est lisible par ffmpeg
+      // 2. Probe : si elle échoue on log mais on tente quand même processClip,
+      // car le transcode est souvent plus tolérant que la simple lecture
+      // (drawtext, scale, etc. réinitialisent le pipeline).
       try {
         await probe(v.filepath);
       } catch (e) {
         const msg = e instanceof Error ? e.message : String(e);
-        console.warn('[videoCompiler] Vidéo illisible, skip:', v.filepath, msg);
-        skipped.push(`${path.basename(v.filepath)} (probe ffmpeg: ${msg.slice(0, 80)})`);
-        continue;
+        console.warn('[videoCompiler] Probe a échoué, on tente quand même le transcode:', v.filepath, msg);
       }
 
       // Pour les free_message, pas de log interview à charger
@@ -422,7 +450,7 @@ export async function compileEventVideos(
         } catch (e2) {
           const msg2 = e2 instanceof Error ? e2.message : String(e2);
           console.warn('[videoCompiler] Fallback échoué aussi, skip:', v.filepath, msg2);
-          skipped.push(`${path.basename(v.filepath)} (encode: ${msg2.slice(0, 80)})`);
+          skipped.push(`${path.basename(v.filepath)} (encode: ${msg2.slice(0, 120)})`);
         }
       }
 
