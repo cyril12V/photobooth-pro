@@ -54,11 +54,14 @@ export function HomeScreen() {
   const coupleName = event?.name ?? 'Camille & Julien';
   const date = formatDate(event?.date);
 
-  const choose = (mode: 'classic' | 'challenge') => {
-    if (mode === 'challenge' && !challengeAvailable) return;
-    setMode(mode);
-    if (mode === 'challenge') setScreen('pose-select');
-    else setScreen('capture');
+  const start = () => {
+    if (challengeAvailable) {
+      setMode('challenge');
+      setScreen('pose-select');
+    } else {
+      setMode('classic');
+      setScreen('capture');
+    }
   };
 
   return (
@@ -137,19 +140,9 @@ export function HomeScreen() {
               )}
 
               <motion.div {...fadeUp(0.75)} className="flex flex-wrap gap-3" style={{ marginTop: '3rem' }}>
-                <button onClick={() => choose('classic')} className="btn-editorial-primary">
+                <button onClick={start} className="btn-editorial-primary">
                   <MdCameraAlt size={18} />
-                  Photo classique
-                </button>
-
-                <button
-                  onClick={() => choose('challenge')}
-                  disabled={!challengeAvailable}
-                  className="btn-editorial-secondary"
-                  title={challengeAvailable ? '' : 'Aucune pose configurée'}
-                >
-                  <MdBolt size={18} />
-                  Challenge
+                  Démarrer
                 </button>
               </motion.div>
             </div>
@@ -221,19 +214,9 @@ export function HomeScreen() {
             )}
 
             <motion.div {...fadeUp(0.75)} className="flex flex-wrap justify-center gap-3" style={{ marginTop: '3rem' }}>
-              <button onClick={() => choose('classic')} className="btn-editorial-primary">
+              <button onClick={start} className="btn-editorial-primary">
                 <MdCameraAlt size={18} />
-                Photo classique
-              </button>
-
-              <button
-                onClick={() => choose('challenge')}
-                disabled={!challengeAvailable}
-                className="btn-editorial-secondary"
-                title={challengeAvailable ? '' : 'Aucune pose configurée'}
-              >
-                <MdBolt size={18} />
-                Challenge
+                Démarrer
               </button>
             </motion.div>
           </div>
