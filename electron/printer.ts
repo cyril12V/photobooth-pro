@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, nativeImage } from 'electron';
 import fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { getDb } from './database';
@@ -50,7 +50,19 @@ export async function handlePrint(
     throw new Error(msg);
   }
 
-  // 2. Encode le chemin en file:// (gère accents/espaces/caractères spéciaux)
+  // 2. Détecte l'orientation de l'image : paysage (width > height) ou portrait.
+  //    On bascule le pilote en conséquence pour que la sortie matche le ratio
+  //    de la photo composée (sinon bandes noires sur le ruban DS620).
+  let isLandscape = false;
+  try {
+    const img = nativeImage.createFromPath(filepath);
+    const size = img.getSize();
+    if (size.width > size.height) isLandscape = true;
+  } catch {
+    // Fallback portrait par défaut
+  }
+
+  // 3. Encode le chemin en file:// (gère accents/espaces/caractères spéciaux)
   const fileUrl = pathToFileURL(filepath).toString();
 
   // 3. Charge la photo dans une fenêtre cachée
@@ -98,7 +110,10 @@ export async function handlePrint(
             printBackground: true,
             deviceName: printerName,
             margins: { marginType: 'none' },
-            landscape: false,
+            // Orientation détectée depuis le ratio de l'image elle-même.
+            // Le pilote DS620 fera tourner physiquement le papier 4×6 si
+            // landscape: true, garantissant que toute la zone est imprimée.
+            landscape: isLandscape,
             color: true,
             scaleFactor: 100,
             // pageSize NON forcé : on laisse le pilote DS620 utiliser sa
