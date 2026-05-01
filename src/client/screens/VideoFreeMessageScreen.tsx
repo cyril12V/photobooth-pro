@@ -15,9 +15,9 @@ const RES_MAP = {
 } as const;
 
 const BITRATE_MAP: Record<keyof typeof RES_MAP, number> = {
-  '4k': 12_000_000,
-  '1080p': 5_000_000,
-  '720p': 2_500_000,
+  '4k': 8_000_000,
+  '1080p': 4_000_000,
+  '720p': 2_000_000,
   '480p': 1_000_000,
 };
 

@@ -201,7 +201,7 @@ export function VideoSettings() {
                 ))}
               </div>
               <p className="text-neutral-400 text-xs mt-2">
-                4K ≈ 90 MB/min, 1080p ≈ 35 MB/min, 720p ≈ 18 MB/min, 480p ≈ 8 MB/min (VP9 ou VP8). Le 4K nécessite une caméra compatible (Canon R6 Mark II en mode Webcam Utility, Sony, GoPro, etc.).
+                4K ≈ 60 MB/min, 1080p ≈ 30 MB/min, 720p ≈ 15 MB/min, 480p ≈ 8 MB/min. Le 4K nécessite une caméra compatible (Canon R6 Mark II en mode Webcam Utility, Sony, GoPro, etc.) et un PC assez puissant — réduire à 1080p si la prévisualisation lague.
               </p>
             </div>
 

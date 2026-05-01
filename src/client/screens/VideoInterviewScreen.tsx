@@ -16,11 +16,13 @@ const RES_MAP = {
   '480p': { width: 854, height: 480 },
 } as const;
 
-// Bitrate adapté à la résolution (qualité visuelle / taille fichier raisonnables)
+// Bitrate adapté à la résolution. Compromis qualité / charge CPU :
+// un bitrate trop élevé charge l'encodeur software et fait laguer la
+// prévisualisation. On reste raisonnable pour garder l'enregistrement fluide.
 const BITRATE_MAP: Record<keyof typeof RES_MAP, number> = {
-  '4k': 12_000_000,
-  '1080p': 5_000_000,
-  '720p': 2_500_000,
+  '4k': 8_000_000,
+  '1080p': 4_000_000,
+  '720p': 2_000_000,
   '480p': 1_000_000,
 };
 

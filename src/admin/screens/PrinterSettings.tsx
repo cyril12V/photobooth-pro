@@ -168,11 +168,13 @@ export function PrinterSettings() {
               lineHeight: 1.6,
             }}
           >
-            L'impression force le format papier sélectionné ci-dessus (300 DPI, sans marges).
-            Pour la <strong>DNP DS620</strong> : sélectionnez son pilote dans la liste
-            d'imprimantes, et choisissez le format <strong>4×6</strong> (standard photobooth).
-            Vérifiez que dans les propriétés Windows du pilote DS620, le format papier est
-            bien aligné (4×6 / PC).
+            <strong>Important :</strong> L'application laisse votre pilote Windows gérer le format
+            papier physique. Pour la <strong>DNP DS620</strong>, ouvrez{' '}
+            <em>Panneau de configuration → Périphériques et imprimantes → DNP DS620 →
+            Préférences d'impression</em> et vérifiez que le format est bien réglé
+            sur le papier physique chargé (4×6, 5×7 ou 6×8) en orientation{' '}
+            <strong>Portrait</strong>. Sans ça, des bandes noires apparaîtront sur la sortie
+            (zones non-imprimées par le ruban sublimation).
           </p>
         </AdminCard>
 
