@@ -190,7 +190,7 @@ export interface AppSettings {
   // VideoBooth
   video_enabled: boolean;
   microphone_device_id: string;
-  video_resolution: '1080p' | '720p' | '480p';
+  video_resolution: '4k' | '1080p' | '720p' | '480p';
   video_max_duration_seconds: number;
   video_default_question_seconds: number;
   video_interview_beep: boolean;

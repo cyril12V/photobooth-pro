@@ -8,10 +8,32 @@ import { sounds } from '@shared/lib/sounds';
 type Phase = 'preparing' | 'countdown' | 'recording' | 'finishing' | 'error';
 
 const RES_MAP = {
+  '4k': { width: 3840, height: 2160 },
   '1080p': { width: 1920, height: 1080 },
   '720p': { width: 1280, height: 720 },
   '480p': { width: 854, height: 480 },
 } as const;
+
+const BITRATE_MAP: Record<keyof typeof RES_MAP, number> = {
+  '4k': 12_000_000,
+  '1080p': 5_000_000,
+  '720p': 2_500_000,
+  '480p': 1_000_000,
+};
+
+function pickMimeType(): string {
+  const candidates = [
+    'video/webm;codecs=vp9,opus',
+    'video/webm;codecs=vp8,opus',
+    'video/webm',
+  ];
+  for (const c of candidates) {
+    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(c)) {
+      return c;
+    }
+  }
+  return 'video/webm';
+}
 
 export function VideoFreeMessageScreen() {
   const { settings, setScreen, setVideoCapture } = useAppStore();
@@ -42,6 +64,7 @@ export function VideoFreeMessageScreen() {
           video: {
             width: { ideal: res.width },
             height: { ideal: res.height },
+            frameRate: { ideal: 30, max: 30 },
             deviceId: settings?.camera_device_id
               ? { exact: settings.camera_device_id }
               : undefined,
@@ -106,20 +129,15 @@ export function VideoFreeMessageScreen() {
 
   const startRecording = () => {
     if (!streamRef.current) return;
-    // VP8 prioritaire : c'est le codec WebM le plus largement supporté par
-    // les builds ffmpeg-static (VP9 peut manquer du support de décodage et
-    // faire échouer la compilation).
-    const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
-      ? 'video/webm;codecs=vp8,opus'
-      : MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
-        ? 'video/webm;codecs=vp9,opus'
-        : 'video/webm';
+    // VP9 priorisé pour la 4K (compression bien meilleure), fallback VP8.
+    const mime = pickMimeType();
+    const videoBitsPerSecond = BITRATE_MAP[resolution];
 
     let recorder: MediaRecorder;
     try {
       recorder = new MediaRecorder(streamRef.current, {
         mimeType: mime,
-        videoBitsPerSecond: 2_500_000,
+        videoBitsPerSecond,
         audioBitsPerSecond: 128_000,
       });
     } catch (e) {
@@ -141,7 +159,7 @@ export function VideoFreeMessageScreen() {
 
     recorderRef.current = recorder;
     t0Ref.current = performance.now();
-    recorder.start(1000);
+    recorder.start(500);
 
     tickerRef.current = window.setInterval(() => {
       const e = (performance.now() - t0Ref.current) / 1000;

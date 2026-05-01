@@ -47,7 +47,7 @@ export function PreviewScreen() {
           finalDataUrl = await composePhotoWithTemplate(photos, config, event);
         }
       } catch (e) {
-        console.warn('Composition template échouée, photo brute conservée', e);
+        console.error('[PreviewScreen] Composition template échouée, photo brute conservée :', e);
       }
 
       const r = await window.api.photo.save({

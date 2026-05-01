@@ -188,7 +188,18 @@ function registerIpcHandlers() {
     const filepath = path.join(dir, filename);
 
     const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, '');
-    await fs.writeFile(filepath, base64, 'base64');
+    // Important : fh.open + write + sync + close pour garantir que le fichier
+    // est COMPLÈTEMENT écrit sur disque avant qu'on retourne le filepath.
+    // Sans fsync, fs.writeFile retourne dès que le buffer est dans le cache
+    // kernel, et l'impression immédiate qui suit lit un fichier vide / partiel
+    // → photo blanche imprimée.
+    const fh = await fs.open(filepath, 'w');
+    try {
+      await fh.write(Buffer.from(base64, 'base64'));
+      await fh.sync();
+    } finally {
+      await fh.close();
+    }
 
     // Enregistre dans le serveur de partage local pour générer l'URL QR
     const share_url = shareServer.registerFile(filepath, 60 * 24);

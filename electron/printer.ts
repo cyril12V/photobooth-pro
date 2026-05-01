@@ -1,4 +1,6 @@
 import { BrowserWindow } from 'electron';
+import fs from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
 import { getDb } from './database';
 
 /**
@@ -22,10 +24,9 @@ interface PrintArgs {
 
 /**
  * Imprime une photo en silencieux (sans dialogue système).
- * Utilise printToPDF + page silentPrint pour les imprimantes photo.
- *
- * Pour la V2 : remplacer par les SDK natifs DNP / Mitsubishi pour
- * un contrôle précis du format (10x15, bandeau, etc.).
+ * - Encode le chemin en file:// via pathToFileURL pour gérer les accents/espaces.
+ * - Vérifie que le fichier existe avant de tenter l'impression.
+ * - Force l'image à occuper toute la page (object-fit: contain pour ne rien couper).
  */
 export async function handlePrint(
   win: BrowserWindow,
@@ -33,22 +34,49 @@ export async function handlePrint(
 ) {
   const db = getDb();
 
-  // On charge la photo dans une fenêtre cachée pour l'impression
+  // 1. Vérification d'existence du fichier
+  try {
+    await fs.access(filepath);
+  } catch {
+    const msg = `Fichier introuvable : ${filepath}`;
+    db.prepare(
+      `INSERT INTO print_log (photo_id, copies, printer_name, success, error)
+       VALUES (?, ?, ?, 0, ?)`,
+    ).run(null, copies, printerName ?? null, msg);
+    throw new Error(msg);
+  }
+
+  // 2. Encode le chemin en file:// (gère les accents, espaces, caractères spéciaux)
+  const fileUrl = pathToFileURL(filepath).toString();
+
+  // 3. Charge la photo dans une fenêtre cachée
   const printWin = new BrowserWindow({
     show: false,
-    webPreferences: { offscreen: false },
+    webPreferences: { offscreen: false, webSecurity: false },
   });
 
+  // HTML : photo en plein papier, ratio préservé (object-fit: contain)
+  // pour ne rien couper du template ni des bords de la photo.
   const html = `
     <!doctype html>
     <html><head><style>
-      @page { margin: 0; size: 10cm 15cm; }
-      html, body { margin: 0; padding: 0; height: 100%; }
-      img { width: 100%; height: 100%; object-fit: cover; }
+      @page { margin: 0; }
+      html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: white; }
+      img {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        object-fit: contain;
+        margin: 0;
+        padding: 0;
+      }
     </style></head>
-    <body><img src="file://${filepath.replace(/\\/g, '/')}" /></body></html>
+    <body><img src="${fileUrl}" /></body></html>
   `;
   await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+  // Petit délai pour s'assurer que l'image est rendue avant l'impression
+  await new Promise<void>((resolve) => setTimeout(resolve, 200));
 
   let success = true;
   let errorMsg = '';
@@ -62,6 +90,7 @@ export async function handlePrint(
             printBackground: true,
             deviceName: printerName,
             margins: { marginType: 'none' },
+            scaleFactor: 100,
           },
           (ok, reason) => {
             if (ok) resolve();
@@ -70,9 +99,9 @@ export async function handlePrint(
         );
       });
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     success = false;
-    errorMsg = e.message ?? String(e);
+    errorMsg = e instanceof Error ? e.message : String(e);
   } finally {
     printWin.destroy();
   }
