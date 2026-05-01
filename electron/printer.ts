@@ -24,48 +24,19 @@ interface PrintArgs {
 }
 
 /**
- * Dimensions papier en microns (Electron `pageSize` attend des microns).
- * 1 inch = 25.4 mm = 25400 µm.
- *
- * Optimisé pour les imprimantes thermiques sublimation type DNP DS620 :
- * - 4×6 (10×15 cm) — format photobooth standard
- * - 5×7 (13×18 cm)
- * - 6×8 (15×20 cm)
- *
- * Orientation portrait : width < height. La photo capturée est en 1200×1800
- * (ratio 2:3) qui correspond exactement au 4×6 portrait.
- */
-const PAPER_SIZES: Record<'4x6' | '5x7' | '6x8', { widthMicrons: number; heightMicrons: number; cssSize: string }> = {
-  '4x6': {
-    widthMicrons: 4 * 25400,
-    heightMicrons: 6 * 25400,
-    cssSize: '10.16cm 15.24cm',
-  },
-  '5x7': {
-    widthMicrons: 5 * 25400,
-    heightMicrons: 7 * 25400,
-    cssSize: '12.7cm 17.78cm',
-  },
-  '6x8': {
-    widthMicrons: 6 * 25400,
-    heightMicrons: 8 * 25400,
-    cssSize: '15.24cm 20.32cm',
-  },
-};
-
-/**
  * Imprime une photo en silencieux (sans dialogue système).
  * - Encode le chemin en file:// via pathToFileURL pour gérer les accents/espaces.
  * - Vérifie que le fichier existe avant de tenter l'impression.
- * - Force le format papier exact (4×6 par défaut, compatible DNP DS620).
+ * - Laisse le pilote Windows (DNP DS620, etc.) gérer le format papier physique.
+ *   Le user configure 4×6 / 5×7 / 6×8 dans les préférences Windows du pilote,
+ *   le code respecte cette config (évite les bandes noires sur sublimation).
  * - Force l'image à occuper toute la page (object-fit: cover, sans bord blanc).
  */
 export async function handlePrint(
   win: BrowserWindow,
-  { filepath, copies, printerName, paperFormat = '4x6' }: PrintArgs,
+  { filepath, copies, printerName }: PrintArgs,
 ) {
   const db = getDb();
-  const paper = PAPER_SIZES[paperFormat] ?? PAPER_SIZES['4x6'];
 
   // 1. Vérification d'existence du fichier
   try {
@@ -88,19 +59,21 @@ export async function handlePrint(
     webPreferences: { offscreen: false, webSecurity: false },
   });
 
-  // HTML : photo en plein papier, ratio préservé (object-fit: cover) pour
-  // remplir 100% de la feuille. La photo capturée est déjà au bon ratio
-  // (1200×1800 = 2:3 = 4×6 portrait) donc cover et contain donnent le même
-  // résultat — cover assure 0 marge blanche même en cas de léger arrondi.
+  // HTML : on laisse le pilote Windows (DNP DS620, etc.) gérer le format
+  // physique du papier. Le `@page { size: auto; }` adopte la taille demandée
+  // par le pilote, ce qui évite tout mismatch (ratio paysage/portrait, format
+  // 6×8 chargé alors qu'on envoie 4×6, etc.) qui produit des bandes noires
+  // sur la sortie sublimation.
+  // `object-fit: cover` remplit 100% de la page sans marge blanche.
   const html = `
     <!doctype html>
     <html><head><style>
-      @page { size: ${paper.cssSize}; margin: 0; }
+      @page { size: auto; margin: 0; }
       html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: white; }
       img {
         display: block;
-        width: 100vw;
-        height: 100vh;
+        width: 100%;
+        height: 100%;
         object-fit: cover;
         margin: 0;
         padding: 0;
@@ -110,8 +83,8 @@ export async function handlePrint(
   `;
   await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
-  // Petit délai pour s'assurer que l'image est rendue avant l'impression
-  await new Promise<void>((resolve) => setTimeout(resolve, 250));
+  // Délai pour rendu complet de l'image avant impression
+  await new Promise<void>((resolve) => setTimeout(resolve, 350));
 
   let success = true;
   let errorMsg = '';
@@ -125,14 +98,13 @@ export async function handlePrint(
             printBackground: true,
             deviceName: printerName,
             margins: { marginType: 'none' },
-            // Force la taille de page côté Electron (en plus du @page CSS)
-            pageSize: {
-              width: paper.widthMicrons,
-              height: paper.heightMicrons,
-            },
-            scaleFactor: 100,
+            landscape: false,
             color: true,
-            dpi: { horizontal: 300, vertical: 300 },
+            scaleFactor: 100,
+            // pageSize NON forcé : on laisse le pilote DS620 utiliser sa
+            // config Windows native. Le user doit configurer le format
+            // physique du papier (4×6, 5×7, 6×8) dans Préférences
+            // d'impression Windows pour que ça matche.
           },
           (ok, reason) => {
             if (ok) resolve();
