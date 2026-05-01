@@ -71,15 +71,13 @@ export async function handlePrint(
     webPreferences: { offscreen: false, webSecurity: false },
   });
 
-  // CSS @page size aligné sur l'orientation détectée de l'image. Sans ça,
-  // le HTML est rendu en portrait par défaut alors que le pilote attend du
-  // paysage (ou vice versa) → bandes noires sur la sublimation.
-  // 4×6 portrait = 10.16cm × 15.24cm, 6×4 paysage = 15.24cm × 10.16cm.
-  const pageSizeCss = isLandscape ? '15.24cm 10.16cm' : '10.16cm 15.24cm';
+  // HTML minimal : on laisse le pilote Windows gérer la taille physique du
+  // papier (size: auto). Le `landscape` ci-dessous indique au pilote dans
+  // quel sens orienter le papier, c'est suffisant pour la DS620.
   const html = `
     <!doctype html>
     <html><head><style>
-      @page { size: ${pageSizeCss}; margin: 0; }
+      @page { size: auto; margin: 0; }
       html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: white; }
       img {
         display: block;
