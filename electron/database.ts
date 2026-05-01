@@ -109,6 +109,7 @@ export async function initDatabase() {
     enable_qr: true,
     enable_cloud: false,
     printer_name: '',
+    paper_format: '4x6',
     camera_device_id: '',
     flash_enabled: true,
     sound_enabled: true,

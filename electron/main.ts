@@ -515,7 +515,9 @@ function registerIpcHandlers() {
 
   ipcMain.handle('printer:print', async (_e, { filepath, copies, printerName }) => {
     if (!mainWindow) throw new Error('Fenêtre indisponible');
-    return handlePrint(mainWindow, { filepath, copies, printerName });
+    const s = getSettings();
+    const paperFormat = (s.paper_format as '4x6' | '5x7' | '6x8' | undefined) ?? '4x6';
+    return handlePrint(mainWindow, { filepath, copies, printerName, paperFormat });
   });
 
   // ── Sélecteur fichier (admin) ─────────────────

@@ -171,6 +171,8 @@ export interface AppSettings {
   enable_qr: boolean;
   enable_cloud: boolean;
   printer_name: string;
+  // Format papier de l'imprimante photo (DNP DS620, etc.)
+  paper_format: '4x6' | '5x7' | '6x8';
   camera_device_id: string;
   flash_enabled: boolean;
   sound_enabled: boolean;
