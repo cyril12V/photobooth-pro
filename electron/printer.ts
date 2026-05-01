@@ -110,12 +110,9 @@ export async function handlePrint(
             // Orientation détectée depuis le ratio de l'image elle-même.
             // Le pilote DS620 fera tourner physiquement le papier 4×6 si
             // landscape: true, garantissant que toute la zone est imprimée.
+            // Pas de pageSize forcé : on laisse le pilote utiliser sa config
+            // Windows (sinon il rejette la commande).
             landscape: isLandscape,
-            // Force aussi la taille de page côté Electron (microns).
-            // 4×6 inch = 101600 × 152400 µm. En paysage on inverse.
-            pageSize: isLandscape
-              ? { width: 152400, height: 101600 }
-              : { width: 101600, height: 152400 },
             color: true,
             scaleFactor: 100,
             // pageSize NON forcé : on laisse le pilote DS620 utiliser sa
