@@ -71,16 +71,15 @@ export async function handlePrint(
     webPreferences: { offscreen: false, webSecurity: false },
   });
 
-  // HTML : on laisse le pilote Windows (DNP DS620, etc.) gérer le format
-  // physique du papier. Le `@page { size: auto; }` adopte la taille demandée
-  // par le pilote, ce qui évite tout mismatch (ratio paysage/portrait, format
-  // 6×8 chargé alors qu'on envoie 4×6, etc.) qui produit des bandes noires
-  // sur la sortie sublimation.
-  // `object-fit: cover` remplit 100% de la page sans marge blanche.
+  // CSS @page size aligné sur l'orientation détectée de l'image. Sans ça,
+  // le HTML est rendu en portrait par défaut alors que le pilote attend du
+  // paysage (ou vice versa) → bandes noires sur la sublimation.
+  // 4×6 portrait = 10.16cm × 15.24cm, 6×4 paysage = 15.24cm × 10.16cm.
+  const pageSizeCss = isLandscape ? '15.24cm 10.16cm' : '10.16cm 15.24cm';
   const html = `
     <!doctype html>
     <html><head><style>
-      @page { size: auto; margin: 0; }
+      @page { size: ${pageSizeCss}; margin: 0; }
       html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: white; }
       img {
         display: block;
@@ -114,6 +113,11 @@ export async function handlePrint(
             // Le pilote DS620 fera tourner physiquement le papier 4×6 si
             // landscape: true, garantissant que toute la zone est imprimée.
             landscape: isLandscape,
+            // Force aussi la taille de page côté Electron (microns).
+            // 4×6 inch = 101600 × 152400 µm. En paysage on inverse.
+            pageSize: isLandscape
+              ? { width: 152400, height: 101600 }
+              : { width: 101600, height: 152400 },
             color: true,
             scaleFactor: 100,
             // pageSize NON forcé : on laisse le pilote DS620 utiliser sa
