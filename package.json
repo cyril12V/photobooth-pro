@@ -1,6 +1,6 @@
 {
   "name": "photobooth-pro",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "Photo Booth professionnel pour mariages et évènements",
   "main": "dist-electron/main.js",
   "author": "You",
