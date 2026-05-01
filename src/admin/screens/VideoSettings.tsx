@@ -4,7 +4,7 @@ import { useAppStore } from '@shared/store';
 import { AdminCard, AdminPageHeader, AdminToggle } from '../components/AdminUI';
 import { Button } from '@shared/components/Button';
 
-const RESOLUTIONS = ['1080p', '720p', '480p'] as const;
+const RESOLUTIONS = ['4k', '1080p', '720p', '480p'] as const;
 type Resolution = (typeof RESOLUTIONS)[number];
 
 type CompileStatus =
@@ -185,7 +185,7 @@ export function VideoSettings() {
               <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-3">
                 Résolution
               </p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-4 gap-3">
                 {RESOLUTIONS.map((r) => (
                   <button
                     key={r}
@@ -196,12 +196,12 @@ export function VideoSettings() {
                         : 'bg-neutral-50 border border-neutral-200 text-neutral-700 hover:bg-neutral-100'
                     }`}
                   >
-                    {r}
+                    {r === '4k' ? '4K' : r}
                   </button>
                 ))}
               </div>
               <p className="text-neutral-400 text-xs mt-2">
-                1080p ≈ 35 MB/min, 720p ≈ 18 MB/min, 480p ≈ 8 MB/min (codec VP9)
+                4K ≈ 90 MB/min, 1080p ≈ 35 MB/min, 720p ≈ 18 MB/min, 480p ≈ 8 MB/min (VP9 ou VP8). Le 4K nécessite une caméra compatible (Canon R6 Mark II en mode Webcam Utility, Sony, GoPro, etc.).
               </p>
             </div>
 
