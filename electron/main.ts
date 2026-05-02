@@ -513,11 +513,11 @@ function registerIpcHandlers() {
     return listPrinters(mainWindow);
   });
 
-  ipcMain.handle('printer:print', async (_e, { filepath, copies, printerName }) => {
+  ipcMain.handle('printer:print', async (_e, { filepath, copies, printerName, isLandscape }) => {
     if (!mainWindow) throw new Error('Fenêtre indisponible');
     const s = getSettings();
     const paperFormat = (s.paper_format as '4x6' | '5x7' | '6x8' | undefined) ?? '4x6';
-    return handlePrint(mainWindow, { filepath, copies, printerName, paperFormat });
+    return handlePrint(mainWindow, { filepath, copies, printerName, paperFormat, isLandscape });
   });
 
   // ── Sélecteur fichier (admin) ─────────────────

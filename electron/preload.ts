@@ -71,7 +71,7 @@ contextBridge.exposeInMainWorld('api', {
   // Imprimante
   printer: {
     list: () => ipcRenderer.invoke('printer:list'),
-    print: (payload: { filepath: string; copies: number; printerName?: string }) =>
+    print: (payload: { filepath: string; copies: number; printerName?: string; isLandscape?: boolean }) =>
       ipcRenderer.invoke('printer:print', payload),
   },
   // Dialog

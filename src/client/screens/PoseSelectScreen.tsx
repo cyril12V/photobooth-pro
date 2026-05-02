@@ -4,7 +4,8 @@ import { MdArrowBack, MdShuffle, MdCheck } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { poseSrc } from '@shared/lib/poseAssets';
-import type { ChallengePose, TemplateConfig } from '@shared/types';
+import { loadPrimaryTemplateSnapshot } from '@shared/lib/photoTemplate';
+import type { ChallengePose } from '@shared/types';
 
 const fadeUp = (delay: number) => ({
   initial: { opacity: 0, y: 14 },
@@ -20,16 +21,8 @@ export function PoseSelectScreen() {
 
   useEffect(() => {
     (async () => {
-      try {
-        const templates = await window.api.template.list();
-        if (templates.length > 0) {
-          const config = JSON.parse(templates[0].config_json) as TemplateConfig;
-          const slots = config.elements.filter((el) => el.type === 'photo-slot').length;
-          setTotalSlots(slots > 0 ? slots : 1);
-        }
-      } catch {
-        setTotalSlots(1);
-      }
+      const { slotCount } = await loadPrimaryTemplateSnapshot();
+      setTotalSlots(slotCount);
     })();
   }, []);
 

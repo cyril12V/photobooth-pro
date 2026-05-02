@@ -14,6 +14,7 @@ import QRCode from 'qrcode';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { sounds } from '@shared/lib/sounds';
+import { isLandscapeLayout } from '@shared/lib/photoTemplate';
 
 const fadeUp = (delay: number) => ({
   initial: { opacity: 0, y: 12 },
@@ -26,6 +27,7 @@ export function PrintShareScreen() {
     currentPhotoDataUrl,
     currentPhotoFilepath,
     currentPhotoShareUrl,
+    currentPhotoLayout,
     settings,
     event,
     resetCapture,
@@ -76,6 +78,7 @@ export function PrintShareScreen() {
         filepath: currentPhotoFilepath,
         copies,
         printerName: settings?.printer_name || undefined,
+        isLandscape: currentPhotoLayout ? isLandscapeLayout(currentPhotoLayout) : undefined,
       });
       sounds.success();
       setPrinted(true);

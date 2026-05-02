@@ -5,10 +5,25 @@ import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { sounds } from '@shared/lib/sounds';
 import { poseSrc } from '@shared/lib/poseAssets';
-import type { TemplateConfig } from '@shared/types';
+import {
+  DEFAULT_PHOTO_LAYOUT,
+  getAspectRatioString,
+  loadPrimaryTemplateSnapshot,
+} from '@shared/lib/photoTemplate';
+import type { PhotoLayout } from '@shared/types';
 
 export function CaptureScreen() {
-  const { setScreen, setCurrentPhoto, pushPhoto, clearPhotos, mode, selectedPose, selectedPoses, settings } = useAppStore();
+  const {
+    setScreen,
+    setCurrentPhoto,
+    setCurrentPhotoLayout,
+    pushPhoto,
+    clearPhotos,
+    mode,
+    selectedPose,
+    selectedPoses,
+    settings,
+  } = useAppStore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -17,7 +32,7 @@ export function CaptureScreen() {
   const [streamReady, setStreamReady] = useState(false);
 
   // Données du template actif (ratio + nombre de slots)
-  const [templateRatio, setTemplateRatio] = useState<{ w: number; h: number }>({ w: 1200, h: 1800 });
+  const [templateLayout, setTemplateLayout] = useState<PhotoLayout>(DEFAULT_PHOTO_LAYOUT);
   const [totalSlots, setTotalSlots] = useState(1);
   const [capturedCount, setCapturedCount] = useState(0);
   // Ref pour lire capturedCount synchroniquement dans les callbacks
@@ -30,22 +45,12 @@ export function CaptureScreen() {
   // ─── Charge le template actif au montage ───────────────────────────────
   useEffect(() => {
     (async () => {
-      try {
-        const templates = await window.api.template.list();
-        if (templates.length > 0) {
-          const config = JSON.parse(templates[0].config_json) as TemplateConfig;
-          const w = config.canvas_width || 1200;
-          const h = config.canvas_height || 1800;
-          setTemplateRatio({ w, h });
-          const elements = Array.isArray(config.elements) ? config.elements : [];
-          const slots = elements.filter((el) => el.type === 'photo-slot').length;
-          setTotalSlots(slots > 0 ? slots : 1);
-        }
-      } catch {
-        // Fallback portrait 2:3
-      }
+      const { layout, slotCount } = await loadPrimaryTemplateSnapshot();
+      setTemplateLayout(layout);
+      setCurrentPhotoLayout(layout);
+      setTotalSlots(slotCount);
     })();
-  }, []);
+  }, [setCurrentPhotoLayout]);
 
   // ─── Démarre la caméra ──────────────────────────────────────────────────
   useEffect(() => {
@@ -112,8 +117,8 @@ export function CaptureScreen() {
     const vw = video.videoWidth;
     const vh = video.videoHeight;
 
-    const targetW = templateRatio.w;
-    const targetH = templateRatio.h;
+    const targetW = templateLayout.width;
+    const targetH = templateLayout.height;
     const targetRatioVal = targetW / targetH;
     const videoRatio = vw / vh;
 
@@ -139,7 +144,7 @@ export function CaptureScreen() {
     ctx.scale(-1, 1);
     ctx.drawImage(video, srcX, srcY, srcW, srcH, 0, 0, targetW, targetH);
     return canvas.toDataURL('image/jpeg', 0.92);
-  }, [streamReady, templateRatio]);
+  }, [streamReady, templateLayout]);
 
   // ─── Séquence de capture (1 ou N photos) ───────────────────────────────
   const runCapture = useCallback(() => {
@@ -200,7 +205,7 @@ export function CaptureScreen() {
     return () => clearTimeout(t);
   }, [countdown, runCapture, soundsOn]);
 
-  const aspectRatioString = `${templateRatio.w} / ${templateRatio.h}`;
+  const aspectRatioString = getAspectRatioString(templateLayout);
   const currentPose = selectedPoses[capturedCount] ?? selectedPose;
 
   return (
@@ -427,4 +432,3 @@ export function CaptureScreen() {
     </Screen>
   );
 }
-

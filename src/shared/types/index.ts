@@ -61,6 +61,11 @@ export interface PhotoTemplate {
   config: TemplateConfig;
 }
 
+export interface PhotoLayout {
+  width: number;
+  height: number;
+}
+
 // ─── Template libre — éléments composables ─────────────────────────────────
 export type TemplateElementType =
   | 'text'
@@ -281,6 +286,7 @@ declare global {
           filepath: string;
           copies: number;
           printerName?: string;
+          isLandscape?: boolean;
         }) => Promise<{ ok: boolean }>;
       };
       dialog: {

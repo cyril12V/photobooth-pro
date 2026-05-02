@@ -5,6 +5,7 @@ import type {
   ChallengePose,
   InterviewLogEntry,
   VideoMode,
+  PhotoLayout,
 } from '@shared/types';
 
 export type Screen =
@@ -44,6 +45,7 @@ interface AppState {
   currentPhotoDataUrls: string[];
   currentPhotoFilepath: string | null;
   currentPhotoShareUrl: string | null;
+  currentPhotoLayout: PhotoLayout | null;
 
   // Vidéo en cours
   currentVideoBlob: Blob | null;
@@ -68,7 +70,13 @@ interface AppState {
   setVideoMode: (m: VideoMode | null) => void;
   setSelectedPose: (p: ChallengePose | null) => void;
   setSelectedPoses: (p: ChallengePose[]) => void;
-  setCurrentPhoto: (dataUrl: string | null, filepath: string | null, shareUrl?: string | null) => void;
+  setCurrentPhotoLayout: (layout: PhotoLayout | null) => void;
+  setCurrentPhoto: (
+    dataUrl: string | null,
+    filepath: string | null,
+    shareUrl?: string | null,
+    layout?: PhotoLayout | null,
+  ) => void;
   pushPhoto: (dataUrl: string) => void;
   clearPhotos: () => void;
   setVideoCapture: (data: {
@@ -99,6 +107,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentPhotoDataUrls: [],
   currentPhotoFilepath: null,
   currentPhotoShareUrl: null,
+  currentPhotoLayout: null,
   currentVideoBlob: null,
   currentVideoMime: null,
   currentVideoBlobUrl: null,
@@ -118,13 +127,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   setVideoMode: (videoMode) => set({ videoMode }),
   setSelectedPose: (selectedPose) => set({ selectedPose }),
   setSelectedPoses: (selectedPoses) => set({ selectedPoses }),
-  setCurrentPhoto: (dataUrl, filepath, shareUrl) =>
-    set({
+  setCurrentPhotoLayout: (currentPhotoLayout) => set({ currentPhotoLayout }),
+  setCurrentPhoto: (dataUrl, filepath, shareUrl, layout) =>
+    set((state) => ({
       currentPhotoDataUrl: dataUrl,
       currentPhotoDataUrls: dataUrl ? [dataUrl] : [],
       currentPhotoFilepath: filepath,
       currentPhotoShareUrl: shareUrl ?? null,
-    }),
+      currentPhotoLayout: layout === undefined ? state.currentPhotoLayout : layout,
+    })),
   pushPhoto: (dataUrl) =>
     set((state) => ({
       currentPhotoDataUrls: [...state.currentPhotoDataUrls, dataUrl],
@@ -193,6 +204,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentPhotoDataUrls: [],
       currentPhotoFilepath: null,
       currentPhotoShareUrl: null,
+      currentPhotoLayout: null,
       currentVideoBlob: null,
       currentVideoMime: null,
       currentVideoBlobUrl: null,

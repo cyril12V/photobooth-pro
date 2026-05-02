@@ -21,6 +21,7 @@ interface PrintArgs {
   copies: number;
   printerName?: string;
   paperFormat?: '4x6' | '5x7' | '6x8';
+  isLandscape?: boolean;
 }
 
 /**
@@ -34,7 +35,7 @@ interface PrintArgs {
  */
 export async function handlePrint(
   win: BrowserWindow,
-  { filepath, copies, printerName }: PrintArgs,
+  { filepath, copies, printerName, isLandscape: requestedLandscape }: PrintArgs,
 ) {
   const db = getDb();
 
@@ -50,22 +51,24 @@ export async function handlePrint(
     throw new Error(msg);
   }
 
-  // 2. Détecte l'orientation de l'image : paysage (width > height) ou portrait.
-  //    On bascule le pilote en conséquence pour que la sortie matche le ratio
-  //    de la photo composée (sinon bandes noires sur le ruban DS620).
-  let isLandscape = false;
-  try {
-    const img = nativeImage.createFromPath(filepath);
-    const size = img.getSize();
-    if (size.width > size.height) isLandscape = true;
-  } catch {
-    // Fallback portrait par défaut
+  // 2. L'orientation du template est la source de vérité pour l'impression.
+  //    Fallback uniquement pour les anciens appels qui ne transmettent pas
+  //    encore cette information.
+  let isLandscape = requestedLandscape ?? false;
+  if (typeof requestedLandscape !== 'boolean') {
+    try {
+      const img = nativeImage.createFromPath(filepath);
+      const size = img.getSize();
+      if (size.width > size.height) isLandscape = true;
+    } catch {
+      // Fallback portrait par défaut
+    }
   }
 
   // 3. Encode le chemin en file:// (gère accents/espaces/caractères spéciaux)
   const fileUrl = pathToFileURL(filepath).toString();
 
-  // 3. Charge la photo dans une fenêtre cachée
+  // 4. Charge la photo dans une fenêtre cachée
   const printWin = new BrowserWindow({
     show: false,
     webPreferences: { offscreen: false, webSecurity: false },
@@ -107,7 +110,7 @@ export async function handlePrint(
             printBackground: true,
             deviceName: printerName,
             margins: { marginType: 'none' },
-            // Orientation détectée depuis le ratio de l'image elle-même.
+            // Orientation imposée par le template final si disponible.
             // Le pilote DS620 fera tourner physiquement le papier 4×6 si
             // landscape: true, garantissant que toute la zone est imprimée.
             // Pas de pageSize forcé : on laisse le pilote utiliser sa config
