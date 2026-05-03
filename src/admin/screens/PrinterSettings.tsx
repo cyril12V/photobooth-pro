@@ -157,8 +157,8 @@ export function PrinterSettings() {
         </AdminCard>
 
         <AdminCard
-          title="Imprimantes thermiques sublimation"
-          description="DNP DS620, Mitsubishi, Canon Selphy"
+          title="Aperçu d'impression"
+          description="L'aperçu Windows s'ouvre avant chaque impression"
         >
           <p
             style={{
@@ -166,16 +166,45 @@ export function PrinterSettings() {
               fontFamily: 'Inter, sans-serif',
               fontSize: '0.875rem',
               lineHeight: 1.6,
+              marginBottom: '0.75rem',
             }}
           >
-            <strong>Important :</strong> L'application laisse votre pilote Windows gérer le format
-            papier physique. Pour la <strong>DNP DS620</strong>, ouvrez{' '}
-            <em>Panneau de configuration → Périphériques et imprimantes → DNP DS620 →
-            Préférences d'impression</em> et vérifiez que le format est bien réglé
-            sur le papier physique chargé (4×6, 5×7 ou 6×8) en orientation{' '}
-            <strong>Portrait</strong>. Sans ça, des bandes noires apparaîtront sur la sortie
-            (zones non-imprimées par le ruban sublimation).
+            Quand un invité clique sur <strong>Imprimer</strong>, le dialog Windows
+            s'ouvre avec l'aperçu de la photo. Ajustez l'orientation et le format,
+            puis validez. C'est exactement la même UI que celle de l'Explorateur
+            Windows quand vous imprimez manuellement.
           </p>
+          <div
+            style={{
+              backgroundColor: '#F4ECDD',
+              border: '1px solid rgba(212, 184, 150, 0.5)',
+              borderRadius: '8px',
+              padding: '1rem',
+              marginTop: '0.5rem',
+            }}
+          >
+            <p
+              className="label-editorial"
+              style={{ color: '#1A1A1A', marginBottom: '0.5rem' }}
+            >
+              Réglages recommandés DNP DS620
+            </p>
+            <ul
+              style={{
+                color: '#6B5D4F',
+                fontFamily: 'Inter, sans-serif',
+                fontSize: '0.8125rem',
+                lineHeight: 1.7,
+                margin: 0,
+                paddingLeft: '1.25rem',
+              }}
+            >
+              <li><strong>Orientation</strong> : Portrait</li>
+              <li><strong>Format papier</strong> : 6×4 (= 15,24 × 10,16 cm). Certains pilotes affichent <em>15,61 × 10,5 cm</em> selon la zone d'impression utile.</li>
+              <li><strong>Marges</strong> : Sans marges / Pleine page</li>
+              <li><strong>Qualité</strong> : 300 DPI (par défaut)</li>
+            </ul>
+          </div>
         </AdminCard>
 
         <Button

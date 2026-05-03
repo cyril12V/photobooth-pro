@@ -1,4 +1,4 @@
-import { BrowserWindow, nativeImage } from 'electron';
+import { BrowserWindow } from 'electron';
 import fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { getDb } from './database';
@@ -25,26 +25,25 @@ interface PrintArgs {
 }
 
 /**
- * Imprime une photo en silencieux (sans dialogue système).
+ * Imprime une photo en ouvrant l'aperçu d'impression Windows.
  *
- * Stratégie pour la DNP DS620 (et autres thermiques sublimation) :
- * - On imprime TOUJOURS en orientation portrait. Le pilote DS620 gère mal
- *   le flag `landscape: true` d'Electron (rejette la commande ou produit
- *   des bandes noires).
- * - Si l'image composée est paysage, on la rotate de 90° côté HTML pour
- *   qu'elle remplisse correctement le papier portrait. L'utilisateur peut
- *   ensuite tourner physiquement le tirage à 90° pour le lire en paysage.
- *
- * Cette approche garantit qu'aucune commande d'impression n'échoue, et
- * que la photo couvre 100% du papier sans bande blanche ni noire.
+ * Stratégie : on délègue tout au dialog d'impression natif Windows. C'est
+ * exactement la même UI qu'utilise le user quand il imprime manuellement
+ * depuis l'Explorateur (Aperçu Windows → bouton Imprimer). Avantages :
+ * - Aucun bug avec le pilote DNP DS620 (les options silent:true /
+ *   landscape:true / pageSize en microns plantaient l'envoi du job).
+ * - L'utilisateur peut vérifier le format papier, l'orientation, et
+ *   ajuster avant de valider.
+ * - Format suggéré pour DNP DS620 : 6×4 paysage (15,24×10,16 cm) ou
+ *   4×6 portrait (10,16×15,24 cm) — déjà préréglé dans le pilote DNP.
  */
 export async function handlePrint(
   win: BrowserWindow,
-  { filepath, copies, printerName, isLandscape: requestedLandscape }: PrintArgs,
+  { filepath, copies, printerName }: PrintArgs,
 ) {
   const db = getDb();
 
-  // 1. Vérification d'existence du fichier
+  // Vérification d'existence du fichier
   try {
     await fs.access(filepath);
   } catch {
@@ -56,57 +55,14 @@ export async function handlePrint(
     throw new Error(msg);
   }
 
-  // 2. Détecte l'orientation de l'image (priorité au flag explicite, sinon
-  //    fallback sur les dimensions du fichier).
-  let isLandscape = requestedLandscape ?? false;
-  if (typeof requestedLandscape !== 'boolean') {
-    try {
-      const img = nativeImage.createFromPath(filepath);
-      const size = img.getSize();
-      if (size.width > size.height) isLandscape = true;
-    } catch {
-      // Fallback portrait par défaut
-    }
-  }
-
-  // 3. Encode le chemin en file:// (gère accents/espaces/caractères spéciaux)
   const fileUrl = pathToFileURL(filepath).toString();
 
-  // 4. Charge la photo dans une fenêtre cachée
+  // Fenêtre cachée qui affiche la photo dans son ratio natif. C'est cette
+  // page que l'aperçu d'impression Windows va capturer.
   const printWin = new BrowserWindow({
     show: false,
     webPreferences: { offscreen: false, webSecurity: false },
   });
-
-  // 5. Construit le HTML.
-  //    - `@page { size: auto }` : on laisse le pilote DS620 utiliser son
-  //       format papier physique configuré dans Windows (4×6, 5×7…).
-  //    - Image portrait : remplit 100% du viewport via object-fit: cover.
-  //    - Image paysage  : rotated de 90° dans le viewport portrait, et
-  //       dimensionnée pour couvrir 100% (largeur image = hauteur papier,
-  //       et inversement).
-  const imgStyle = isLandscape
-    ? `
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 100vh;
-        height: 100vw;
-        transform: translate(-50%, -50%) rotate(90deg);
-        transform-origin: center center;
-        object-fit: cover;
-        margin: 0;
-        padding: 0;
-        display: block;
-      `
-    : `
-        display: block;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        margin: 0;
-        padding: 0;
-      `;
 
   const html = `
     <!doctype html>
@@ -120,15 +76,20 @@ export async function handlePrint(
         background: white;
         overflow: hidden;
       }
-      img { ${imgStyle} }
+      img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        margin: 0;
+        padding: 0;
+      }
     </style></head>
     <body><img src="${fileUrl}" /></body></html>
   `;
 
   await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
-
-  // Délai pour rendu complet (rotate CSS + chargement image)
-  await new Promise<void>((resolve) => setTimeout(resolve, 400));
+  await new Promise<void>((resolve) => setTimeout(resolve, 350));
 
   let success = true;
   let errorMsg = '';
@@ -138,20 +99,25 @@ export async function handlePrint(
       await new Promise<void>((resolve, reject) => {
         printWin.webContents.print(
           {
-            silent: true,
+            // ⚠️ silent: false → ouvre le dialog d'impression Windows.
+            // L'utilisateur ajuste orientation / format papier / copies puis
+            // clique sur Imprimer. C'est le SEUL mode qui marche fiablement
+            // avec le pilote DNP DS620.
+            silent: false,
             printBackground: true,
             deviceName: printerName,
             margins: { marginType: 'none' },
-            // Toujours portrait au niveau pilote — la rotation paysage est
-            // gérée côté HTML via CSS transform. Ça évite tout problème
-            // avec le pilote DS620 qui ne respecte pas `landscape: true`.
-            landscape: false,
             color: true,
-            scaleFactor: 100,
           },
           (ok, reason) => {
             if (ok) resolve();
-            else reject(new Error(reason ?? 'Échec impression'));
+            else if (reason === 'cancelled') {
+              // L'utilisateur a annulé le dialog → on traite comme succès
+              // pour ne pas afficher d'erreur.
+              resolve();
+            } else {
+              reject(new Error(reason ?? 'Échec impression'));
+            }
           },
         );
       });
