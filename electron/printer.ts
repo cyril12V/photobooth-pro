@@ -25,25 +25,25 @@ interface PrintArgs {
 }
 
 /**
- * Imprime une photo en ouvrant l'aperçu d'impression Windows.
+ * Imprime une photo en silencieux (sans dialog Windows).
  *
- * Stratégie : on délègue tout au dialog d'impression natif Windows. C'est
- * exactement la même UI qu'utilise le user quand il imprime manuellement
- * depuis l'Explorateur (Aperçu Windows → bouton Imprimer). Avantages :
- * - Aucun bug avec le pilote DNP DS620 (les options silent:true /
- *   landscape:true / pageSize en microns plantaient l'envoi du job).
- * - L'utilisateur peut vérifier le format papier, l'orientation, et
- *   ajuster avant de valider.
- * - Format suggéré pour DNP DS620 : 6×4 paysage (15,24×10,16 cm) ou
- *   4×6 portrait (10,16×15,24 cm) — déjà préréglé dans le pilote DNP.
+ * Stratégie minimale qui marche avec le pilote DNP DS620 :
+ * - silent: true + printBackground + deviceName UNIQUEMENT.
+ *   Aucune option `landscape`, `pageSize`, `margins` côté Electron — le
+ *   pilote DS620 rejette ces commandes ou produit des bandes noires.
+ * - Le pilote utilise ses préférences Windows (format papier, orientation)
+ *   configurées une fois pour toutes par l'utilisateur.
+ *
+ * Côté HTML : si l'image est paysage, on la rote 90° dans le viewport
+ * portrait pour qu'elle remplisse 100% du papier 4×6 sans bande.
  */
 export async function handlePrint(
   win: BrowserWindow,
-  { filepath, copies, printerName }: PrintArgs,
+  { filepath, copies, printerName, isLandscape = false }: PrintArgs,
 ) {
   const db = getDb();
 
-  // Vérification d'existence du fichier
+  // Vérification d'existence
   try {
     await fs.access(filepath);
   } catch {
@@ -57,12 +57,36 @@ export async function handlePrint(
 
   const fileUrl = pathToFileURL(filepath).toString();
 
-  // Fenêtre cachée qui affiche la photo dans son ratio natif. C'est cette
-  // page que l'aperçu d'impression Windows va capturer.
   const printWin = new BrowserWindow({
     show: false,
     webPreferences: { offscreen: false, webSecurity: false },
   });
+
+  // Si paysage : on rote l'image dans le viewport portrait via CSS pour
+  // qu'elle remplisse correctement le papier. Le pilote DS620 reste en
+  // mode portrait natif (jamais de souci de commande rejetée).
+  const imgStyle = isLandscape
+    ? `
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 100vh;
+        height: 100vw;
+        transform: translate(-50%, -50%) rotate(90deg);
+        transform-origin: center center;
+        object-fit: cover;
+        margin: 0;
+        padding: 0;
+        display: block;
+      `
+    : `
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        margin: 0;
+        padding: 0;
+      `;
 
   const html = `
     <!doctype html>
@@ -76,20 +100,13 @@ export async function handlePrint(
         background: white;
         overflow: hidden;
       }
-      img {
-        display: block;
-        width: 100%;
-        height: 100%;
-        object-fit: contain;
-        margin: 0;
-        padding: 0;
-      }
+      img { ${imgStyle} }
     </style></head>
     <body><img src="${fileUrl}" /></body></html>
   `;
 
   await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
-  await new Promise<void>((resolve) => setTimeout(resolve, 350));
+  await new Promise<void>((resolve) => setTimeout(resolve, 400));
 
   let success = true;
   let errorMsg = '';
@@ -99,25 +116,13 @@ export async function handlePrint(
       await new Promise<void>((resolve, reject) => {
         printWin.webContents.print(
           {
-            // ⚠️ silent: false → ouvre le dialog d'impression Windows.
-            // L'utilisateur ajuste orientation / format papier / copies puis
-            // clique sur Imprimer. C'est le SEUL mode qui marche fiablement
-            // avec le pilote DNP DS620.
-            silent: false,
+            silent: true,
             printBackground: true,
             deviceName: printerName,
-            margins: { marginType: 'none' },
-            color: true,
           },
           (ok, reason) => {
             if (ok) resolve();
-            else if (reason === 'cancelled') {
-              // L'utilisateur a annulé le dialog → on traite comme succès
-              // pour ne pas afficher d'erreur.
-              resolve();
-            } else {
-              reject(new Error(reason ?? 'Échec impression'));
-            }
+            else reject(new Error(reason ?? 'Échec impression'));
           },
         );
       });
