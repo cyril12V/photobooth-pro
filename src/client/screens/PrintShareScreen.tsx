@@ -15,6 +15,7 @@ import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { sounds } from '@shared/lib/sounds';
 import { isLandscapeLayout } from '@shared/lib/photoTemplate';
+import { PrintDialog } from '@client/components/PrintDialog';
 
 const fadeUp = (delay: number) => ({
   initial: { opacity: 0, y: 12 },
@@ -33,9 +34,9 @@ export function PrintShareScreen() {
     resetCapture,
   } = useAppStore();
 
-  const [copies, setCopies] = useState(1);
   const [printing, setPrinting] = useState(false);
   const [printed, setPrinted] = useState(false);
+  const [showPrintDialog, setShowPrintDialog] = useState(false);
   const [showEmail, setShowEmail] = useState(false);
   const [showQr, setShowQr] = useState(false);
   const [email, setEmail] = useState('');
@@ -70,26 +71,23 @@ export function PrintShareScreen() {
     })();
   }, [showQr, currentPhotoShareUrl]);
 
-  const print = async () => {
+  // Le bouton "Imprimer" ouvre le dialog custom in-app à la place
+  // d'imprimer directement. L'utilisateur ajuste orientation / format / copies
+  // dans l'aperçu, puis valide.
+  const openPrintDialog = () => {
     if (!currentPhotoFilepath || printing) return;
-    setPrinting(true);
-    try {
-      await window.api.printer.print({
-        filepath: currentPhotoFilepath,
-        copies,
-        printerName: settings?.printer_name || undefined,
-        isLandscape: currentPhotoLayout ? isLandscapeLayout(currentPhotoLayout) : undefined,
-      });
-      sounds.success();
-      setPrinted(true);
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'inconnue';
-      console.error('Erreur impression', e);
-      alert(`Erreur d'impression : ${msg}`);
-    } finally {
-      setPrinting(false);
-    }
+    setShowPrintDialog(true);
   };
+
+  const handlePrinted = () => {
+    sounds.success();
+    setPrinted(true);
+    setPrinting(false);
+  };
+
+  // Détecte l'orientation par défaut depuis le template (pour info)
+  void currentPhotoLayout;
+  void isLandscapeLayout;
 
   const sendEmail = async () => {
     if (!email.trim() || !currentPhotoFilepath || emailSending) return;
@@ -217,42 +215,10 @@ export function PrintShareScreen() {
               </motion.p>
             </div>
 
-            {/* Sélecteur copies — aligné, sobre */}
+            {/* Imprimer — ouvre le dialog custom in-app */}
             <motion.div {...fadeUp(0.55)}>
-              <p className="label-editorial" style={{ color: '#6B5D4F', marginBottom: '0.625rem' }}>
-                Nombre d'impressions
-              </p>
-              <div className="flex gap-2">
-                {Array.from({ length: maxCopies }, (_, i) => i + 1).map((n) => {
-                  const active = copies === n;
-                  return (
-                    <button
-                      key={n}
-                      onClick={() => setCopies(n)}
-                      className="flex-1 flex items-center justify-center transition-colors"
-                      style={{
-                        height: '3rem',
-                        backgroundColor: active ? '#1A1A1A' : '#FAF6EE',
-                        color: active ? '#FAF6EE' : '#1A1A1A',
-                        borderRadius: '4px',
-                        fontFamily: 'Inter, sans-serif',
-                        fontWeight: 600,
-                        fontSize: '1rem',
-                        border: active ? 'none' : '1px solid rgba(212, 184, 150, 0.4)',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {n}
-                    </button>
-                  );
-                })}
-              </div>
-            </motion.div>
-
-            {/* Imprimer */}
-            <motion.div {...fadeUp(0.65)}>
               <button
-                onClick={print}
+                onClick={openPrintDialog}
                 disabled={printing || printed}
                 className="btn-editorial-primary w-full"
               >
@@ -263,11 +229,7 @@ export function PrintShareScreen() {
                 ) : (
                   <MdPrint size={20} />
                 )}
-                {printing
-                  ? 'Impression...'
-                  : printed
-                    ? 'Imprimé'
-                    : `Imprimer ${copies} ${copies > 1 ? 'copies' : 'copie'}`}
+                {printing ? 'Impression...' : printed ? 'Imprimé' : 'Imprimer la photo'}
               </button>
             </motion.div>
 
@@ -502,6 +464,19 @@ export function PrintShareScreen() {
           </span>
         </motion.div>
       </div>
+
+      {/* Dialog d'impression custom (in-app, visible même en mode kiosque) */}
+      {currentPhotoDataUrl && currentPhotoFilepath && (
+        <PrintDialog
+          open={showPrintDialog}
+          photoDataUrl={currentPhotoDataUrl}
+          filepath={currentPhotoFilepath}
+          printerName={settings?.printer_name || undefined}
+          maxCopies={maxCopies}
+          onClose={() => setShowPrintDialog(false)}
+          onPrinted={handlePrinted}
+        />
+      )}
     </Screen>
   );
 }
