@@ -22,6 +22,8 @@ interface PrintArgs {
   printerName?: string;
   paperFormat?: '4x6' | '5x7' | '6x8';
   isLandscape?: boolean;
+  /** "x% y%" pour object-position (cadrage choisi par l'utilisateur dans le dialog) */
+  objectPosition?: string;
 }
 
 /**
@@ -39,7 +41,13 @@ interface PrintArgs {
  */
 export async function handlePrint(
   win: BrowserWindow,
-  { filepath, copies, printerName, isLandscape = false }: PrintArgs,
+  {
+    filepath,
+    copies,
+    printerName,
+    isLandscape = false,
+    objectPosition = '50% 50%',
+  }: PrintArgs,
 ) {
   const db = getDb();
 
@@ -75,6 +83,7 @@ export async function handlePrint(
         transform: translate(-50%, -50%) rotate(90deg);
         transform-origin: center center;
         object-fit: cover;
+        object-position: ${objectPosition};
         margin: 0;
         padding: 0;
         display: block;
@@ -84,6 +93,7 @@ export async function handlePrint(
         width: 100%;
         height: 100%;
         object-fit: cover;
+        object-position: ${objectPosition};
         margin: 0;
         padding: 0;
       `;

@@ -1,6 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MdPrint, MdClose, MdCheck, MdRotate90DegreesCcw, MdRotate90DegreesCw } from 'react-icons/md';
+import {
+  MdPrint,
+  MdClose,
+  MdCheck,
+  MdRotate90DegreesCcw,
+  MdRotate90DegreesCw,
+  MdOpenWith,
+  MdRestartAlt,
+} from 'react-icons/md';
 
 interface PrintDialogProps {
   open: boolean;
@@ -12,18 +20,19 @@ interface PrintDialogProps {
   onPrinted: () => void;
 }
 
-const FORMATS = [
-  { id: '4x6' as const, label: '4 × 6', cm: '10,16 × 15,24 cm' },
-  { id: '5x7' as const, label: '5 × 7', cm: '12,7 × 17,78 cm' },
-  { id: '6x8' as const, label: '6 × 8', cm: '15,24 × 20,32 cm' },
-];
+const FORMATS = {
+  '4x6': { label: '4 × 6', cm: '10,16 × 15,24 cm', w: 4, h: 6 },
+  '5x7': { label: '5 × 7', cm: '12,7 × 17,78 cm', w: 5, h: 7 },
+  '6x8': { label: '6 × 8', cm: '15,24 × 20,32 cm', w: 6, h: 8 },
+} as const;
+
+type FormatId = keyof typeof FORMATS;
 
 /**
- * Dialog d'impression in-app avec aperçu.
- * - L'utilisateur voit exactement comment la photo va sortir.
- * - Toggle Portrait / Paysage qui adapte l'aperçu en temps réel.
- * - Sélecteurs format papier et copies.
- * - Bouton Imprimer envoie le job au pilote DS620 avec les bonnes options.
+ * Dialog d'impression in-app avec :
+ * - Aperçu adapté au format papier (le cadre change selon 4×6/5×7/6×8 + orientation)
+ * - Drag de l'image pour ajuster le cadrage (object-position)
+ * - Récap des réglages en bas pour pouvoir les noter et les hardcoder ensuite
  */
 export function PrintDialog({
   open,
@@ -35,11 +44,20 @@ export function PrintDialog({
   onPrinted,
 }: PrintDialogProps) {
   const [orientation, setOrientation] = useState<'portrait' | 'landscape'>('portrait');
-  const [format, setFormat] = useState<'4x6' | '5x7' | '6x8'>('4x6');
+  const [format, setFormat] = useState<FormatId>('4x6');
   const [copies, setCopies] = useState(1);
+  const [pos, setPos] = useState({ x: 50, y: 50 }); // object-position en %
   const [printing, setPrinting] = useState(false);
   const [printed, setPrinted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const frameRef = useRef<HTMLDivElement>(null);
+  const dragState = useRef<{
+    startX: number;
+    startY: number;
+    startPosX: number;
+    startPosY: number;
+  } | null>(null);
 
   // Détecte l'orientation native de la photo au montage
   useEffect(() => {
@@ -51,15 +69,55 @@ export function PrintDialog({
     img.src = photoDataUrl;
   }, [open, photoDataUrl]);
 
-  // Reset à la fermeture
+  // Reset à chaque ouverture
   useEffect(() => {
     if (!open) {
       setPrinting(false);
       setPrinted(false);
       setError(null);
       setCopies(1);
+      setPos({ x: 50, y: 50 });
     }
   }, [open]);
+
+  // ─── Drag handlers pour repositionner l'image ────────────────────────────
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (!frameRef.current) return;
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    dragState.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      startPosX: pos.x,
+      startPosY: pos.y,
+    };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!dragState.current || !frameRef.current) return;
+    const rect = frameRef.current.getBoundingClientRect();
+    const dx = e.clientX - dragState.current.startX;
+    const dy = e.clientY - dragState.current.startY;
+    // Le drag inverse object-position (drag à droite = montre la partie gauche)
+    const sensitivity = 1.4;
+    const newX = dragState.current.startPosX - (dx / rect.width) * 100 * sensitivity;
+    const newY = dragState.current.startPosY - (dy / rect.height) * 100 * sensitivity;
+    setPos({
+      x: Math.max(0, Math.min(100, newX)),
+      y: Math.max(0, Math.min(100, newY)),
+    });
+  };
+
+  const handlePointerUp = () => {
+    dragState.current = null;
+  };
+
+  const resetPosition = () => setPos({ x: 50, y: 50 });
+
+  // ─── Calculs ─────────────────────────────────────────────────────────────
+  const f = FORMATS[format];
+  // Ratio du cadre selon orientation × format
+  const aspectRatio =
+    orientation === 'portrait' ? `${f.w} / ${f.h}` : `${f.h} / ${f.w}`;
 
   const handlePrint = async () => {
     if (printing || !filepath) return;
@@ -71,6 +129,7 @@ export function PrintDialog({
         copies,
         printerName,
         isLandscape: orientation === 'landscape',
+        objectPosition: `${pos.x.toFixed(0)}% ${pos.y.toFixed(0)}%`,
       });
       setPrinted(true);
       setTimeout(() => {
@@ -86,9 +145,6 @@ export function PrintDialog({
   };
 
   if (!open) return null;
-
-  // Aperçu : ratio du cadre selon orientation choisie
-  const aspectRatio = orientation === 'portrait' ? '2 / 3' : '3 / 2';
 
   return (
     <AnimatePresence>
@@ -111,12 +167,12 @@ export function PrintDialog({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 20, scale: 0.97 }}
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-5xl mx-8"
+          className="relative w-full max-w-6xl mx-8"
           style={{
             backgroundColor: '#FAF6EE',
             borderRadius: '24px',
             boxShadow: '0 24px 80px rgba(0, 0, 0, 0.3)',
-            maxHeight: '90vh',
+            maxHeight: '92vh',
             overflow: 'hidden',
           }}
         >
@@ -137,20 +193,21 @@ export function PrintDialog({
           </button>
 
           <div className="grid grid-cols-2 gap-0">
-            {/* COLONNE GAUCHE — Aperçu */}
+            {/* COLONNE GAUCHE — Aperçu avec drag */}
             <div
-              className="flex items-center justify-center p-12"
+              className="flex flex-col items-center justify-center p-10"
               style={{
                 backgroundColor: '#F4ECDD',
-                minHeight: 480,
+                minHeight: 540,
               }}
             >
               <div
-                className="relative shadow-lg"
+                ref={frameRef}
+                className="relative"
                 style={{
                   aspectRatio,
                   height: orientation === 'portrait' ? '60vh' : 'auto',
-                  width: orientation === 'landscape' ? '90%' : 'auto',
+                  width: orientation === 'landscape' ? '95%' : 'auto',
                   maxHeight: '60vh',
                   maxWidth: '100%',
                   backgroundColor: 'white',
@@ -158,33 +215,75 @@ export function PrintDialog({
                   border: '1px solid rgba(212, 184, 150, 0.5)',
                   overflow: 'hidden',
                   boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+                  cursor: dragState.current ? 'grabbing' : 'grab',
+                  touchAction: 'none',
+                  userSelect: 'none',
                 }}
+                onPointerDown={handlePointerDown}
+                onPointerMove={handlePointerMove}
+                onPointerUp={handlePointerUp}
+                onPointerCancel={handlePointerUp}
               >
                 <img
                   src={photoDataUrl}
                   alt="Aperçu"
+                  draggable={false}
                   style={{
                     width: '100%',
                     height: '100%',
                     objectFit: 'cover',
+                    objectPosition: `${pos.x}% ${pos.y}%`,
                     display: 'block',
+                    pointerEvents: 'none',
                   }}
                 />
+                {/* Indication de drag */}
+                <div
+                  className="absolute bottom-3 right-3 px-2 py-1 flex items-center gap-1 pointer-events-none"
+                  style={{
+                    backgroundColor: 'rgba(26, 26, 26, 0.7)',
+                    color: '#FAF6EE',
+                    borderRadius: '3px',
+                    fontSize: '0.625rem',
+                    fontFamily: 'Inter, sans-serif',
+                    fontWeight: 500,
+                    letterSpacing: '0.1em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  <MdOpenWith size={12} />
+                  Glissez pour ajuster
+                </div>
               </div>
+
+              <button
+                onClick={resetPosition}
+                className="mt-3 flex items-center gap-1.5"
+                style={{
+                  color: '#6B5D4F',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontFamily: 'Inter, sans-serif',
+                  fontSize: '0.75rem',
+                  letterSpacing: '0.1em',
+                  textTransform: 'uppercase',
+                }}
+              >
+                <MdRestartAlt size={14} />
+                Recentrer
+              </button>
             </div>
 
-            {/* COLONNE DROITE — Options */}
-            <div className="flex flex-col p-10" style={{ maxHeight: '90vh', overflow: 'auto' }}>
-              <p
-                className="label-editorial mb-2"
-                style={{ color: '#6B5D4F' }}
-              >
+            {/* COLONNE DROITE — Options + récap */}
+            <div className="flex flex-col p-10" style={{ maxHeight: '92vh', overflow: 'auto' }}>
+              <p className="label-editorial mb-2" style={{ color: '#6B5D4F' }}>
                 Aperçu d'impression
               </p>
               <h2
                 className="font-editorial mb-1"
                 style={{
-                  fontSize: '1.75rem',
+                  fontSize: '1.625rem',
                   color: '#1A1A1A',
                   fontWeight: 700,
                   letterSpacing: '-0.02em',
@@ -197,19 +296,19 @@ export function PrintDialog({
                 style={{
                   color: '#6B5D4F',
                   fontFamily: 'Inter, sans-serif',
-                  fontSize: '0.875rem',
+                  fontSize: '0.8125rem',
                   lineHeight: 1.5,
-                  marginBottom: '2rem',
+                  marginBottom: '1.5rem',
                 }}
               >
-                Vérifiez l'orientation et le format avant d'imprimer.
+                Ajustez l'orientation, le format et le cadrage avant d'imprimer.
               </p>
 
               {/* Orientation */}
               <p className="label-editorial mb-2" style={{ color: '#6B5D4F' }}>
                 Orientation
               </p>
-              <div className="grid grid-cols-2 gap-2 mb-6">
+              <div className="grid grid-cols-2 gap-2 mb-5">
                 <button
                   onClick={() => setOrientation('portrait')}
                   className="flex items-center justify-center gap-2 py-3 transition-colors"
@@ -250,13 +349,14 @@ export function PrintDialog({
               <p className="label-editorial mb-2" style={{ color: '#6B5D4F' }}>
                 Format papier
               </p>
-              <div className="grid grid-cols-3 gap-2 mb-6">
-                {FORMATS.map((f) => {
-                  const active = format === f.id;
+              <div className="grid grid-cols-3 gap-2 mb-5">
+                {(Object.keys(FORMATS) as FormatId[]).map((id) => {
+                  const item = FORMATS[id];
+                  const active = format === id;
                   return (
                     <button
-                      key={f.id}
-                      onClick={() => setFormat(f.id)}
+                      key={id}
+                      onClick={() => setFormat(id)}
                       className="flex flex-col items-center justify-center py-3 transition-colors"
                       style={{
                         backgroundColor: active ? '#1A1A1A' : '#F4ECDD',
@@ -270,21 +370,21 @@ export function PrintDialog({
                         style={{
                           fontFamily: '"Playfair Display", serif',
                           fontWeight: 700,
-                          fontSize: '1.25rem',
+                          fontSize: '1.125rem',
                           letterSpacing: '-0.01em',
                         }}
                       >
-                        {f.label}
+                        {item.label}
                       </span>
                       <span
                         className="label-editorial"
                         style={{
                           color: active ? '#D4B896' : '#6B5D4F',
-                          fontSize: '0.6rem',
+                          fontSize: '0.55rem',
                           marginTop: '0.125rem',
                         }}
                       >
-                        {f.cm}
+                        {item.cm}
                       </span>
                     </button>
                   );
@@ -295,7 +395,7 @@ export function PrintDialog({
               <p className="label-editorial mb-2" style={{ color: '#6B5D4F' }}>
                 Nombre d'impressions
               </p>
-              <div className="flex gap-2 mb-6">
+              <div className="flex gap-2 mb-5">
                 {Array.from({ length: maxCopies }, (_, i) => i + 1).map((n) => {
                   const active = copies === n;
                   return (
@@ -304,7 +404,7 @@ export function PrintDialog({
                       onClick={() => setCopies(n)}
                       className="flex-1 flex items-center justify-center transition-colors"
                       style={{
-                        height: 44,
+                        height: 42,
                         backgroundColor: active ? '#1A1A1A' : '#F4ECDD',
                         color: active ? '#FAF6EE' : '#1A1A1A',
                         border: '1px solid rgba(212, 184, 150, 0.4)',
@@ -319,6 +419,41 @@ export function PrintDialog({
                     </button>
                   );
                 })}
+              </div>
+
+              {/* RÉCAP — pour pouvoir noter les réglages qui marchent */}
+              <div
+                style={{
+                  backgroundColor: '#1A1A1A',
+                  color: '#FAF6EE',
+                  borderRadius: '6px',
+                  padding: '1rem',
+                  marginBottom: '1.25rem',
+                  fontFamily: 'monospace',
+                  fontSize: '0.75rem',
+                  lineHeight: 1.7,
+                }}
+              >
+                <p
+                  className="label-editorial"
+                  style={{
+                    color: '#D4B896',
+                    fontSize: '0.625rem',
+                    marginBottom: '0.5rem',
+                  }}
+                >
+                  Réglages actuels (à noter)
+                </p>
+                <div>orientation : <strong>{orientation}</strong></div>
+                <div>format : <strong>{format}</strong> ({FORMATS[format].cm})</div>
+                <div>aspect ratio : <strong>{aspectRatio.replace(/\s/g, '')}</strong></div>
+                <div>copies : <strong>{copies}</strong></div>
+                <div>
+                  cadrage : <strong>x={pos.x.toFixed(0)}% y={pos.y.toFixed(0)}%</strong>
+                </div>
+                <div style={{ opacity: 0.7, marginTop: '0.5rem', fontSize: '0.6875rem' }}>
+                  imprimante : {printerName || 'défaut système'}
+                </div>
               </div>
 
               {/* Erreur */}
@@ -339,10 +474,8 @@ export function PrintDialog({
                 </div>
               )}
 
-              <div className="flex-1" />
-
               {/* Boutons d'action */}
-              <div className="flex gap-3 mt-6">
+              <div className="flex gap-3">
                 <button
                   onClick={onClose}
                   disabled={printing}
@@ -355,7 +488,7 @@ export function PrintDialog({
                     cursor: printing ? 'not-allowed' : 'pointer',
                     fontFamily: 'Inter, sans-serif',
                     fontWeight: 500,
-                    fontSize: '0.875rem',
+                    fontSize: '0.8125rem',
                     textTransform: 'uppercase',
                     letterSpacing: '0.15em',
                     opacity: printing ? 0.4 : 1,
@@ -375,7 +508,7 @@ export function PrintDialog({
                     cursor: printing || printed ? 'not-allowed' : 'pointer',
                     fontFamily: 'Inter, sans-serif',
                     fontWeight: 500,
-                    fontSize: '0.875rem',
+                    fontSize: '0.8125rem',
                     textTransform: 'uppercase',
                     letterSpacing: '0.15em',
                     opacity: printing && !printed ? 0.7 : 1,
