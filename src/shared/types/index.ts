@@ -287,6 +287,7 @@ declare global {
           copies: number;
           printerName?: string;
           isLandscape?: boolean;
+          objectPosition?: string;
         }) => Promise<{ ok: boolean }>;
       };
       dialog: {
