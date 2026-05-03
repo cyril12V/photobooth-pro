@@ -26,12 +26,17 @@ interface PrintArgs {
 
 /**
  * Imprime une photo en silencieux (sans dialogue système).
- * - Encode le chemin en file:// via pathToFileURL pour gérer les accents/espaces.
- * - Vérifie que le fichier existe avant de tenter l'impression.
- * - Laisse le pilote Windows (DNP DS620, etc.) gérer le format papier physique.
- *   Le user configure 4×6 / 5×7 / 6×8 dans les préférences Windows du pilote,
- *   le code respecte cette config (évite les bandes noires sur sublimation).
- * - Force l'image à occuper toute la page (object-fit: cover, sans bord blanc).
+ *
+ * Stratégie pour la DNP DS620 (et autres thermiques sublimation) :
+ * - On imprime TOUJOURS en orientation portrait. Le pilote DS620 gère mal
+ *   le flag `landscape: true` d'Electron (rejette la commande ou produit
+ *   des bandes noires).
+ * - Si l'image composée est paysage, on la rotate de 90° côté HTML pour
+ *   qu'elle remplisse correctement le papier portrait. L'utilisateur peut
+ *   ensuite tourner physiquement le tirage à 90° pour le lire en paysage.
+ *
+ * Cette approche garantit qu'aucune commande d'impression n'échoue, et
+ * que la photo couvre 100% du papier sans bande blanche ni noire.
  */
 export async function handlePrint(
   win: BrowserWindow,
@@ -51,9 +56,8 @@ export async function handlePrint(
     throw new Error(msg);
   }
 
-  // 2. L'orientation du template est la source de vérité pour l'impression.
-  //    Fallback uniquement pour les anciens appels qui ne transmettent pas
-  //    encore cette information.
+  // 2. Détecte l'orientation de l'image (priorité au flag explicite, sinon
+  //    fallback sur les dimensions du fichier).
   let isLandscape = requestedLandscape ?? false;
   if (typeof requestedLandscape !== 'boolean') {
     try {
@@ -74,29 +78,57 @@ export async function handlePrint(
     webPreferences: { offscreen: false, webSecurity: false },
   });
 
-  // HTML minimal : on laisse le pilote Windows gérer la taille physique du
-  // papier (size: auto). Le `landscape` ci-dessous indique au pilote dans
-  // quel sens orienter le papier, c'est suffisant pour la DS620.
-  const html = `
-    <!doctype html>
-    <html><head><style>
-      @page { size: auto; margin: 0; }
-      html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: white; }
-      img {
+  // 5. Construit le HTML.
+  //    - `@page { size: auto }` : on laisse le pilote DS620 utiliser son
+  //       format papier physique configuré dans Windows (4×6, 5×7…).
+  //    - Image portrait : remplit 100% du viewport via object-fit: cover.
+  //    - Image paysage  : rotated de 90° dans le viewport portrait, et
+  //       dimensionnée pour couvrir 100% (largeur image = hauteur papier,
+  //       et inversement).
+  const imgStyle = isLandscape
+    ? `
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 100vh;
+        height: 100vw;
+        transform: translate(-50%, -50%) rotate(90deg);
+        transform-origin: center center;
+        object-fit: cover;
+        margin: 0;
+        padding: 0;
+        display: block;
+      `
+    : `
         display: block;
         width: 100%;
         height: 100%;
         object-fit: cover;
         margin: 0;
         padding: 0;
+      `;
+
+  const html = `
+    <!doctype html>
+    <html><head><style>
+      @page { size: auto; margin: 0; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: white;
+        overflow: hidden;
       }
+      img { ${imgStyle} }
     </style></head>
     <body><img src="${fileUrl}" /></body></html>
   `;
+
   await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
 
-  // Délai pour rendu complet de l'image avant impression
-  await new Promise<void>((resolve) => setTimeout(resolve, 350));
+  // Délai pour rendu complet (rotate CSS + chargement image)
+  await new Promise<void>((resolve) => setTimeout(resolve, 400));
 
   let success = true;
   let errorMsg = '';
@@ -110,18 +142,12 @@ export async function handlePrint(
             printBackground: true,
             deviceName: printerName,
             margins: { marginType: 'none' },
-            // Orientation imposée par le template final si disponible.
-            // Le pilote DS620 fera tourner physiquement le papier 4×6 si
-            // landscape: true, garantissant que toute la zone est imprimée.
-            // Pas de pageSize forcé : on laisse le pilote utiliser sa config
-            // Windows (sinon il rejette la commande).
-            landscape: isLandscape,
+            // Toujours portrait au niveau pilote — la rotation paysage est
+            // gérée côté HTML via CSS transform. Ça évite tout problème
+            // avec le pilote DS620 qui ne respecte pas `landscape: true`.
+            landscape: false,
             color: true,
             scaleFactor: 100,
-            // pageSize NON forcé : on laisse le pilote DS620 utiliser sa
-            // config Windows native. Le user doit configurer le format
-            // physique du papier (4×6, 5×7, 6×8) dans Préférences
-            // d'impression Windows pour que ça matche.
           },
           (ok, reason) => {
             if (ok) resolve();
@@ -137,7 +163,6 @@ export async function handlePrint(
     printWin.destroy();
   }
 
-  // Log de l'impression
   db.prepare(
     `INSERT INTO print_log (photo_id, copies, printer_name, success, error)
      VALUES (?, ?, ?, ?, ?)`,
