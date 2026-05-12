@@ -115,9 +115,8 @@ export async function initDatabase() {
     sound_enabled: true,
     // ─── Capture source ─────────────────────────────────────────────────────
     // 'webcam' : utilise getUserMedia (UVC, max ~1080p sur Canon en mode webcam)
-    // 'dslr'   : utilise digiCamControl pour piloter le DSLR en PTP (full res native)
+    // 'dslr'   : pilote la Canon directement via Canon EDSDK (full résolution)
     capture_source: 'webcam',
-    digicamcontrol_path: '',
     smtp_host: '',
     smtp_port: 587,
     smtp_secure: false,

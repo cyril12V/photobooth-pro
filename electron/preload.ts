@@ -74,9 +74,9 @@ contextBridge.exposeInMainWorld('api', {
     print: (payload: { filepath: string; copies: number; printerName?: string; preview?: boolean }) =>
       ipcRenderer.invoke('printer:print', payload),
   },
-  // DSLR (Canon/Nikon via digiCamControl)
+  // DSLR Canon via EDSDK direct
   dslr: {
-    detect: (customPath?: string) => ipcRenderer.invoke('dslr:detect', customPath),
+    detect: () => ipcRenderer.invoke('dslr:detect'),
     start: () => ipcRenderer.invoke('dslr:start'),
     stop: () => ipcRenderer.invoke('dslr:stop'),
     liveviewStart: () => ipcRenderer.invoke('dslr:liveview-start'),

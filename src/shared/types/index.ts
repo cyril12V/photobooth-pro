@@ -176,10 +176,8 @@ export interface AppSettings {
   camera_device_id: string;
   flash_enabled: boolean;
   sound_enabled: boolean;
-  // Source de capture : 'webcam' (UVC standard) | 'dslr' (digiCamControl PTP)
+  // Source de capture : 'webcam' (UVC standard) | 'dslr' (Canon EDSDK direct)
   capture_source: 'webcam' | 'dslr';
-  // Chemin custom vers digiCamControl si non installé au défaut
-  digicamcontrol_path: string;
   // SMTP
   smtp_host: string;
   smtp_port: number;
@@ -289,13 +287,13 @@ declare global {
         }) => Promise<{ ok: boolean }>;
       };
       dslr: {
-        detect: (customPath?: string) => Promise<
-          | { found: true; installDir: string; guiExe: string; cmdExe: string }
+        detect: () => Promise<
+          | { found: true; description: string; portName: string }
           | { found: false }
         >;
         start: () => Promise<{ ok: boolean; reason?: string }>;
         stop: () => Promise<{ ok: boolean }>;
-        liveviewStart: () => Promise<{ ok: boolean }>;
+        liveviewStart: () => Promise<{ ok: boolean; reason?: string }>;
         liveviewStop: () => Promise<{ ok: boolean }>;
         liveviewFrame: () => Promise<string | null>;
         capture: () => Promise<{ dataUrl: string; filepath: string }>;
