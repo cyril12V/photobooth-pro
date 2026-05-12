@@ -68,6 +68,12 @@
       "dist/**/*",
       "dist-electron/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "electron/print-gdi.ps1",
+        "to": "print-gdi.ps1"
+      }
+    ],
     "asarUnpack": [
       "**/node_modules/ffmpeg-static/**"
     ],
