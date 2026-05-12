@@ -113,19 +113,9 @@ export function CaptureScreen() {
 
           // Protocole custom Electron (bypass CORS/CSP/HTTP).
           console.log('[Camera] DSLR liveview ready, waiting for first frame...');
-          setLiveviewUrl(`${baseUrl}?t=${Date.now()}`);
-          setStreamReady(true);
+          queueLiveviewFrame();
           console.log('[Camera] First liveviewUrl set →', `${baseUrl}?t=...`);
           // Poll toutes les 80ms pour rafraîchir le src
-          let tickCount = 0;
-          pollHandle = setInterval(() => {
-            if (cancelled) return;
-            tickCount++;
-            if (tickCount % 50 === 1) {
-              console.log(`[Camera] liveview tick ${tickCount}`);
-            }
-            setLiveviewUrl(`${baseUrl}?t=${Date.now()}`);
-          }, 80);
         } catch (e) {
           console.error('[Camera] DSLR start failed', e);
           setError("Impossible de démarrer la caméra DSLR. Vérifiez le branchement et qu'aucune autre appli n'utilise la cam.");
