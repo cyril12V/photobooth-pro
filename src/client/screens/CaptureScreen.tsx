@@ -451,20 +451,20 @@ export function CaptureScreen() {
         <>
           {liveviewUrl && (
             <img
-            src={liveviewUrl}
-            alt="LiveView"
-            className="absolute inset-0 z-10 w-full h-full object-cover"
-            onLoad={handleLiveviewLoad}
-            onError={(e) => handleLiveviewError(e.currentTarget.src)}
-            style={{ opacity: streamReady ? 1 : 0 }}
-          />
+              src={liveviewUrl}
+              alt="LiveView"
+              className="absolute inset-0 z-10 w-full h-full object-cover"
+              onLoad={handleLiveviewLoad}
+              onError={(e) => handleLiveviewError(e.currentTarget.src)}
+              style={{ opacity: streamReady ? 1 : 0 }}
+            />
           )}
           {!streamReady && (
             <div className="absolute inset-0 z-10 flex items-center justify-center" style={{ color: '#FAF6EE' }}>
-            <p style={{ fontFamily: 'Inter, sans-serif', letterSpacing: '0.2em', textTransform: 'uppercase', fontSize: '0.75rem' }}>
+              <p style={{ fontFamily: 'Inter, sans-serif', letterSpacing: '0.2em', textTransform: 'uppercase', fontSize: '0.75rem' }}>
               Connexion à la caméra…
             </p>
-          </div>
+            </div>
           )}
         </>
       ) : (
