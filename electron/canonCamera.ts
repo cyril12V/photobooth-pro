@@ -199,12 +199,14 @@ export function canonStartLiveView(): void {
       }
       if (!active) return;
 
-      const dataUrl = camera.downloadLiveViewImage();
-      if (!dataUrl) return;
+      const imageData = camera.downloadLiveViewImage();
+      if (!imageData) return;
 
-      const comma = dataUrl.indexOf(',');
-      if (comma === -1) return;
-      const buf = Buffer.from(dataUrl.slice(comma + 1), 'base64');
+      const trimmed = imageData.trim();
+      const comma = trimmed.indexOf(',');
+      const base64 = comma === -1 ? trimmed : trimmed.slice(comma + 1);
+      if (!base64) return;
+      const buf = Buffer.from(base64, 'base64');
       latestLiveViewBuffer = buf;
       latestLiveViewTimestamp = Date.now();
       liveviewFrameCount++;
