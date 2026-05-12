@@ -539,16 +539,36 @@ function registerIpcHandlers() {
   ipcMain.handle('dslr:start', async () => {
     const s = getSettings();
     const customPath = s.digicamcontrol_path as string | undefined;
-    return dslrStart(customPath || undefined);
-  });
-
-  ipcMain.handle('dslr:stop', async () => {
-    dslrStop();
-    return { ok: true };
+    const result = await dslrStart(customPath || undefined);
+    // Quand digiCamControl est lancé, sa fenêtre prend le focus. On force le
+    // photobooth au premier plan — digiCamControl reste ouvert en arrière-plan
+    // (indispensable pour alimenter le buffer /liveview.jpg) mais l'utilisateur
+    // ne le voit pas s'il est en kiosque (notre app couvre tout l'écran).
+    if (result.ok && mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+      mainWindow.moveTop();
+      mainWindow.setAlwaysOnTop(true);
+      setTimeout(() => mainWindow?.setAlwaysOnTop(false), 200);
+    }
+    return result;
   });
 
   ipcMain.handle('dslr:liveview-start', async () => {
     await dslrLiveViewStart();
+    // Re-bring notre fenêtre devant après l'ouverture de la fenêtre Live View
+    if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
+      mainWindow.moveTop();
+      mainWindow.setAlwaysOnTop(true);
+      setTimeout(() => mainWindow?.setAlwaysOnTop(false), 200);
+    }
+    return { ok: true };
+  });
+
+  ipcMain.handle('dslr:stop', async () => {
+    dslrStop();
     return { ok: true };
   });
 
