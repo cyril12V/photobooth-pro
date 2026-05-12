@@ -462,19 +462,20 @@ export function CaptureScreen() {
           />
           )}
           {!streamReady && (
-          <div className="w-full h-full flex items-center justify-center" style={{ color: '#FAF6EE' }}>
+            <div className="absolute inset-0 z-10 flex items-center justify-center" style={{ color: '#FAF6EE' }}>
             <p style={{ fontFamily: 'Inter, sans-serif', letterSpacing: '0.2em', textTransform: 'uppercase', fontSize: '0.75rem' }}>
               Connexion à la caméra…
             </p>
           </div>
-        )
+          )}
+        </>
       ) : (
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted
-          className="w-full h-full object-cover"
+          className="absolute inset-0 z-10 w-full h-full object-cover"
           style={{ transform: 'scaleX(-1)' }}
         />
       )}
