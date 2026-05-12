@@ -425,8 +425,7 @@ export function CaptureScreen() {
           >
             À imiter
           </p>
-          {liveviewUrl && (
-            <img
+          <img
             src={poseSrc(currentPose.image_path)}
             alt={currentPose.label}
             className="w-full object-contain"
