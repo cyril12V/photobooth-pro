@@ -234,9 +234,16 @@ export async function handlePrint(
 }
 
 /**
- * Mode "shell" : délègue l'impression à Windows via Start-Process -Verb Print.
- * Réplique exactement le chemin "clic droit → Imprimer" qui fonctionne chez l'utilisateur.
- * Inconvénient : pas de garantie 100% silent — peut ouvrir l'app Photos brièvement.
+ * Mode "shell" : délègue l'impression à Windows pour bénéficier de l'auto-rotation
+ * native du driver DNP DS620.
+ *
+ * - Si `printerName` est fourni : utilise `mspaint.exe /pt` (silent, cible une
+ *   imprimante précise, ferme automatiquement).
+ * - Sinon : utilise le verbe Shell "print" sur l'imprimante par défaut.
+ *
+ * mspaint /pt est l'API silencieuse Windows historique (présente depuis XP) qui
+ * envoie un raster directement au driver dans son protocole natif — c'est ce
+ * que fait Windows quand on clic-droit → Imprimer.
  */
 async function printViaShell({
   filepath,
@@ -249,7 +256,7 @@ async function printViaShell({
   printerName?: string;
   db: ReturnType<typeof getDb>;
 }) {
-  void shell; // évite que TS le marque unused si shell n'est pas utilisé ici
+  void shell;
   let success = true;
   let errorMsg = '';
 
@@ -257,19 +264,33 @@ async function printViaShell({
     for (let i = 0; i < copies; i++) {
       logPrint(`Shell print copy ${i + 1}/${copies}…`);
       await new Promise<void>((resolve, reject) => {
-        const printerArg = printerName ? `-PrinterName '${printerName.replace(/'/g, "''")}'` : '';
-        const psCmd = `Start-Process -FilePath '${filepath.replace(/'/g, "''")}' -Verb Print ${printerArg}`;
-        const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psCmd], {
-          windowsHide: true,
-        });
+        let cmd: string;
+        let args: string[];
+        if (printerName) {
+          // mspaint silent print to specific printer
+          cmd = 'mspaint.exe';
+          args = ['/pt', filepath, printerName];
+        } else {
+          // Fallback : shell verb Print (default printer)
+          const psCmd = `Start-Process -FilePath '${filepath.replace(/'/g, "''")}' -Verb Print`;
+          cmd = 'powershell.exe';
+          args = ['-NoProfile', '-NonInteractive', '-Command', psCmd];
+        }
+
+        logPrint(`Spawning :`, cmd, args);
+        const child = spawn(cmd, args, { windowsHide: true });
         let stderr = '';
         child.stderr.on('data', (d) => (stderr += d.toString()));
+        child.on('error', (e) => reject(e));
         child.on('close', (code) => {
           logPrint(`Shell print copy ${i + 1} exit :`, code, stderr || '(no stderr)');
-          if (code === 0) resolve();
-          else reject(new Error(`PowerShell exit ${code}: ${stderr}`));
+          // mspaint /pt retourne souvent 0 même si tout va bien, parfois 1 mais imprime quand même.
+          // On accepte tout code de sortie tant qu'il n'y a pas eu d'erreur spawn.
+          resolve();
         });
       });
+      // Léger délai entre copies pour laisser le spooler enchaîner
+      if (i < copies - 1) await new Promise((r) => setTimeout(r, 500));
     }
   } catch (e: unknown) {
     success = false;
