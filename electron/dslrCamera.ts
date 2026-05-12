@@ -312,10 +312,31 @@ async function isWebserverReachable(): Promise<boolean> {
   }
 }
 
+/**
+ * Construit les options http.request en activant `insecureHTTPParser`.
+ *
+ * Pourquoi : digiCamControl émet 2 headers `Content-Length` dans ses réponses
+ * (bug serveur connu). Le parser HTTP strict de Node.js refuse ces réponses
+ * avec `Parse Error: Duplicate Content-Length`. Activer le parser permissif
+ * accepte la réponse — cette option est uniquement pour notre client local
+ * vers 127.0.0.1, pas un risque de sécurité.
+ */
+function buildReqOptions(url: string): http.RequestOptions {
+  const u = new URL(url);
+  return {
+    hostname: u.hostname,
+    port: u.port,
+    path: u.pathname + u.search,
+    method: 'GET',
+    insecureHTTPParser: true,
+  };
+}
+
 function httpGet(url: string, timeoutMs = 3000): Promise<string> {
   return new Promise((resolve, reject) => {
-    const req = http.get(url, (res) => {
+    const req = http.request(buildReqOptions(url), (res) => {
       let body = '';
+      res.setEncoding('utf8');
       res.on('data', (chunk) => (body += chunk));
       res.on('end', () => {
         if ((res.statusCode ?? 0) >= 400) reject(new Error(`HTTP ${res.statusCode}: ${body}`));
@@ -327,12 +348,13 @@ function httpGet(url: string, timeoutMs = 3000): Promise<string> {
       req.destroy();
       reject(new Error('HTTP timeout'));
     });
+    req.end();
   });
 }
 
 function httpGetBuffer(url: string, timeoutMs = 3000): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const req = http.get(url, (res) => {
+    const req = http.request(buildReqOptions(url), (res) => {
       const chunks: Buffer[] = [];
       res.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
       res.on('end', () => {
@@ -345,5 +367,6 @@ function httpGetBuffer(url: string, timeoutMs = 3000): Promise<Buffer> {
       req.destroy();
       reject(new Error('HTTP timeout'));
     });
+    req.end();
   });
 }
