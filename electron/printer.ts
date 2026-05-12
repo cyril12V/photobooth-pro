@@ -1,20 +1,22 @@
-import { BrowserWindow, shell } from 'electron';
+import { BrowserWindow } from 'electron';
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawn } from 'node:child_process';
+import { app } from 'electron';
 import { getDb } from './database';
 
 /**
  * Mode de print sélectionné via la variable d'env PRINT_MODE.
- * Permet d'A/B-tester les hypothèses de fix sans recompiler à chaque variante.
  *
- * - default     : pipeline actuel (pageSize portrait + margins:none + cssSize portrait)
+ * - default     : pipeline Electron actuel (pageSize portrait + margins:none + cssSize portrait)
  * - no-pagesize : retire pageSize et @page CSS — laisse le driver DNP choisir son paper natif
  * - landscape   : envoie la page en landscape avec l'image rotée 90° (match DS620 long-edge feed)
- * - no-margins  : garde pageSize mais retire margins:none (pour voir si margins:none désactive l'auto-rotate)
- * - shell       : délègue l'impression à Windows (Start-Process -Verb Print) — réplique le chemin "clic droit"
+ * - no-margins  : garde pageSize mais retire margins:none
+ * - gdi         : invoque print-gdi.ps1 (System.Drawing.PrintDocument) — réplique
+ *                 exactement le pipeline Windows Photos avec auto-rotation native
  */
-type PrintMode = 'default' | 'no-pagesize' | 'landscape' | 'no-margins' | 'shell';
+type PrintMode = 'default' | 'no-pagesize' | 'landscape' | 'no-margins' | 'gdi';
 const PRINT_MODE: PrintMode = (process.env.PRINT_MODE as PrintMode) || 'default';
 
 function logPrint(...args: unknown[]) {
@@ -113,9 +115,9 @@ export async function handlePrint(
     throw new Error(msg);
   }
 
-  // ─── Mode "shell" : délègue à Windows (réplique le clic droit → Imprimer) ──
-  if (PRINT_MODE === 'shell') {
-    return printViaShell({ filepath, copies, printerName, db });
+  // ─── Mode "gdi" : System.Drawing via PowerShell (auto-rotate natif, comme l'app Windows Photos) ──
+  if (PRINT_MODE === 'gdi') {
+    return printViaGdi({ filepath, copies, printerName, paperFormat, db });
   }
 
   // 2. Encode le chemin en file:// (gère accents/espaces/caractères spéciaux)
@@ -234,63 +236,89 @@ export async function handlePrint(
 }
 
 /**
- * Mode "shell" : délègue l'impression à Windows pour bénéficier de l'auto-rotation
- * native du driver DNP DS620.
+ * Mode "gdi" : invoque `print-gdi.ps1` (System.Drawing.Printing.PrintDocument).
  *
- * - Si `printerName` est fourni : utilise `mspaint.exe /pt` (silent, cible une
- *   imprimante précise, ferme automatiquement).
- * - Sinon : utilise le verbe Shell "print" sur l'imprimante par défaut.
- *
- * mspaint /pt est l'API silencieuse Windows historique (présente depuis XP) qui
- * envoie un raster directement au driver dans son protocole natif — c'est ce
- * que fait Windows quand on clic-droit → Imprimer.
+ * Ce pipeline réplique exactement ce que fait l'app Windows Photos quand on
+ * clic-droit → Imprimer un JPG : charge l'image, récupère la pagebounds réelle
+ * du driver, rote 90° si orientation image ≠ orientation papier, puis envoie
+ * un raster correctement orienté au driver. Le DNP DS620 reçoit alors un
+ * payload qu'il accepte sans transformation supplémentaire → impression
+ * portrait parfaite avec template + photo + date.
  */
-async function printViaShell({
+function getScriptPath() {
+  // En dev (vite-plugin-electron compile dans dist-electron), le .ps1 est copié
+  // au même niveau que main.js. En prod, il sera dans resources/app.asar.unpacked
+  // ou similaire. On résout depuis __dirname.
+  const compiled = path.join(__dirname, 'print-gdi.ps1');
+  // Fallback : projet source (dev quand le ps1 n'a pas encore été copié)
+  const source = path.join(app.getAppPath(), 'electron', 'print-gdi.ps1');
+  return { compiled, source };
+}
+
+async function printViaGdi({
   filepath,
   copies,
   printerName,
+  paperFormat,
   db,
 }: {
   filepath: string;
   copies: number;
   printerName?: string;
+  paperFormat: '4x6' | '5x7' | '6x8';
   db: ReturnType<typeof getDb>;
 }) {
-  void shell;
+  if (!printerName) {
+    throw new Error('Mode GDI : aucune imprimante sélectionnée (réglages → Imprimante)');
+  }
+
+  // Résolution du script PowerShell — cherche dans plusieurs emplacements
+  const { compiled, source } = getScriptPath();
+  let scriptPath = compiled;
+  try {
+    await fs.access(scriptPath);
+  } catch {
+    scriptPath = source;
+    try {
+      await fs.access(scriptPath);
+    } catch {
+      throw new Error(`Script print-gdi.ps1 introuvable (cherché : ${compiled}, ${source})`);
+    }
+  }
+  logPrint('GDI script :', scriptPath);
+
   let success = true;
   let errorMsg = '';
 
   try {
     for (let i = 0; i < copies; i++) {
-      logPrint(`Shell print copy ${i + 1}/${copies}…`);
+      logPrint(`GDI copy ${i + 1}/${copies}…`);
       await new Promise<void>((resolve, reject) => {
-        let cmd: string;
-        let args: string[];
-        if (printerName) {
-          // mspaint silent print to specific printer
-          cmd = 'mspaint.exe';
-          args = ['/pt', filepath, printerName];
-        } else {
-          // Fallback : shell verb Print (default printer)
-          const psCmd = `Start-Process -FilePath '${filepath.replace(/'/g, "''")}' -Verb Print`;
-          cmd = 'powershell.exe';
-          args = ['-NoProfile', '-NonInteractive', '-Command', psCmd];
-        }
-
-        logPrint(`Spawning :`, cmd, args);
-        const child = spawn(cmd, args, { windowsHide: true });
+        const args = [
+          '-NoProfile',
+          '-NonInteractive',
+          '-ExecutionPolicy', 'Bypass',
+          '-File', scriptPath,
+          '-Path', filepath,
+          '-Printer', printerName,
+          '-PaperFormat', paperFormat,
+        ];
+        logPrint('Spawning : powershell.exe', args.join(' '));
+        const child = spawn('powershell.exe', args, { windowsHide: true });
+        let stdout = '';
         let stderr = '';
+        child.stdout.on('data', (d) => (stdout += d.toString()));
         child.stderr.on('data', (d) => (stderr += d.toString()));
         child.on('error', (e) => reject(e));
         child.on('close', (code) => {
-          logPrint(`Shell print copy ${i + 1} exit :`, code, stderr || '(no stderr)');
-          // mspaint /pt retourne souvent 0 même si tout va bien, parfois 1 mais imprime quand même.
-          // On accepte tout code de sortie tant qu'il n'y a pas eu d'erreur spawn.
-          resolve();
+          if (stdout) logPrint('GDI stdout :\n' + stdout.trim());
+          if (stderr) logPrint('GDI stderr :\n' + stderr.trim());
+          logPrint(`GDI copy ${i + 1} exit : ${code}`);
+          if (code === 0) resolve();
+          else reject(new Error(`PowerShell exit ${code}: ${stderr || stdout}`));
         });
       });
-      // Léger délai entre copies pour laisser le spooler enchaîner
-      if (i < copies - 1) await new Promise((r) => setTimeout(r, 500));
+      if (i < copies - 1) await new Promise((r) => setTimeout(r, 300));
     }
   } catch (e: unknown) {
     success = false;
