@@ -7,16 +7,17 @@ import { handlePrint, listPrinters } from './printer';
 import { shareServer } from './shareServer';
 import { sendPhotoEmail, sendVideoLinkEmail, testSmtp } from './mailer';
 import {
-  dslrCapture,
-  dslrLiveViewFrame,
-  dslrLiveViewStart,
-  dslrLiveViewStop,
-  dslrStart,
-  dslrStop,
-  dslrTempCapturePath,
-  findDigiCamControl,
-  hideDigiCamWindows,
-} from './dslrCamera';
+  canonCapture,
+  canonConnect,
+  canonDetect,
+  canonDisconnect,
+  canonLiveViewFrame,
+  canonStartLiveView,
+  canonStopLiveView,
+  canonTempCaptureDir,
+  initCanonSDK,
+  shutdownCanonSDK,
+} from './canonCamera';
 import {
   compileEventVideos,
   type VideoCompilerEvent,
@@ -531,64 +532,42 @@ function registerIpcHandlers() {
     return handlePrint(mainWindow, { filepath, copies, printerName, paperFormat, preview });
   });
 
-  // ── DSLR (Canon/Nikon via digiCamControl) ─────
-  ipcMain.handle('dslr:detect', async (_e, customPath?: string) => {
-    const paths = await findDigiCamControl(customPath);
-    return paths ? { found: true, ...paths } : { found: false };
+  // ── DSLR Canon EDSDK (pilote direct la cam, pas de GUI) ─────
+  ipcMain.handle('dslr:detect', async () => {
+    const info = canonDetect();
+    return info ? { found: true, ...info } : { found: false };
   });
 
   ipcMain.handle('dslr:start', async () => {
-    const s = getSettings();
-    const customPath = s.digicamcontrol_path as string | undefined;
-    const result = await dslrStart(customPath || undefined);
-    // Quand digiCamControl est lancé, sa fenêtre prend le focus. On force le
-    // photobooth au premier plan — digiCamControl reste ouvert en arrière-plan
-    // (indispensable pour alimenter le buffer /liveview.jpg) mais l'utilisateur
-    // ne le voit pas s'il est en kiosque (notre app couvre tout l'écran).
-    if (result.ok && mainWindow) {
-      mainWindow.show();
-      mainWindow.focus();
-      mainWindow.moveTop();
-      mainWindow.setAlwaysOnTop(true);
-      setTimeout(() => mainWindow?.setAlwaysOnTop(false), 200);
-    }
-    return result;
-  });
-
-  ipcMain.handle('dslr:liveview-start', async () => {
-    await dslrLiveViewStart();
-    // Cache à nouveau les fenêtres digiCamControl (au cas où une popup serait
-    // remontée), puis re-bring notre app au premier plan.
-    await hideDigiCamWindows();
-    if (mainWindow) {
-      mainWindow.show();
-      mainWindow.focus();
-      mainWindow.moveTop();
-      mainWindow.setAlwaysOnTop(true);
-      setTimeout(() => mainWindow?.setAlwaysOnTop(false), 200);
-    }
-    return { ok: true };
+    return canonConnect();
   });
 
   ipcMain.handle('dslr:stop', async () => {
-    dslrStop();
+    canonDisconnect();
     return { ok: true };
   });
 
+  ipcMain.handle('dslr:liveview-start', async () => {
+    try {
+      canonStartLiveView();
+      return { ok: true };
+    } catch (e) {
+      return { ok: false, reason: e instanceof Error ? e.message : String(e) };
+    }
+  });
+
   ipcMain.handle('dslr:liveview-stop', async () => {
-    await dslrLiveViewStop();
+    canonStopLiveView();
     return { ok: true };
   });
 
   ipcMain.handle('dslr:liveview-frame', async () => {
-    return dslrLiveViewFrame();
+    return canonLiveViewFrame();
   });
 
   ipcMain.handle('dslr:capture', async () => {
-    const outputPath = dslrTempCapturePath();
-    await dslrCapture(outputPath);
-    // Renvoie le fichier en dataURL — le composer/photoSave le traitera comme
-    // n'importe quelle source d'image.
+    const outDir = canonTempCaptureDir();
+    const outputPath = await canonCapture(outDir);
     const buf = await fs.readFile(outputPath);
     const ext = path.extname(outputPath).toLowerCase().replace('.', '') || 'jpeg';
     const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
@@ -700,6 +679,14 @@ app.whenReady().then(async () => {
   }
 
   registerIpcHandlers();
+
+  // Démarre le watcher Canon EDSDK (no-op si pas de cam) — sécurise les events
+  try {
+    initCanonSDK();
+  } catch (e) {
+    console.error('[Canon] init failed:', e);
+  }
+
   await createWindow();
 
   // ─── Auto-update (uniquement en production, packagé) ─────────────────────
@@ -754,12 +741,12 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   shareServer.stop();
-  dslrStop();
+  shutdownCanonSDK();
   if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   shareServer.stop();
-  dslrStop();
+  shutdownCanonSDK();
 });

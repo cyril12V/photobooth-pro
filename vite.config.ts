@@ -20,6 +20,7 @@ export default defineConfig({
                 'nodemailer',
                 'ffmpeg-static',
                 'fluent-ffmpeg',
+                '@brick-a-brack/napi-canon-cameras',
                 /^node:.*/,
               ],
             },
