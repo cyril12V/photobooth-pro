@@ -88,9 +88,11 @@ export function CaptureScreen() {
   // ─── Démarre la source de capture (webcam OU DSLR) ──────────────────────
   useEffect(() => {
     let cancelled = false;
+    setStreamReady(false);
+    setLiveviewUrl(null);
+    liveviewLoadedRef.current = false;
 
     if (isDslrMode) {
-      let pollHandle: ReturnType<typeof setInterval> | null = null;
       (async () => {
         try {
           console.log('[Camera] DSLR start…');
@@ -110,7 +112,7 @@ export function CaptureScreen() {
           }
 
           // Protocole custom Electron (bypass CORS/CSP/HTTP).
-          const baseUrl = `liveview://frame.jpg`;
+          console.log('[Camera] DSLR liveview ready, waiting for first frame...');
           setLiveviewUrl(`${baseUrl}?t=${Date.now()}`);
           setStreamReady(true);
           console.log('[Camera] First liveviewUrl set →', `${baseUrl}?t=...`);
