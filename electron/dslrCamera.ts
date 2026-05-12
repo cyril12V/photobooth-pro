@@ -148,6 +148,57 @@ async function killExistingDigiCam(): Promise<void> {
 }
 
 /**
+ * Déplace toutes les fenêtres de CameraControl.exe hors écran via Win32 API.
+ *
+ * Pourquoi : digiCamControl n'alimente `/liveview.jpg` QUE quand sa fenêtre
+ * Live View est techniquement "visible" (pas minimisée). Si on minimise, le
+ * buffer arrête. Solution : on déplace les fenêtres à des coordonnées hors
+ * écran (par ex. -32000, -32000) — elles restent visibles selon Windows mais
+ * invisibles pour l'utilisateur. Le buffer continue de se remplir.
+ */
+export async function hideDigiCamWindows(): Promise<void> {
+  const psScript = `
+    Add-Type @"
+      using System;
+      using System.Runtime.InteropServices;
+      public class Win32 {
+        [DllImport("user32.dll")]
+        public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+        [DllImport("user32.dll")]
+        public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+        [DllImport("user32.dll")]
+        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+        [DllImport("user32.dll")]
+        public static extern bool IsWindowVisible(IntPtr hWnd);
+        public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+      }
+"@
+    $procs = Get-Process -Name CameraControl -ErrorAction SilentlyContinue | ForEach-Object { $_.Id }
+    if (-not $procs) { exit 0 }
+    [Win32+EnumWindowsProc]$callback = {
+      param($hWnd, $lParam)
+      $procId = 0
+      [Win32]::GetWindowThreadProcessId($hWnd, [ref]$procId) | Out-Null
+      if ($procs -contains $procId -and [Win32]::IsWindowVisible($hWnd)) {
+        # SWP_NOSIZE=1, SWP_NOZORDER=4, SWP_NOACTIVATE=10
+        [Win32]::SetWindowPos($hWnd, [IntPtr]::Zero, -32000, -32000, 0, 0, 0x15) | Out-Null
+      }
+      return $true
+    }
+    [Win32]::EnumWindows($callback, [IntPtr]::Zero) | Out-Null
+  `;
+  await new Promise<void>((resolve) => {
+    const child = spawn(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', psScript],
+      { windowsHide: true },
+    );
+    child.on('close', () => resolve());
+    child.on('error', () => resolve());
+  });
+}
+
+/**
  * Démarre CameraControl.exe en arrière-plan + active le webserver REST.
  * Idempotent : si webserver déjà reachable, ne fait rien.
  * Mutex : 2 appels parallèles partagent la même promesse (pas de double spawn).
@@ -270,6 +321,11 @@ export async function dslrLiveViewStart(): Promise<void> {
   } catch (e) {
     logDslr('LiveViewWnd_Show failed:', e);
   }
+  // Laisse 500ms à digiCamControl pour matérialiser la fenêtre Live View,
+  // puis on la déplace hors écran (sans la fermer, sinon le buffer s'arrête).
+  await sleep(500);
+  await hideDigiCamWindows();
+  logDslr('Fenêtres digiCamControl déplacées hors écran');
 }
 
 /**

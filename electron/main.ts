@@ -15,6 +15,7 @@ import {
   dslrStop,
   dslrTempCapturePath,
   findDigiCamControl,
+  hideDigiCamWindows,
 } from './dslrCamera';
 import {
   compileEventVideos,
