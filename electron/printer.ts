@@ -123,9 +123,16 @@ export async function handlePrint(
     throw new Error(msg);
   }
 
-  // ─── Mode "gdi" : System.Drawing via PowerShell (auto-rotate natif, comme l'app Windows Photos) ──
-  if (PRINT_MODE === 'gdi') {
-    return printViaGdi({ filepath, copies, printerName, paperFormat, db });
+  // ─── Mode "gdi" / "gdi-preview" : System.Drawing via PowerShell ──
+  if (PRINT_MODE === 'gdi' || PRINT_MODE === 'gdi-preview') {
+    return printViaGdi({
+      filepath,
+      copies,
+      printerName,
+      paperFormat,
+      preview: PRINT_MODE === 'gdi-preview',
+      db,
+    });
   }
 
   // 2. Encode le chemin en file:// (gère accents/espaces/caractères spéciaux)
@@ -268,12 +275,14 @@ async function printViaGdi({
   copies,
   printerName,
   paperFormat,
+  preview = false,
   db,
 }: {
   filepath: string;
   copies: number;
   printerName?: string;
   paperFormat: '4x6' | '5x7' | '6x8';
+  preview?: boolean;
   db: ReturnType<typeof getDb>;
 }) {
   if (!printerName) {
@@ -298,21 +307,27 @@ async function printViaGdi({
   let success = true;
   let errorMsg = '';
 
+  // En mode preview : 1 dialogue interactif (pas de boucle de copies).
+  // -NonInteractive doit être retiré pour autoriser l'affichage de la fenêtre.
+  const effectiveCopies = preview ? 1 : copies;
+
   try {
-    for (let i = 0; i < copies; i++) {
-      logPrint(`GDI copy ${i + 1}/${copies}…`);
+    for (let i = 0; i < effectiveCopies; i++) {
+      logPrint(`GDI ${preview ? 'preview' : 'copy ' + (i + 1) + '/' + copies}…`);
       await new Promise<void>((resolve, reject) => {
         const args = [
           '-NoProfile',
-          '-NonInteractive',
+          ...(preview ? ['-STA'] : ['-NonInteractive']),
           '-ExecutionPolicy', 'Bypass',
           '-File', scriptPath,
           '-Path', filepath,
           '-Printer', printerName,
           '-PaperFormat', paperFormat,
+          ...(preview ? ['-Preview'] : []),
         ];
         logPrint('Spawning : powershell.exe', args.join(' '));
-        const child = spawn('powershell.exe', args, { windowsHide: true });
+        // En preview on doit autoriser la fenêtre → pas windowsHide
+        const child = spawn('powershell.exe', args, { windowsHide: !preview });
         let stdout = '';
         let stderr = '';
         child.stdout.on('data', (d) => (stdout += d.toString()));
@@ -321,12 +336,12 @@ async function printViaGdi({
         child.on('close', (code) => {
           if (stdout) logPrint('GDI stdout :\n' + stdout.trim());
           if (stderr) logPrint('GDI stderr :\n' + stderr.trim());
-          logPrint(`GDI copy ${i + 1} exit : ${code}`);
+          logPrint(`GDI exit : ${code}`);
           if (code === 0) resolve();
           else reject(new Error(`PowerShell exit ${code}: ${stderr || stdout}`));
         });
       });
-      if (i < copies - 1) await new Promise((r) => setTimeout(r, 300));
+      if (i < effectiveCopies - 1) await new Promise((r) => setTimeout(r, 300));
     }
   } catch (e: unknown) {
     success = false;
