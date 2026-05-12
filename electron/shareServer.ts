@@ -4,6 +4,7 @@ import path from 'node:path';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import type { Server } from 'node:http';
+import { canonGetLatestFrame } from './canonCamera';
 
 interface SharedFile {
   filepath: string;
@@ -96,6 +97,23 @@ class ShareServer {
         });
         fs.createReadStream(entry.filepath).pipe(res);
       }
+    });
+
+    // ─── LiveView Canon DSLR ────────────────────────────────────────────
+    // Servi via le renderer sous forme de `<img src="/dslr/liveview.jpg?t=N">`.
+    // Le navigateur fait du polling natif (pas d'IPC saturé). Permet aussi
+    // l'accès distant pour debug depuis une autre machine sur le réseau local.
+    this.app.get('/dslr/liveview.jpg', (_req, res) => {
+      const frame = canonGetLatestFrame();
+      if (!frame) {
+        res.status(204).end();
+        return;
+      }
+      res.set('Content-Type', 'image/jpeg');
+      res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+      res.set('Pragma', 'no-cache');
+      res.set('Expires', '0');
+      res.send(frame.buffer);
     });
 
     // Téléchargement direct (force download)

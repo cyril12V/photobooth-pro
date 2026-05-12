@@ -15,9 +15,11 @@ export function CaptureScreen() {
   const [isFlashing, setIsFlashing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [streamReady, setStreamReady] = useState(false);
-  // DSLR mode (Canon via digiCamControl)
+  // DSLR mode (Canon via EDSDK)
   const isDslrMode = settings?.capture_source === 'dslr';
-  const [dslrFrame, setDslrFrame] = useState<string | null>(null);
+  // URL HTTP du LiveView (servie par le shareServer local) — change avec un tick
+  // pour forcer le navigateur à refetch. Pas d'IPC pour les frames.
+  const [liveviewUrl, setLiveviewUrl] = useState<string | null>(null);
   const dslrCapturedRef = useRef<string | null>(null);
 
   // Données du template actif (ratio + nombre de slots)

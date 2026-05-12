@@ -160,33 +160,38 @@ export function canonDisconnect(): void {
 
 let liveviewInterval: ReturnType<typeof setInterval> | null = null;
 let liveviewFrameCount = 0;
-let frameSubscriber: ((frame: string) => void) | null = null;
+let latestLiveViewBuffer: Buffer | null = null;
+let latestLiveViewTimestamp = 0;
 
 /**
- * Démarre le LiveView ET lance le push des frames vers le subscriber (renderer).
- * Le push est ~10 fps. On évite le pull renderer→main IPC qui satisaturait
- * les headers HTTP du dev server Vite (erreurs 431).
+ * Démarre le LiveView. Les frames sont stockés en mémoire (latestLiveViewBuffer)
+ * et exposés via HTTP par le shareServer (route `/dslr/liveview.jpg`). Le
+ * renderer pull avec un `<img>` natif → pas d'IPC saturé, pas d'erreurs 431.
  */
-export function canonStartLiveView(subscriber: (frame: string) => void): void {
+export function canonStartLiveView(): void {
   if (!camera) throw new Error('Camera not connected');
   if (!camera.isLiveViewActive()) {
     camera.startLiveView();
     logCanon('LiveView started');
   }
-  frameSubscriber = subscriber;
   liveviewFrameCount = 0;
 
   if (liveviewInterval) clearInterval(liveviewInterval);
   liveviewInterval = setInterval(() => {
-    if (!camera || !camera.isLiveViewActive() || !frameSubscriber) return;
+    if (!camera || !camera.isLiveViewActive()) return;
     try {
       const dataUrl = camera.downloadLiveViewImage();
       if (!dataUrl) return;
+      // dataUrl = "data:image/jpeg;base64,XXX..." → extrait le buffer
+      const comma = dataUrl.indexOf(',');
+      if (comma === -1) return;
+      const buf = Buffer.from(dataUrl.slice(comma + 1), 'base64');
+      latestLiveViewBuffer = buf;
+      latestLiveViewTimestamp = Date.now();
       liveviewFrameCount++;
       if (liveviewFrameCount % 60 === 0) {
-        logCanon(`LiveView frames delivered: ${liveviewFrameCount}`);
+        logCanon(`LiveView frames: ${liveviewFrameCount} (last ${buf.length} bytes)`);
       }
-      frameSubscriber(dataUrl);
     } catch (e) {
       if (liveviewFrameCount === 0) logCanon('LiveView frame error:', e);
     }
@@ -198,7 +203,7 @@ export function canonStopLiveView(): void {
     clearInterval(liveviewInterval);
     liveviewInterval = null;
   }
-  frameSubscriber = null;
+  latestLiveViewBuffer = null;
   if (!camera) return;
   try {
     if (camera.isLiveViewActive()) {
@@ -208,6 +213,12 @@ export function canonStopLiveView(): void {
   } catch (e) {
     logCanon('LiveView stop error:', e);
   }
+}
+
+/** Renvoie le dernier frame LiveView (Buffer JPEG) + son timestamp ms. */
+export function canonGetLatestFrame(): { buffer: Buffer; timestamp: number } | null {
+  if (!latestLiveViewBuffer) return null;
+  return { buffer: latestLiveViewBuffer, timestamp: latestLiveViewTimestamp };
 }
 
 /**

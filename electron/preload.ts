@@ -74,19 +74,15 @@ contextBridge.exposeInMainWorld('api', {
     print: (payload: { filepath: string; copies: number; printerName?: string; preview?: boolean }) =>
       ipcRenderer.invoke('printer:print', payload),
   },
-  // DSLR Canon via EDSDK direct
+  // DSLR Canon via EDSDK direct.
+  // Le LiveView est servi en HTTP par le shareServer (route /dslr/liveview.jpg).
+  // Le renderer fait un <img src> qui pull — pas d'IPC saturé.
   dslr: {
     detect: () => ipcRenderer.invoke('dslr:detect'),
     start: () => ipcRenderer.invoke('dslr:start'),
     stop: () => ipcRenderer.invoke('dslr:stop'),
     liveviewStart: () => ipcRenderer.invoke('dslr:liveview-start'),
     liveviewStop: () => ipcRenderer.invoke('dslr:liveview-stop'),
-    // Subscribe to push frames from main. Returns unsubscribe function.
-    onLiveviewFrame: (callback: (frame: string) => void) => {
-      const listener = (_e: Electron.IpcRendererEvent, frame: string) => callback(frame);
-      ipcRenderer.on('dslr:liveview-frame', listener);
-      return () => ipcRenderer.removeListener('dslr:liveview-frame', listener);
-    },
     capture: () => ipcRenderer.invoke('dslr:capture') as Promise<{ dataUrl: string; filepath: string }>,
   },
   // Dialog
