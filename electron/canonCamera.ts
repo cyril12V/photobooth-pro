@@ -237,6 +237,10 @@ export function canonStopLiveView(): void {
       camera.stopLiveView();
       logCanon('LiveView stopped');
     }
+    // Reset output device sinon la cam reste en mode LiveView USB
+    try {
+      camera.setProperty(CameraProperty.ID.Evf_OutputDevice, Option.EvfOutputDevice.None);
+    } catch { /* ignore */ }
   } catch (e) {
     logCanon('LiveView stop error:', e);
   }
