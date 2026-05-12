@@ -32,7 +32,11 @@ const DIGICAM_DEFAULT_PATHS = [
 ];
 
 const WEBSERVER_PORT = 5513;
-const WEBSERVER_BASE = `http://localhost:${WEBSERVER_PORT}`;
+// IMPORTANT : utiliser 127.0.0.1 et PAS 'localhost'. Node.js sous Windows résout
+// 'localhost' tantôt en IPv4 (127.0.0.1), tantôt en IPv6 (::1) selon la config
+// DNS. digiCamControl bind seulement sur IPv4 0.0.0.0 → 'localhost' → ::1
+// donne ECONNREFUSED. 127.0.0.1 force la bonne pile.
+const WEBSERVER_BASE = `http://127.0.0.1:${WEBSERVER_PORT}`;
 
 interface DigiCamPaths {
   installDir: string;
@@ -299,9 +303,11 @@ function sleep(ms: number) {
 
 async function isWebserverReachable(): Promise<boolean> {
   try {
-    await httpGet(`${WEBSERVER_BASE}/?slc=list&param1=cameras`);
+    const body = await httpGet(`${WEBSERVER_BASE}/?slc=list&param1=cameras`);
+    logDslr('Webserver reachable. Cameras response:', body.trim());
     return true;
-  } catch {
+  } catch (e) {
+    logDslr('Webserver not reachable yet:', e instanceof Error ? e.message : String(e));
     return false;
   }
 }
