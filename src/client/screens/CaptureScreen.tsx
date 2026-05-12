@@ -123,7 +123,9 @@ export function CaptureScreen() {
       })();
       return () => {
         cancelled = true;
-        if (pollHandle) clearInterval(pollHandle);
+        clearLiveviewTimer();
+        liveviewLoadedRef.current = false;
+        setLiveviewUrl(null);
         window.api.dslr.liveviewStop().catch(() => { /* ignore */ });
       };
     }
@@ -189,7 +191,7 @@ export function CaptureScreen() {
         streamRef.current = null;
       }
     };
-  }, [isDslrMode, settings?.camera_device_id, settings?.video_resolution]);
+  }, [clearLiveviewTimer, isDslrMode, queueLiveviewFrame, settings?.camera_device_id, settings?.video_resolution]);
 
   // ─── Crop centré d'une image (HTMLImageElement) vers le ratio du template ─
   const cropImageToTemplate = useCallback(
