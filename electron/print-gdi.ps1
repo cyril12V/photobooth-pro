@@ -1,25 +1,16 @@
-# Print via System.Drawing - réplique exactement le pipeline de l'app Windows Photos.
-#
-# Charge le JPG, détecte son orientation, récupère la pagebounds du driver
-# (taille papier physique côté driver), rotate l'image si orientation image ≠
-# orientation papier, puis draw fit-to-page → envoie au driver un raster déjà
-# correctement orienté. C'est ce qui produit l'impression parfaite qu'on a
-# avec le clic droit → Imprimer.
-#
-# Usage : powershell.exe -NoProfile -ExecutionPolicy Bypass -File print-gdi.ps1
-#         -Path "C:\photo.jpg" -Printer "DP-DS620" [-PaperFormat "4x6"]
-
 param(
   [Parameter(Mandatory=$true)][string]$Path,
   [Parameter(Mandatory=$true)][string]$Printer,
-  [string]$PaperFormat = '4x6'
+  [string]$PaperFormat = '4x6',
+  [switch]$Preview
 )
 
 $ErrorActionPreference = 'Stop'
 
 Add-Type -AssemblyName System.Drawing
+if ($Preview) { Add-Type -AssemblyName System.Windows.Forms }
 
-# Dimensions cibles en centièmes de pouce (unité native PrintDocument)
+# Target paper dimensions in hundredths of inch (System.Drawing native unit)
 $paperDims = @{
   '4x6' = @(400, 600)
   '5x7' = @(500, 700)
@@ -27,47 +18,49 @@ $paperDims = @{
 }
 $targetDims = $paperDims[$PaperFormat]
 if (-not $targetDims) { $targetDims = $paperDims['4x6'] }
-$targetW = $targetDims[0]
-$targetH = $targetDims[1]
+$targetW = [int]$targetDims[0]
+$targetH = [int]$targetDims[1]
 
-Write-Host "[GDI] Path=$Path Printer=$Printer Paper=$PaperFormat (${targetW}x${targetH} hundredths-of-inch)"
+Write-Host "[GDI] Path=$Path"
+Write-Host "[GDI] Printer=$Printer"
+Write-Host "[GDI] PaperFormat=$PaperFormat target=${targetW}x${targetH}"
 
 $printDoc = New-Object System.Drawing.Printing.PrintDocument
 $printDoc.PrinterSettings.PrinterName = $Printer
 $printDoc.DocumentName = 'Photobooth'
 
 if (-not $printDoc.PrinterSettings.IsValid) {
-  throw "Imprimante invalide : $Printer"
+  throw "Invalid printer: $Printer"
 }
 
-# Cherche un PaperSize matching dans la liste du driver (les deux orientations sont OK)
+# Find a PaperSize matching target dims in either orientation
 $matched = $null
 foreach ($ps in $printDoc.PrinterSettings.PaperSizes) {
   $w = $ps.Width
   $h = $ps.Height
   if (($w -eq $targetW -and $h -eq $targetH) -or ($w -eq $targetH -and $h -eq $targetW)) {
     $matched = $ps
-    Write-Host "[GDI] Matched PaperSize : '$($ps.PaperName)' ${w}x${h}"
+    Write-Host "[GDI] Matched PaperSize: $($ps.PaperName) ${w}x${h}"
     break
   }
 }
 
-if ($matched) {
+if ($matched -ne $null) {
   $printDoc.DefaultPageSettings.PaperSize = $matched
-} else {
-  Write-Host "[GDI] Aucun PaperSize matching trouvé — utilisation du default driver"
-  Write-Host "[GDI] PaperSizes disponibles :"
+}
+else {
+  Write-Host "[GDI] No matching PaperSize, using driver default. Available sizes:"
   foreach ($ps in $printDoc.PrinterSettings.PaperSizes) {
-    Write-Host "  - '$($ps.PaperName)' $($ps.Width)x$($ps.Height)"
+    Write-Host "  - $($ps.PaperName) $($ps.Width)x$($ps.Height)"
   }
 }
 
-# Pas de marges — full bleed
+# No margins - full bleed
 $printDoc.DefaultPageSettings.Margins = New-Object System.Drawing.Printing.Margins(0, 0, 0, 0)
 
-# Charge l'image UNE FOIS, avant le handler (sinon le file lock peut poser souci)
+# Load image once (file lock issue if loaded inside handler)
 $img = [System.Drawing.Image]::FromFile($Path)
-Write-Host "[GDI] Image loaded : $($img.Width)x$($img.Height) px"
+Write-Host "[GDI] Image loaded: $($img.Width)x$($img.Height)px"
 
 $printDoc.add_PrintPage({
   param($s, $e)
@@ -76,15 +69,14 @@ $printDoc.add_PrintPage({
   $imgPortrait = $img.Height -gt $img.Width
   $pagePortrait = $pageBounds.Height -gt $pageBounds.Width
 
-  Write-Host "[GDI] PageBounds : $($pageBounds.Width)x$($pageBounds.Height) (portrait=$pagePortrait)"
+  Write-Host "[GDI] PageBounds: $($pageBounds.Width)x$($pageBounds.Height) portrait=$pagePortrait"
   Write-Host "[GDI] Image portrait=$imgPortrait"
 
   if ($imgPortrait -ne $pagePortrait) {
-    Write-Host "[GDI] Rotation 90° pour matcher l'orientation papier"
+    Write-Host "[GDI] Rotating image 90 deg to match page orientation"
     $img.RotateFlip([System.Drawing.RotateFlipType]::Rotate90FlipNone)
   }
 
-  # High quality interpolation
   $e.Graphics.InterpolationMode = [System.Drawing.Drawing2D.InterpolationMode]::HighQualityBicubic
   $e.Graphics.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::HighQuality
   $e.Graphics.PixelOffsetMode = [System.Drawing.Drawing2D.PixelOffsetMode]::HighQuality
@@ -93,9 +85,23 @@ $printDoc.add_PrintPage({
 })
 
 try {
-  $printDoc.Print()
-  Write-Host "[GDI] Print job soumis avec succès"
-} finally {
+  if ($Preview) {
+    Write-Host "[GDI] Opening PrintPreviewDialog (close window to print, cancel to abort)"
+    $dlg = New-Object System.Windows.Forms.PrintPreviewDialog
+    $dlg.Document = $printDoc
+    $dlg.Width = 900
+    $dlg.Height = 1100
+    $dlg.WindowState = [System.Windows.Forms.FormWindowState]::Normal
+    $dlg.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
+    $result = $dlg.ShowDialog()
+    Write-Host "[GDI] Preview dialog closed with result: $result"
+  }
+  else {
+    $printDoc.Print()
+    Write-Host "[GDI] Print job submitted"
+  }
+}
+finally {
   $img.Dispose()
   $printDoc.Dispose()
 }

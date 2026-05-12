@@ -9,14 +9,22 @@ import { getDb } from './database';
 /**
  * Mode de print sélectionné via la variable d'env PRINT_MODE.
  *
- * - default     : pipeline Electron actuel (pageSize portrait + margins:none + cssSize portrait)
- * - no-pagesize : retire pageSize et @page CSS — laisse le driver DNP choisir son paper natif
- * - landscape   : envoie la page en landscape avec l'image rotée 90° (match DS620 long-edge feed)
- * - no-margins  : garde pageSize mais retire margins:none
- * - gdi         : invoque print-gdi.ps1 (System.Drawing.PrintDocument) — réplique
- *                 exactement le pipeline Windows Photos avec auto-rotation native
+ * - default      : pipeline Electron actuel (pageSize portrait + margins:none + cssSize portrait)
+ * - no-pagesize  : retire pageSize et @page CSS — laisse le driver DNP choisir son paper natif
+ * - landscape    : envoie la page en landscape avec l'image rotée 90° (match DS620 long-edge feed)
+ * - no-margins   : garde pageSize mais retire margins:none
+ * - gdi          : invoque print-gdi.ps1 (System.Drawing.PrintDocument) — réplique
+ *                  exactement le pipeline Windows Photos avec auto-rotation native
+ * - gdi-preview  : comme gdi mais ouvre une PrintPreviewDialog Windows native
+ *                  (zoom, multi-pages, bouton Imprimer dans la toolbar)
  */
-type PrintMode = 'default' | 'no-pagesize' | 'landscape' | 'no-margins' | 'gdi';
+type PrintMode =
+  | 'default'
+  | 'no-pagesize'
+  | 'landscape'
+  | 'no-margins'
+  | 'gdi'
+  | 'gdi-preview';
 const PRINT_MODE: PrintMode = (process.env.PRINT_MODE as PrintMode) || 'default';
 
 function logPrint(...args: unknown[]) {
