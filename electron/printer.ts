@@ -1,7 +1,25 @@
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, shell } from 'electron';
 import fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
+import { spawn } from 'node:child_process';
 import { getDb } from './database';
+
+/**
+ * Mode de print sélectionné via la variable d'env PRINT_MODE.
+ * Permet d'A/B-tester les hypothèses de fix sans recompiler à chaque variante.
+ *
+ * - default     : pipeline actuel (pageSize portrait + margins:none + cssSize portrait)
+ * - no-pagesize : retire pageSize et @page CSS — laisse le driver DNP choisir son paper natif
+ * - landscape   : envoie la page en landscape avec l'image rotée 90° (match DS620 long-edge feed)
+ * - no-margins  : garde pageSize mais retire margins:none (pour voir si margins:none désactive l'auto-rotate)
+ * - shell       : délègue l'impression à Windows (Start-Process -Verb Print) — réplique le chemin "clic droit"
+ */
+type PrintMode = 'default' | 'no-pagesize' | 'landscape' | 'no-margins' | 'shell';
+const PRINT_MODE: PrintMode = (process.env.PRINT_MODE as PrintMode) || 'default';
+
+function logPrint(...args: unknown[]) {
+  console.log('[PRINT]', ...args);
+}
 
 /**
  * Liste les imprimantes disponibles.
