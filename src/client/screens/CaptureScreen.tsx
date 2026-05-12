@@ -451,7 +451,8 @@ export function CaptureScreen() {
       {/* Source vidéo plein écran : video WebRTC ou img LiveView DSLR (HTTP local) */}
       {isDslrMode ? (
         <>
-          <img
+          {liveviewUrl && (
+            <img
             src={liveviewUrl}
             alt="LiveView"
             className="absolute inset-0 z-10 w-full h-full object-cover"
