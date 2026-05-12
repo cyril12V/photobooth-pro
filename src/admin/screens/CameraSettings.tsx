@@ -50,10 +50,8 @@ export function CameraSettings() {
         testOk: r.ok,
         testMsg: r.ok ? 'Caméra DSLR détectée et accessible.' : r.reason ?? 'Échec',
       }));
-      if (r.ok) {
-        // Optionnel : arrête immédiatement pour libérer la caméra
-        setTimeout(() => window.api.dslr.stop().catch(() => { /* ignore */ }), 500);
-      }
+      // On NE TUE PAS digiCamControl après le test — il doit rester ouvert
+      // pour la capture juste après. Il sera arrêté au shutdown app.
     } catch (e) {
       setDslrStatus((s) => ({
         ...s,

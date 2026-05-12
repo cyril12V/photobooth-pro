@@ -69,6 +69,9 @@ export async function findDigiCamControl(customPath?: string): Promise<DigiCamPa
 
 let guiProcess: ChildProcess | null = null;
 let cachedPaths: DigiCamPaths | null = null;
+// Mutex pour éviter les démarrages concurrents (test admin + écran capture
+// peuvent appeler dslrStart en parallèle).
+let startInFlight: Promise<{ ok: boolean; reason?: string }> | null = null;
 
 const SETTINGS_FILE_CANDIDATES = [
   'C:\\ProgramData\\digiCamControl\\settings.json',
@@ -147,9 +150,21 @@ async function killExistingDigiCam(): Promise<void> {
 /**
  * Démarre CameraControl.exe en arrière-plan + active le webserver REST.
  * Idempotent : si webserver déjà reachable, ne fait rien.
+ * Mutex : 2 appels parallèles partagent la même promesse (pas de double spawn).
  */
-export async function dslrStart(customPath?: string): Promise<{ ok: boolean; reason?: string }> {
-  // Cas 1 : webserver déjà reachable (digiCamControl tourne avec webserver actif)
+export function dslrStart(customPath?: string): Promise<{ ok: boolean; reason?: string }> {
+  if (startInFlight) {
+    logDslr('Start déjà en cours — partage la promesse');
+    return startInFlight;
+  }
+  startInFlight = doStart(customPath).finally(() => {
+    startInFlight = null;
+  });
+  return startInFlight;
+}
+
+async function doStart(customPath?: string): Promise<{ ok: boolean; reason?: string }> {
+  // Cas 1 : webserver déjà reachable
   if (await isWebserverReachable()) {
     logDslr('Webserver déjà actif — pas besoin de relancer');
     return { ok: true };
@@ -169,6 +184,11 @@ export async function dslrStart(customPath?: string): Promise<{ ok: boolean; rea
 
   // Tue toute instance pour pouvoir modifier le settings.json proprement
   await killExistingDigiCam();
+  // Le kill libère le port immédiatement, mais le driver USB Canon prend
+  // 2-3 secondes pour libérer les handles. Sans ce délai, la nouvelle
+  // instance crash avec exit code 4294967295 (-1).
+  await sleep(2000);
+
   const wasEnabled = await ensureWebserverEnabled();
   if (wasEnabled) logDslr('settings.json modifié — webserver activé pour le prochain démarrage');
 
