@@ -81,7 +81,12 @@ contextBridge.exposeInMainWorld('api', {
     stop: () => ipcRenderer.invoke('dslr:stop'),
     liveviewStart: () => ipcRenderer.invoke('dslr:liveview-start'),
     liveviewStop: () => ipcRenderer.invoke('dslr:liveview-stop'),
-    liveviewFrame: () => ipcRenderer.invoke('dslr:liveview-frame') as Promise<string | null>,
+    // Subscribe to push frames from main. Returns unsubscribe function.
+    onLiveviewFrame: (callback: (frame: string) => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, frame: string) => callback(frame);
+      ipcRenderer.on('dslr:liveview-frame', listener);
+      return () => ipcRenderer.removeListener('dslr:liveview-frame', listener);
+    },
     capture: () => ipcRenderer.invoke('dslr:capture') as Promise<{ dataUrl: string; filepath: string }>,
   },
   // Dialog

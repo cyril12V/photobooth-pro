@@ -157,15 +157,47 @@ export function canonDisconnect(): void {
   camera = null;
 }
 
-export function canonStartLiveView(): void {
+let liveviewInterval: ReturnType<typeof setInterval> | null = null;
+let liveviewFrameCount = 0;
+let frameSubscriber: ((frame: string) => void) | null = null;
+
+/**
+ * Démarre le LiveView ET lance le push des frames vers le subscriber (renderer).
+ * Le push est ~10 fps. On évite le pull renderer→main IPC qui satisaturait
+ * les headers HTTP du dev server Vite (erreurs 431).
+ */
+export function canonStartLiveView(subscriber: (frame: string) => void): void {
   if (!camera) throw new Error('Camera not connected');
   if (!camera.isLiveViewActive()) {
     camera.startLiveView();
     logCanon('LiveView started');
   }
+  frameSubscriber = subscriber;
+  liveviewFrameCount = 0;
+
+  if (liveviewInterval) clearInterval(liveviewInterval);
+  liveviewInterval = setInterval(() => {
+    if (!camera || !camera.isLiveViewActive() || !frameSubscriber) return;
+    try {
+      const dataUrl = camera.downloadLiveViewImage();
+      if (!dataUrl) return;
+      liveviewFrameCount++;
+      if (liveviewFrameCount % 60 === 0) {
+        logCanon(`LiveView frames delivered: ${liveviewFrameCount}`);
+      }
+      frameSubscriber(dataUrl);
+    } catch (e) {
+      if (liveviewFrameCount === 0) logCanon('LiveView frame error:', e);
+    }
+  }, 100);
 }
 
 export function canonStopLiveView(): void {
+  if (liveviewInterval) {
+    clearInterval(liveviewInterval);
+    liveviewInterval = null;
+  }
+  frameSubscriber = null;
   if (!camera) return;
   try {
     if (camera.isLiveViewActive()) {
@@ -177,43 +209,55 @@ export function canonStopLiveView(): void {
   }
 }
 
-let liveviewFrameCount = 0;
+/**
+ * Constantes EDSDK pour le shutter manuel (bypass AF).
+ * Source : Camera.Command.PressShutterButton + Camera.PressShutterButton.*
+ */
+const SHUTTER_CMD = 4;
+const SHUTTER_HALFWAY_NO_AF = 65537;
+const SHUTTER_COMPLETELY_NO_AF = 65539;
+const SHUTTER_OFF = 0;
 
 /**
- * Récupère le frame LiveView courant sous forme de dataURL JPEG (déjà encodé).
+ * Tente la capture avec AutoFocus standard. Si AF_NG (focus loupé), retry
+ * avec un délai. En dernier ressort, déclenche en mode non-AF (photo nette
+ * uniquement si la cam a déjà fait le focus pendant le LiveView).
+ *
+ * @param outputDir dossier où downloadToPath sauvegardera le JPG natif
  */
-export function canonLiveViewFrame(): string | null {
-  if (!camera || !camera.isLiveViewActive()) return null;
-  try {
-    const dataUrl = camera.downloadLiveViewImage();
-    liveviewFrameCount++;
-    if (liveviewFrameCount % 60 === 0) {
-      logCanon(`LiveView frames delivered: ${liveviewFrameCount}`);
+export async function canonCapture(outputDir: string): Promise<string> {
+  // Tentative 1 + 2 : takePicture avec AF normal
+  const maxAFRetries = 2;
+  for (let i = 0; i < maxAFRetries; i++) {
+    try {
+      return await singleCapture(outputDir, false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      const isAFError = msg.includes('AF_NG') || msg.includes('AUTOFOCUS_FAILED');
+      if (isAFError && i < maxAFRetries - 1) {
+        logCanon(`AF failed (try ${i + 1}/${maxAFRetries}), retry in 500ms…`);
+        await sleep(500);
+        continue;
+      }
+      if (isAFError) {
+        logCanon('AF still failing — falling back to shutter without AF');
+        break;
+      }
+      throw e;
     }
-    return dataUrl || null;
-  } catch (e) {
-    if (liveviewFrameCount === 0) logCanon('LiveView frame error:', e);
-    return null;
   }
+  // Tentative 3 : shutter manuel sans AF (la cam a normalement déjà focus en LiveView)
+  return singleCapture(outputDir, true);
 }
 
-/**
- * Capture une photo pleine résolution. Le fichier est sauvegardé dans `outputDir`
- * via `downloadToPath`. Le nom est celui que la cam choisit (DSC_XXXX.JPG).
- *
- * Timeout 15s — au-delà on rejette (cam déconnectée, erreur AF, etc.).
- */
-export function canonCapture(outputDir: string): Promise<string> {
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function singleCapture(outputDir: string, bypassAF: boolean): Promise<string> {
   return new Promise<string>((resolve, reject) => {
-    if (!camera) {
-      reject(new Error('Camera not connected'));
-      return;
-    }
-    if (captureResolver) {
-      reject(new Error('Capture déjà en cours'));
-      return;
-    }
-    // Assure que le dossier existe
+    if (!camera) return reject(new Error('Camera not connected'));
+    if (captureResolver) return reject(new Error('Capture déjà en cours'));
     fs.mkdir(outputDir, { recursive: true }).catch(() => { /* ignore */ });
 
     captureTargetDir = outputDir;
@@ -227,16 +271,26 @@ export function canonCapture(outputDir: string): Promise<string> {
     };
 
     const timer = setTimeout(() => {
-      captureResolver = null;
       const rej = captureRejecter;
+      captureResolver = null;
       captureRejecter = null;
       captureTargetDir = null;
       rej?.(new Error('Capture timeout (15s)'));
     }, 15_000);
 
     try {
-      camera.takePicture();
-      logCanon('Capture triggered');
+      if (bypassAF) {
+        // Press halfway no-AF (verrouille expo, pas d'AF)
+        camera.sendCommand(SHUTTER_CMD, SHUTTER_HALFWAY_NO_AF);
+        // Press completely no-AF (déclenche)
+        camera.sendCommand(SHUTTER_CMD, SHUTTER_COMPLETELY_NO_AF);
+        // Release
+        camera.sendCommand(SHUTTER_CMD, SHUTTER_OFF);
+        logCanon('Shutter triggered (no AF)');
+      } else {
+        camera.takePicture();
+        logCanon('Capture triggered (with AF)');
+      }
     } catch (e) {
       clearTimeout(timer);
       captureResolver = null;

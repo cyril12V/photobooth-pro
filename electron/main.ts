@@ -11,7 +11,6 @@ import {
   canonConnect,
   canonDetect,
   canonDisconnect,
-  canonLiveViewFrame,
   canonStartLiveView,
   canonStopLiveView,
   canonTempCaptureDir,
@@ -549,7 +548,12 @@ function registerIpcHandlers() {
 
   ipcMain.handle('dslr:liveview-start', async () => {
     try {
-      canonStartLiveView();
+      // Push : on envoie chaque frame au renderer via webContents.send (event)
+      // au lieu d'attendre que le renderer fasse un IPC.invoke à chaque tick.
+      // Évite le 431 (Headers Too Large) du dev server Vite.
+      canonStartLiveView((frame) => {
+        mainWindow?.webContents.send('dslr:liveview-frame', frame);
+      });
       return { ok: true };
     } catch (e) {
       return { ok: false, reason: e instanceof Error ? e.message : String(e) };
@@ -559,10 +563,6 @@ function registerIpcHandlers() {
   ipcMain.handle('dslr:liveview-stop', async () => {
     canonStopLiveView();
     return { ok: true };
-  });
-
-  ipcMain.handle('dslr:liveview-frame', async () => {
-    return canonLiveViewFrame();
   });
 
   ipcMain.handle('dslr:capture', async () => {

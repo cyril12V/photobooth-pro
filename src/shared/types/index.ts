@@ -295,7 +295,7 @@ declare global {
         stop: () => Promise<{ ok: boolean }>;
         liveviewStart: () => Promise<{ ok: boolean; reason?: string }>;
         liveviewStop: () => Promise<{ ok: boolean }>;
-        liveviewFrame: () => Promise<string | null>;
+        onLiveviewFrame: (callback: (frame: string) => void) => () => void;
         capture: () => Promise<{ dataUrl: string; filepath: string }>;
       };
       dialog: {
