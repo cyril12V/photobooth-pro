@@ -237,10 +237,23 @@ export function dslrStop(): void {
 
 /**
  * Démarre le LiveView (preview vidéo en direct depuis le capteur).
+ * Force aussi la compression sur Large Fine JPEG : sinon la cam reste en RAW
+ * (config par défaut du R6m2) et l'app ne peut pas lire les .cr3.
  */
 export async function dslrLiveViewStart(): Promise<void> {
+  // Compression Large Fine JPEG = 24 MP pleine résolution + qualité fine.
+  // C'est le max qualité du R6m2 en JPEG (vs RAW qu'on ne sait pas lire).
+  try {
+    await httpGet(
+      `${WEBSERVER_BASE}/?slc=set&param1=compressionsetting&param2=${encodeURIComponent('Large Fine JPEG')}`,
+    );
+    logDslr('Compression forcée à Large Fine JPEG');
+  } catch (e) {
+    logDslr('Échec set compression :', e);
+  }
+  // Ouvre la fenêtre LiveView dans la GUI (le buffer /liveview.jpg n'est
+  // alimenté qu'à partir du moment où le LiveView tourne).
   await httpGet(`${WEBSERVER_BASE}/?slc=do&param1=LiveViewWnd_Show`);
-  await httpGet(`${WEBSERVER_BASE}/?slc=do&param1=All_Minimize`);
 }
 
 /**
@@ -256,7 +269,6 @@ export async function dslrLiveViewStop(): Promise<void> {
 
 /**
  * Récupère le frame LiveView courant en base64 (data URL JPEG).
- * À appeler en boucle côté renderer pour faire un live preview.
  */
 export async function dslrLiveViewFrame(): Promise<string | null> {
   try {
@@ -269,39 +281,87 @@ export async function dslrLiveViewFrame(): Promise<string | null> {
 }
 
 /**
- * Déclenche une capture pleine résolution et copie le fichier vers `outputPath`.
- * Utilise CameraControlCmd.exe (plus fiable que l'API HTTP pour le timing).
+ * Déclenche une capture pleine résolution via l'API webserver et copie le
+ * JPEG résultant vers `outputPath`.
+ *
+ * Pipeline :
+ * 1. Lit le nom du dernier fichier capturé (baseline)
+ * 2. Trigger `/?slc=capture` (utilise l'instance GUI active)
+ * 3. Poll `lastcaptured` jusqu'à ce qu'il change (timeout 15s)
+ * 4. Construit le path = session.folder + lastcaptured
+ * 5. Attend que le fichier soit complètement écrit (taille stable)
+ * 6. Copie vers outputPath
  */
 export async function dslrCapture(outputPath: string): Promise<string> {
-  if (!cachedPaths) {
-    const paths = await findDigiCamControl();
-    if (!paths) throw new Error('digiCamControl introuvable');
-    cachedPaths = paths;
+  // Baseline : nom du dernier fichier avant capture
+  let previousLastFile = '';
+  try {
+    previousLastFile = (await httpGet(`${WEBSERVER_BASE}/?slc=get&param1=lastcaptured`)).trim();
+    logDslr('Capture baseline lastcaptured =', previousLastFile);
+  } catch {
+    // ignore — premier shoot de la session
   }
 
-  // Assure que le dossier de sortie existe
+  // Trigger capture
+  logDslr('Déclenchement capture…');
+  const captureRes = await httpGet(`${WEBSERVER_BASE}/?slc=capture`);
+  logDslr('Capture réponse :', captureRes.trim());
+
+  // Poll lastcaptured jusqu'à changement
+  const captureStart = Date.now();
+  let newLastFile = '';
+  while (Date.now() - captureStart < 15_000) {
+    await sleep(200);
+    try {
+      const r = (await httpGet(`${WEBSERVER_BASE}/?slc=get&param1=lastcaptured`)).trim();
+      if (r && r !== previousLastFile && !r.includes('Unknow')) {
+        newLastFile = r;
+        break;
+      }
+    } catch {
+      // retry
+    }
+  }
+  if (!newLastFile) {
+    throw new Error('Capture timeout : aucun nouveau fichier détecté en 15s');
+  }
+  logDslr('Nouveau fichier :', newLastFile);
+
+  // Construit le path complet
+  const sessionFolder = (await httpGet(`${WEBSERVER_BASE}/?slc=get&param1=session.folder`)).trim();
+  const capturedPath = path.join(sessionFolder, newLastFile);
+  logDslr('Path complet :', capturedPath);
+
+  // Attend que le fichier soit écrit complètement (taille stable sur 2 reads)
   await fs.mkdir(path.dirname(outputPath), { recursive: true });
+  const fileReadyStart = Date.now();
+  let lastSize = -1;
+  while (Date.now() - fileReadyStart < 10_000) {
+    try {
+      const stat = await fs.stat(capturedPath);
+      if (stat.size > 0 && stat.size === lastSize) break;
+      lastSize = stat.size;
+    } catch {
+      // file pas encore là
+    }
+    await sleep(200);
+  }
+  if (lastSize <= 0) {
+    throw new Error(`Fichier capturé non trouvé : ${capturedPath}`);
+  }
 
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn(
-      cachedPaths!.cmdExe,
-      ['/capture', '/filename', outputPath],
-      { windowsHide: true },
+  // Si c'est un RAW (.cr3, .nef, etc.) : on a échoué à forcer JPEG. Error claire.
+  const ext = path.extname(capturedPath).toLowerCase();
+  if (ext !== '.jpg' && ext !== '.jpeg') {
+    throw new Error(
+      `digiCamControl a capturé un fichier ${ext} (pas JPEG). ` +
+      `Configure la cam en "Large Fine JPEG" dans digiCamControl (panneau Compression).`,
     );
-    let stderr = '';
-    let stdout = '';
-    child.stdout.on('data', (d) => (stdout += d.toString()));
-    child.stderr.on('data', (d) => (stderr += d.toString()));
-    child.on('error', (e) => reject(e));
-    child.on('close', (code) => {
-      logDslr(`Capture exit ${code}. stdout="${stdout.trim()}" stderr="${stderr.trim()}"`);
-      if (code === 0) resolve();
-      else reject(new Error(`digiCamControl capture exit ${code}: ${stderr.trim() || stdout.trim()}`));
-    });
-  });
+  }
 
-  // Vérifie que le fichier a bien été créé
-  await fs.access(outputPath);
+  // Copie vers outputPath
+  await fs.copyFile(capturedPath, outputPath);
+  logDslr('Copié vers', outputPath, `(${lastSize} bytes)`);
   return outputPath;
 }
 
