@@ -67,9 +67,25 @@ export function CaptureScreen() {
           }
           await window.api.dslr.liveviewStart();
           if (cancelled) return;
+
+          // Attend le 1er frame avant de déclarer le stream ready (sinon le
+          // countdown démarre sur un écran noir). Max 8s, sinon on continue
+          // pour ne pas bloquer l'utilisateur indéfiniment.
+          console.log('[Camera] Waiting for first DSLR liveview frame…');
+          const firstFrameDeadline = Date.now() + 8000;
+          while (Date.now() < firstFrameDeadline && !cancelled) {
+            const frame = await window.api.dslr.liveviewFrame();
+            if (frame) {
+              setDslrFrame(frame);
+              console.log('[Camera] First DSLR liveview frame received');
+              break;
+            }
+            await new Promise((r) => setTimeout(r, 150));
+          }
+          if (cancelled) return;
           setStreamReady(true);
-          // Polling du LiveView ~10 fps (le webserver digiCamControl ne tient
-          // pas beaucoup plus haut côté Canon EOS R en USB 2.0).
+
+          // Polling continu ~10 fps
           dslrPollHandle = setInterval(async () => {
             const frame = await window.api.dslr.liveviewFrame();
             if (!cancelled && frame) setDslrFrame(frame);

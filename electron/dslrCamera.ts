@@ -237,12 +237,16 @@ export function dslrStop(): void {
 
 /**
  * Démarre le LiveView (preview vidéo en direct depuis le capteur).
- * Force aussi la compression sur Large Fine JPEG : sinon la cam reste en RAW
- * (config par défaut du R6m2) et l'app ne peut pas lire les .cr3.
+ *
+ * - Force compression `Large Fine JPEG` (sinon la cam reste en RAW, illisible).
+ * - Lance `LiveView_Start` (active le buffer LV sur la cam).
+ * - Lance `LiveViewWnd_Show` (alimente l'endpoint `/liveview.jpg`).
+ *
+ * NB : la fenêtre LiveView de digiCamControl s'ouvre en avant-plan. En kiosque
+ * il faut soit la minimiser, soit la masquer derrière l'app photobooth via
+ * `electron.BrowserWindow.focus()` après cet appel.
  */
 export async function dslrLiveViewStart(): Promise<void> {
-  // Compression Large Fine JPEG = 24 MP pleine résolution + qualité fine.
-  // C'est le max qualité du R6m2 en JPEG (vs RAW qu'on ne sait pas lire).
   try {
     await httpGet(
       `${WEBSERVER_BASE}/?slc=set&param1=compressionsetting&param2=${encodeURIComponent('Large Fine JPEG')}`,
@@ -251,31 +255,56 @@ export async function dslrLiveViewStart(): Promise<void> {
   } catch (e) {
     logDslr('Échec set compression :', e);
   }
-  // Ouvre la fenêtre LiveView dans la GUI (le buffer /liveview.jpg n'est
-  // alimenté qu'à partir du moment où le LiveView tourne).
-  await httpGet(`${WEBSERVER_BASE}/?slc=do&param1=LiveViewWnd_Show`);
+  // Active le LiveView sur la cam (buffer interne)
+  try {
+    const r = await httpGet(`${WEBSERVER_BASE}/?slc=do&param1=LiveView_Start`);
+    logDslr('LiveView_Start :', r.trim());
+  } catch (e) {
+    logDslr('LiveView_Start failed:', e);
+  }
+  // Ouvre la fenêtre LiveView (digiCamControl écrit les frames dans /liveview.jpg
+  // uniquement quand la fenêtre est active).
+  try {
+    await httpGet(`${WEBSERVER_BASE}/?slc=do&param1=LiveViewWnd_Show`);
+    logDslr('LiveViewWnd_Show OK');
+  } catch (e) {
+    logDslr('LiveViewWnd_Show failed:', e);
+  }
 }
 
 /**
- * Arrête le LiveView.
+ * Arrête le LiveView (ferme la fenêtre + arrête le buffer cam).
  */
 export async function dslrLiveViewStop(): Promise<void> {
   try {
     await httpGet(`${WEBSERVER_BASE}/?slc=do&param1=LiveViewWnd_Hide`);
-  } catch {
-    // ignore
-  }
+  } catch { /* ignore */ }
+  try {
+    await httpGet(`${WEBSERVER_BASE}/?slc=do&param1=LiveView_Stop`);
+  } catch { /* ignore */ }
 }
+
+let liveviewFrameCount = 0;
+let liveviewFrameBytes = 0;
 
 /**
  * Récupère le frame LiveView courant en base64 (data URL JPEG).
  */
 export async function dslrLiveViewFrame(): Promise<string | null> {
   try {
-    const buf = await httpGetBuffer(`${WEBSERVER_BASE}/liveview.jpg`);
+    const buf = await httpGetBuffer(`${WEBSERVER_BASE}/liveview.jpg`, 2000);
+    liveviewFrameCount++;
+    liveviewFrameBytes += buf.length;
+    // Log toutes les 30 frames (~3s à 10 fps) pour diagnostic sans spam
+    if (liveviewFrameCount % 30 === 0) {
+      logDslr(`LiveView frames: ${liveviewFrameCount}, avg size: ${Math.round(liveviewFrameBytes / liveviewFrameCount)} bytes`);
+    }
     if (buf.length === 0) return null;
     return `data:image/jpeg;base64,${buf.toString('base64')}`;
-  } catch {
+  } catch (e) {
+    if (liveviewFrameCount === 0) {
+      logDslr('First liveview frame error:', e instanceof Error ? e.message : String(e));
+    }
     return null;
   }
 }
