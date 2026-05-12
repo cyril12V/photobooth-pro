@@ -73,10 +73,10 @@ const PAPER_SIZES: Record<'4x6' | '5x7' | '6x8', { widthMicrons: number; heightM
 
 /**
  * Imprime une photo en silencieux (sans dialogue système).
- * - Encode le chemin en file:// via pathToFileURL pour gérer les accents/espaces.
- * - Vérifie que le fichier existe avant de tenter l'impression.
- * - Force le format papier exact (4×6 par défaut, compatible DNP DS620).
- * - Force l'image à occuper toute la page (object-fit: cover, sans bord blanc).
+ *
+ * Le pipeline a 5 modes A/B (sélectionnés via env var PRINT_MODE) pour
+ * diagnostiquer le bug DNP DS620 où une page portrait forcée produit une
+ * bande noire et une mauvaise orientation. Voir PRINT_MODE en haut du fichier.
  */
 export async function handlePrint(
   win: BrowserWindow,
@@ -84,6 +84,22 @@ export async function handlePrint(
 ) {
   const db = getDb();
   const paper = PAPER_SIZES[paperFormat] ?? PAPER_SIZES['4x6'];
+
+  logPrint('───────────────────────────────────────────────');
+  logPrint('Mode      :', PRINT_MODE);
+  logPrint('Filepath  :', filepath);
+  logPrint('Copies    :', copies);
+  logPrint('Printer   :', printerName ?? '(default)');
+  logPrint('Paper fmt :', paperFormat, '→', `${paper.widthMicrons}×${paper.heightMicrons} µm`, '/', paper.cssSize);
+
+  // Capabilities driver — log complet de l'imprimante cible
+  try {
+    const printers = await win.webContents.getPrintersAsync();
+    const target = printerName ? printers.find((p) => p.name === printerName) : printers.find((p) => p.isDefault);
+    logPrint('Driver detected :', JSON.stringify(target ?? printers, null, 2));
+  } catch (e) {
+    logPrint('Driver detect failed :', e);
+  }
 
   // 1. Vérification d'existence du fichier
   try {
@@ -97,23 +113,26 @@ export async function handlePrint(
     throw new Error(msg);
   }
 
+  // ─── Mode "shell" : délègue à Windows (réplique le clic droit → Imprimer) ──
+  if (PRINT_MODE === 'shell') {
+    return printViaShell({ filepath, copies, printerName, db });
+  }
+
   // 2. Encode le chemin en file:// (gère accents/espaces/caractères spéciaux)
   const fileUrl = pathToFileURL(filepath).toString();
 
-  // 3. Charge la photo dans une fenêtre cachée
-  const printWin = new BrowserWindow({
-    show: false,
-    webPreferences: { offscreen: false, webSecurity: false },
-  });
+  // 3. Construit le HTML selon le mode
+  const isLandscape = PRINT_MODE === 'landscape';
+  const cssSize = isLandscape
+    ? paper.cssSize.split(' ').reverse().join(' ') // inverse "10.16cm 15.24cm" → "15.24cm 10.16cm"
+    : paper.cssSize;
+  const pageRule = PRINT_MODE === 'no-pagesize' ? '' : `@page { size: ${cssSize}; margin: 0; }`;
+  const imgTransform = isLandscape ? 'transform: rotate(90deg) scale(1.5);' : '';
 
-  // HTML : photo en plein papier, ratio préservé (object-fit: cover) pour
-  // remplir 100% de la feuille. La photo capturée est déjà au bon ratio
-  // (1200×1800 = 2:3 = 4×6 portrait) donc cover et contain donnent le même
-  // résultat — cover assure 0 marge blanche même en cas de léger arrondi.
   const html = `
     <!doctype html>
     <html><head><style>
-      @page { size: ${paper.cssSize}; margin: 0; }
+      ${pageRule}
       html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: white; }
       img {
         display: block;
@@ -122,41 +141,71 @@ export async function handlePrint(
         object-fit: cover;
         margin: 0;
         padding: 0;
+        ${imgTransform}
       }
     </style></head>
     <body><img src="${fileUrl}" /></body></html>
   `;
+
+  // 4. Charge la photo dans une fenêtre cachée
+  const printWin = new BrowserWindow({
+    show: false,
+    webPreferences: { offscreen: false, webSecurity: false },
+  });
   await printWin.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+
+  // Capture les dimensions réelles du JPG dans la page
+  try {
+    const dims = await printWin.webContents.executeJavaScript(`
+      new Promise((resolve) => {
+        const img = document.querySelector('img');
+        if (img.complete) resolve({ w: img.naturalWidth, h: img.naturalHeight });
+        else img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+      })
+    `);
+    logPrint('Image natural dims :', dims);
+  } catch (e) {
+    logPrint('Image dims read failed :', e);
+  }
 
   // Petit délai pour s'assurer que l'image est rendue avant l'impression
   await new Promise<void>((resolve) => setTimeout(resolve, 250));
 
+  // 5. Construit les options de print selon le mode
+  type PrintOpts = Parameters<typeof printWin.webContents.print>[0];
+  const printOpts: PrintOpts = {
+    silent: true,
+    printBackground: true,
+    deviceName: printerName,
+    scaleFactor: 100,
+    color: true,
+    dpi: { horizontal: 300, vertical: 300 },
+  };
+
+  if (PRINT_MODE !== 'no-margins') {
+    printOpts.margins = { marginType: 'none' };
+  }
+  if (PRINT_MODE !== 'no-pagesize') {
+    printOpts.pageSize = isLandscape
+      ? { width: paper.heightMicrons, height: paper.widthMicrons }
+      : { width: paper.widthMicrons, height: paper.heightMicrons };
+  }
+
+  logPrint('Print opts sent :', JSON.stringify(printOpts, null, 2));
+
   let success = true;
   let errorMsg = '';
+  const startedAt = Date.now();
 
   try {
     for (let i = 0; i < copies; i++) {
+      logPrint(`Copy ${i + 1}/${copies} starting…`);
       await new Promise<void>((resolve, reject) => {
-        printWin.webContents.print(
-          {
-            silent: true,
-            printBackground: true,
-            deviceName: printerName,
-            margins: { marginType: 'none' },
-            // Force la taille de page côté Electron (en plus du @page CSS)
-            pageSize: {
-              width: paper.widthMicrons,
-              height: paper.heightMicrons,
-            },
-            scaleFactor: 100,
-            color: true,
-            dpi: { horizontal: 300, vertical: 300 },
-          },
-          (ok, reason) => {
-            if (ok) resolve();
-            else reject(new Error(reason ?? 'Échec impression'));
-          },
-        );
+        printWin.webContents.print(printOpts, (ok, reason) => {
+          logPrint(`Copy ${i + 1}/${copies} callback :`, { ok, reason });
+          if (ok) resolve();
+          else reject(new Error(reason ?? 'Échec impression'));
+        });
       });
     }
   } catch (e: unknown) {
@@ -166,7 +215,62 @@ export async function handlePrint(
     printWin.destroy();
   }
 
+  logPrint('Done in', Date.now() - startedAt, 'ms — success:', success, errorMsg);
+  logPrint('───────────────────────────────────────────────');
+
   // Log de l'impression
+  db.prepare(
+    `INSERT INTO print_log (photo_id, copies, printer_name, success, error)
+     VALUES (?, ?, ?, ?, ?)`,
+  ).run(null, copies, printerName ?? null, success ? 1 : 0, errorMsg || null);
+
+  if (!success) throw new Error(errorMsg);
+  return { ok: true, copies };
+}
+
+/**
+ * Mode "shell" : délègue l'impression à Windows via Start-Process -Verb Print.
+ * Réplique exactement le chemin "clic droit → Imprimer" qui fonctionne chez l'utilisateur.
+ * Inconvénient : pas de garantie 100% silent — peut ouvrir l'app Photos brièvement.
+ */
+async function printViaShell({
+  filepath,
+  copies,
+  printerName,
+  db,
+}: {
+  filepath: string;
+  copies: number;
+  printerName?: string;
+  db: ReturnType<typeof getDb>;
+}) {
+  void shell; // évite que TS le marque unused si shell n'est pas utilisé ici
+  let success = true;
+  let errorMsg = '';
+
+  try {
+    for (let i = 0; i < copies; i++) {
+      logPrint(`Shell print copy ${i + 1}/${copies}…`);
+      await new Promise<void>((resolve, reject) => {
+        const printerArg = printerName ? `-PrinterName '${printerName.replace(/'/g, "''")}'` : '';
+        const psCmd = `Start-Process -FilePath '${filepath.replace(/'/g, "''")}' -Verb Print ${printerArg}`;
+        const child = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', psCmd], {
+          windowsHide: true,
+        });
+        let stderr = '';
+        child.stderr.on('data', (d) => (stderr += d.toString()));
+        child.on('close', (code) => {
+          logPrint(`Shell print copy ${i + 1} exit :`, code, stderr || '(no stderr)');
+          if (code === 0) resolve();
+          else reject(new Error(`PowerShell exit ${code}: ${stderr}`));
+        });
+      });
+    }
+  } catch (e: unknown) {
+    success = false;
+    errorMsg = e instanceof Error ? e.message : String(e);
+  }
+
   db.prepare(
     `INSERT INTO print_log (photo_id, copies, printer_name, success, error)
      VALUES (?, ?, ?, ?, ?)`,
