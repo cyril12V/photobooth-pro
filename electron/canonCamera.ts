@@ -47,7 +47,10 @@ interface CanonModule {
   cameraBrowser: CameraBrowserInstance;
   CameraProperty: { ID: Record<string, number> };
   ImageQuality: { ID: Record<string, number> };
-  Option: { SaveTo: Record<string, number> };
+  Option: {
+    SaveTo: Record<string, number>;
+    EvfOutputDevice: Record<string, number>;
+  };
   watchCameras: (timeout?: number) => () => void;
 }
 
@@ -165,11 +168,25 @@ let latestLiveViewTimestamp = 0;
 
 /**
  * Démarre le LiveView. Les frames sont stockés en mémoire (latestLiveViewBuffer)
- * et exposés via HTTP par le shareServer (route `/dslr/liveview.jpg`). Le
- * renderer pull avec un `<img>` natif → pas d'IPC saturé, pas d'erreurs 431.
+ * et exposés via le protocole custom `liveview://` (handler dans main.ts).
+ *
+ * IMPORTANT : il faut set `Evf_OutputDevice` à `PC` (2) avant de récupérer
+ * des frames. Sans ça, la cam Canon envoie le LiveView à son écran LCD au
+ * lieu du PC, et `downloadLiveViewImage()` retourne vide. C'est THE setting
+ * critique du EDSDK pour le LiveView PC.
  */
 export function canonStartLiveView(): void {
   if (!camera) throw new Error('Camera not connected');
+
+  // 1. Set Evf_OutputDevice = PC (2) — CRITIQUE
+  try {
+    camera.setProperty(CameraProperty.ID.Evf_OutputDevice, Option.EvfOutputDevice.PC);
+    logCanon('Evf_OutputDevice set to PC');
+  } catch (e) {
+    logCanon('Failed to set Evf_OutputDevice:', e);
+  }
+
+  // 2. Démarre le LiveView
   if (!camera.isLiveViewActive()) {
     camera.startLiveView();
     logCanon('LiveView started');
@@ -177,23 +194,33 @@ export function canonStartLiveView(): void {
   liveviewFrameCount = 0;
 
   if (liveviewInterval) clearInterval(liveviewInterval);
+  let downloadErrors = 0;
   liveviewInterval = setInterval(() => {
-    if (!camera || !camera.isLiveViewActive()) return;
+    if (!camera) return;
     try {
       const dataUrl = camera.downloadLiveViewImage();
-      if (!dataUrl) return;
-      // dataUrl = "data:image/jpeg;base64,XXX..." → extrait le buffer
+      if (!dataUrl) {
+        // Pas encore prêt (warm-up cam) — retry au prochain tick
+        return;
+      }
       const comma = dataUrl.indexOf(',');
       if (comma === -1) return;
       const buf = Buffer.from(dataUrl.slice(comma + 1), 'base64');
       latestLiveViewBuffer = buf;
       latestLiveViewTimestamp = Date.now();
       liveviewFrameCount++;
-      if (liveviewFrameCount % 60 === 0) {
+      // Log le 1er frame puis tous les 60
+      if (liveviewFrameCount === 1) {
+        logCanon(`FIRST LiveView frame received! ${buf.length} bytes`);
+      } else if (liveviewFrameCount % 60 === 0) {
         logCanon(`LiveView frames: ${liveviewFrameCount} (last ${buf.length} bytes)`);
       }
     } catch (e) {
-      if (liveviewFrameCount === 0) logCanon('LiveView frame error:', e);
+      downloadErrors++;
+      // Log les premières erreurs pour diagnostiquer
+      if (downloadErrors <= 3) {
+        logCanon(`LiveView download error #${downloadErrors}:`, e instanceof Error ? e.message : String(e));
+      }
     }
   }, 100);
 }
