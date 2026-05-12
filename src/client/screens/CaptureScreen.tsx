@@ -355,7 +355,7 @@ export function CaptureScreen() {
   return (
     <Screen className="flex items-center justify-center" >
       {/* Fond éditorial noir pour la prise (contraste, focus sur la photo) */}
-      <div className="absolute inset-0" style={{ backgroundColor: '#1A1A1A' }} />
+      <div className="absolute inset-0 z-0" style={{ backgroundColor: '#1A1A1A' }} />
 
       {/* Bouton retour ghost */}
       <button
@@ -453,16 +453,10 @@ export function CaptureScreen() {
           <img
             src={liveviewUrl}
             alt="LiveView"
-            className="w-full h-full object-cover"
-            onLoad={() => {
-              if (typeof window !== 'undefined' && !(window as { _lvLoaded?: boolean })._lvLoaded) {
-                (window as { _lvLoaded?: boolean })._lvLoaded = true;
-                console.log('[LiveView] First <img> loaded successfully');
-              }
-            }}
-            onError={(e) => {
-              console.warn('[LiveView] <img> error for url:', (e.currentTarget as HTMLImageElement).src);
-            }}
+            className="absolute inset-0 z-10 w-full h-full object-cover"
+            onLoad={handleLiveviewLoad}
+            onError={(e) => handleLiveviewError(e.currentTarget.src)}
+            style={{ opacity: streamReady ? 1 : 0 }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center" style={{ color: '#FAF6EE' }}>
