@@ -31,6 +31,7 @@ interface CameraInstance {
   setEventHandler(listener: EventCallback): void;
   setProperty(id: string | number, value: unknown): void;
   setProperties(props: Record<string | number, unknown>): void;
+  sendCommand(command: number, parameter?: number): void;
   takePicture(): void;
   startLiveView(): void;
   stopLiveView(): void;

@@ -54,9 +54,10 @@ export function CaptureScreen() {
   // ─── Démarre la source de capture (webcam OU DSLR) ──────────────────────
   useEffect(() => {
     let cancelled = false;
-    let dslrPollHandle: ReturnType<typeof setInterval> | null = null;
 
     if (isDslrMode) {
+      let unsubscribeFrames: (() => void) | null = null;
+      let firstFrameReceived = false;
       (async () => {
         try {
           const startRes = await window.api.dslr.start();
@@ -65,40 +66,41 @@ export function CaptureScreen() {
             setError(startRes.reason ?? 'Impossible de démarrer la caméra DSLR.');
             return;
           }
-          await window.api.dslr.liveviewStart();
-          if (cancelled) return;
 
-          // Attend le 1er frame avant de déclarer le stream ready (sinon le
-          // countdown démarre sur un écran noir). Max 8s, sinon on continue
-          // pour ne pas bloquer l'utilisateur indéfiniment.
-          console.log('[Camera] Waiting for first DSLR liveview frame…');
-          const firstFrameDeadline = Date.now() + 8000;
-          while (Date.now() < firstFrameDeadline && !cancelled) {
-            const frame = await window.api.dslr.liveviewFrame();
-            if (frame) {
-              setDslrFrame(frame);
+          // Subscribe en push (main → renderer) avant le start LiveView
+          unsubscribeFrames = window.api.dslr.onLiveviewFrame((frame) => {
+            if (cancelled) return;
+            setDslrFrame(frame);
+            if (!firstFrameReceived) {
+              firstFrameReceived = true;
+              setStreamReady(true);
               console.log('[Camera] First DSLR liveview frame received');
-              break;
             }
-            await new Promise((r) => setTimeout(r, 150));
-          }
-          if (cancelled) return;
-          setStreamReady(true);
+          });
 
-          // Polling continu ~10 fps
-          dslrPollHandle = setInterval(async () => {
-            const frame = await window.api.dslr.liveviewFrame();
-            if (!cancelled && frame) setDslrFrame(frame);
-          }, 100);
-          console.log('[Camera] DSLR mode active (digiCamControl)');
+          const lvRes = await window.api.dslr.liveviewStart();
+          if (cancelled) return;
+          if (!lvRes.ok) {
+            setError(lvRes.reason ?? 'Impossible de démarrer le LiveView.');
+            return;
+          }
+
+          // Fallback : si pas de frame reçu en 8s, on déclare ready quand même
+          setTimeout(() => {
+            if (!cancelled && !firstFrameReceived) {
+              console.warn('[Camera] No DSLR frame after 8s — forcing streamReady');
+              setStreamReady(true);
+            }
+          }, 8000);
+          console.log('[Camera] DSLR mode active (Canon EDSDK)');
         } catch (e) {
           console.error('[Camera] DSLR start failed', e);
-          setError("Impossible de démarrer la caméra DSLR. Vérifiez le branchement et digiCamControl.");
+          setError("Impossible de démarrer la caméra DSLR. Vérifiez le branchement et qu'aucune autre appli n'utilise la cam.");
         }
       })();
       return () => {
         cancelled = true;
-        if (dslrPollHandle) clearInterval(dslrPollHandle);
+        unsubscribeFrames?.();
         window.api.dslr.liveviewStop().catch(() => { /* ignore */ });
       };
     }
