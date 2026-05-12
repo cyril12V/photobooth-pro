@@ -124,24 +124,29 @@ export async function handlePrint(
   // 3. Construit le HTML selon le mode
   const isLandscape = PRINT_MODE === 'landscape';
   const cssSize = isLandscape
-    ? paper.cssSize.split(' ').reverse().join(' ') // inverse "10.16cm 15.24cm" → "15.24cm 10.16cm"
+    ? paper.cssSize.split(' ').reverse().join(' ') // "10.16cm 15.24cm" → "15.24cm 10.16cm"
     : paper.cssSize;
   const pageRule = PRINT_MODE === 'no-pagesize' ? '' : `@page { size: ${cssSize}; margin: 0; }`;
-  const imgTransform = isLandscape ? 'transform: rotate(90deg) scale(1.5);' : '';
+
+  // En mode landscape : l'image source est portrait (1200×1800), le viewport est
+  // landscape (W×H avec W>H). On dimensionne l'img en pré-rotation comme un
+  // portrait H×W puis on la rote 90°, ce qui la fait visuellement remplir W×H.
+  const imgRule = isLandscape
+    ? 'width: 100vh; height: 100vw; transform: rotate(90deg); transform-origin: center center;'
+    : 'width: 100vw; height: 100vh;';
+  const bodyRule = isLandscape ? 'display: flex; align-items: center; justify-content: center;' : '';
 
   const html = `
     <!doctype html>
     <html><head><style>
       ${pageRule}
-      html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: white; }
+      html, body { margin: 0; padding: 0; width: 100%; height: 100%; background: white; ${bodyRule} }
       img {
         display: block;
-        width: 100vw;
-        height: 100vh;
         object-fit: cover;
         margin: 0;
         padding: 0;
-        ${imgTransform}
+        ${imgRule}
       }
     </style></head>
     <body><img src="${fileUrl}" /></body></html>
