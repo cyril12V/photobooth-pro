@@ -16,10 +16,9 @@ export function CameraSettings() {
   const [captureSource, setCaptureSource] = useState<CaptureSource>(
     settings?.capture_source ?? 'webcam',
   );
-  const [digicamPath, setDigicamPath] = useState(settings?.digicamcontrol_path ?? '');
   const [dslrStatus, setDslrStatus] = useState<{
     detected: boolean;
-    installDir?: string;
+    description?: string;
     testing: boolean;
     testMsg?: string;
     testOk?: boolean;
@@ -31,14 +30,14 @@ export function CameraSettings() {
   useEffect(() => {
     if (captureSource !== 'dslr') return;
     (async () => {
-      const r = await window.api.dslr.detect(digicamPath || undefined);
+      const r = await window.api.dslr.detect();
       if (r.found) {
-        setDslrStatus({ detected: true, installDir: r.installDir, testing: false });
+        setDslrStatus({ detected: true, description: r.description, testing: false });
       } else {
         setDslrStatus({ detected: false, testing: false });
       }
     })();
-  }, [captureSource, digicamPath]);
+  }, [captureSource]);
 
   const testDslr = async () => {
     setDslrStatus((s) => ({ ...s, testing: true, testMsg: undefined, testOk: undefined }));
@@ -48,10 +47,10 @@ export function CameraSettings() {
         ...s,
         testing: false,
         testOk: r.ok,
-        testMsg: r.ok ? 'Caméra DSLR détectée et accessible.' : r.reason ?? 'Échec',
+        testMsg: r.ok
+          ? 'Caméra Canon connectée. Configurée en JPEG Large Fine + SaveTo PC.'
+          : r.reason ?? 'Échec',
       }));
-      // On NE TUE PAS digiCamControl après le test — il doit rester ouvert
-      // pour la capture juste après. Il sera arrêté au shutdown app.
     } catch (e) {
       setDslrStatus((s) => ({
         ...s,
@@ -111,7 +110,6 @@ export function CameraSettings() {
     await window.api.settings.set('sound_enabled', soundEnabled);
     await window.api.settings.set('countdown_seconds', countdown);
     await window.api.settings.set('capture_source', captureSource);
-    await window.api.settings.set('digicamcontrol_path', digicamPath);
     const newSettings = await window.api.settings.get();
     setSettings(newSettings);
     setSaved(true);
@@ -128,8 +126,9 @@ export function CameraSettings() {
       <div className="space-y-4">
         <AdminCard title="Source de capture">
           <p style={{ color: '#6B5D4F', fontFamily: 'Inter, sans-serif', fontSize: '0.875rem', marginBottom: '1rem' }}>
-            Webcam UVC pour les caméras standards. DSLR pour piloter une Canon/Nikon
-            en USB tethering — qualité capteur native (24-32 MP) au lieu de 1080p UVC bridé.
+            Webcam UVC pour les caméras standards. DSLR (Canon EDSDK) pour piloter
+            une Canon en USB tethering — qualité capteur native (24-32 MP) au lieu
+            de 1080p UVC bridé. Aucune appli externe nécessaire.
           </p>
           <div className="grid grid-cols-2 gap-3">
             <button
@@ -162,32 +161,12 @@ export function CameraSettings() {
             >
               <MdCameraEnhance size={20} style={{ color: captureSource === 'dslr' ? '#D4B896' : '#6B5D4F', marginBottom: '0.5rem' }} />
               <p style={{ fontSize: '0.875rem', fontWeight: 600 }}>DSLR (Canon)</p>
-              <p style={{ fontSize: '0.75rem', opacity: 0.7 }}>Tethering PTP, full résolution</p>
+              <p style={{ fontSize: '0.75rem', opacity: 0.7 }}>EDSDK direct, full résolution</p>
             </button>
           </div>
 
           {captureSource === 'dslr' && (
             <div className="mt-5 space-y-3">
-              <div>
-                <p className="label-editorial mb-2" style={{ color: '#6B5D4F' }}>
-                  Chemin digiCamControl (optionnel, auto-détecté sinon)
-                </p>
-                <input
-                  type="text"
-                  value={digicamPath}
-                  onChange={(e) => setDigicamPath(e.target.value)}
-                  placeholder="C:\Program Files (x86)\digiCamControl"
-                  className="w-full p-2.5"
-                  style={{
-                    fontFamily: 'monospace',
-                    fontSize: '0.8125rem',
-                    backgroundColor: '#FAF6EE',
-                    border: '1px solid rgba(212, 184, 150, 0.4)',
-                    borderRadius: '4px',
-                    color: '#1A1A1A',
-                  }}
-                />
-              </div>
               <div
                 className="p-3"
                 style={{
@@ -198,13 +177,8 @@ export function CameraSettings() {
               >
                 <p style={{ fontSize: '0.8125rem', fontFamily: 'Inter, sans-serif', color: '#1A1A1A' }}>
                   {dslrStatus.detected
-                    ? `✓ digiCamControl trouvé : ${dslrStatus.installDir}`
-                    : '✕ digiCamControl introuvable. Installe-le depuis '}
-                  {!dslrStatus.detected && (
-                    <a href="https://digicamcontrol.com" target="_blank" rel="noopener" style={{ textDecoration: 'underline' }}>
-                      digicamcontrol.com
-                    </a>
-                  )}
+                    ? `✓ Caméra détectée : ${dslrStatus.description}`
+                    : '✕ Aucune caméra Canon détectée. Branche la cam en USB, allume-la, et vérifie qu\'aucune autre appli ne l\'utilise (EOS Webcam Utility, digiCamControl).'}
                 </p>
               </div>
               <Button
@@ -240,9 +214,8 @@ export function CameraSettings() {
               >
                 <strong>Prérequis :</strong>
                 <ol style={{ paddingLeft: '1.2rem', marginTop: '0.4rem' }}>
-                  <li>Installer digiCamControl (gratuit)</li>
-                  <li>Désactiver Canon EOS Webcam Utility (incompatible avec PTP)</li>
                   <li>Brancher la Canon en USB, allumée, en mode photo</li>
+                  <li>Aucune autre appli ne doit utiliser la cam (quitter EOS Webcam Utility, digiCamControl, etc.)</li>
                 </ol>
               </div>
             </div>
