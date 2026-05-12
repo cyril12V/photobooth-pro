@@ -182,9 +182,10 @@ export async function dslrStart(customPath?: string): Promise<{ ok: boolean; rea
     guiProcess = null;
   });
 
-  // Attend que le webserver soit joignable (max 15s — premier démarrage est lent)
+  // Attend que le webserver soit joignable. 30s parce que le premier démarrage
+  // post-config est lent (chargement Canon SDK + connexion caméra USB).
   const start = Date.now();
-  while (Date.now() - start < 15_000) {
+  while (Date.now() - start < 30_000) {
     if (await isWebserverReachable()) {
       logDslr('Webserver ready in', Date.now() - start, 'ms');
       return { ok: true };
@@ -194,7 +195,9 @@ export async function dslrStart(customPath?: string): Promise<{ ok: boolean; rea
   return {
     ok: false,
     reason:
-      'Webserver digiCamControl pas joignable après 15s. Vérifie que digiCamControl est bien lancé et que le port 5513 n\'est pas bloqué par le pare-feu.',
+      "digiCamControl s'est lancé mais le webserver met du temps à répondre. " +
+      'Attends quelques secondes que la caméra finisse son init puis re-clique "Tester". ' +
+      'Si le souci persiste : vérifie que le port 5513 n\'est pas bloqué par le pare-feu Windows.',
   };
 }
 
