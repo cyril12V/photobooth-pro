@@ -170,46 +170,44 @@ let latestLiveViewTimestamp = 0;
  * Démarre le LiveView. Les frames sont stockés en mémoire (latestLiveViewBuffer)
  * et exposés via le protocole custom `liveview://` (handler dans main.ts).
  *
- * IMPORTANT : il faut set `Evf_OutputDevice` à `PC` (2) avant de récupérer
- * des frames. Sans ça, la cam Canon envoie le LiveView à son écran LCD au
- * lieu du PC, et `downloadLiveViewImage()` retourne vide. C'est THE setting
- * critique du EDSDK pour le LiveView PC.
+ * IMPORTANT : `startLiveView()` du wrapper Canon fait déjà le set
+ * `Evf_OutputDevice |= PC` en interne. MAIS le wrapper a un état interne
+ * `hasActiveLiveView_` qui n'est mis à jour QUE quand on appelle
+ * `isLiveViewActive()`. Sans cet appel, `downloadLiveViewImage()` retourne
+ * vide silencieusement. On l'appelle donc dans chaque tick du polling.
  */
 export function canonStartLiveView(): void {
   if (!camera) throw new Error('Camera not connected');
 
-  // 1. Set Evf_OutputDevice = PC (2) — CRITIQUE
-  try {
-    camera.setProperty(CameraProperty.ID.Evf_OutputDevice, Option.EvfOutputDevice.PC);
-    logCanon('Evf_OutputDevice set to PC');
-  } catch (e) {
-    logCanon('Failed to set Evf_OutputDevice:', e);
-  }
-
-  // 2. Démarre le LiveView
-  if (!camera.isLiveViewActive()) {
-    camera.startLiveView();
-    logCanon('LiveView started');
-  }
+  camera.startLiveView();
+  logCanon('LiveView started (Evf_OutputDevice |= PC en interne)');
   liveviewFrameCount = 0;
 
   if (liveviewInterval) clearInterval(liveviewInterval);
   let downloadErrors = 0;
+  let activationLogged = false;
   liveviewInterval = setInterval(() => {
     if (!camera) return;
     try {
-      const dataUrl = camera.downloadLiveViewImage();
-      if (!dataUrl) {
-        // Pas encore prêt (warm-up cam) — retry au prochain tick
-        return;
+      // CRITIQUE : appel à isLiveViewActive() pour rafraîchir l'état interne
+      // hasActiveLiveView_ du wrapper. Sans ça, downloadLiveViewImage retourne
+      // vide même si la cam stream bien.
+      const active = camera.isLiveViewActive();
+      if (active && !activationLogged) {
+        activationLogged = true;
+        logCanon('isLiveViewActive() = true — buffer cam OK');
       }
+      if (!active) return;
+
+      const dataUrl = camera.downloadLiveViewImage();
+      if (!dataUrl) return;
+
       const comma = dataUrl.indexOf(',');
       if (comma === -1) return;
       const buf = Buffer.from(dataUrl.slice(comma + 1), 'base64');
       latestLiveViewBuffer = buf;
       latestLiveViewTimestamp = Date.now();
       liveviewFrameCount++;
-      // Log le 1er frame puis tous les 60
       if (liveviewFrameCount === 1) {
         logCanon(`FIRST LiveView frame received! ${buf.length} bytes`);
       } else if (liveviewFrameCount % 60 === 0) {
@@ -217,7 +215,6 @@ export function canonStartLiveView(): void {
       }
     } catch (e) {
       downloadErrors++;
-      // Log les premières erreurs pour diagnostiquer
       if (downloadErrors <= 3) {
         logCanon(`LiveView download error #${downloadErrors}:`, e instanceof Error ? e.message : String(e));
       }
@@ -233,14 +230,9 @@ export function canonStopLiveView(): void {
   latestLiveViewBuffer = null;
   if (!camera) return;
   try {
-    if (camera.isLiveViewActive()) {
-      camera.stopLiveView();
-      logCanon('LiveView stopped');
-    }
-    // Reset output device sinon la cam reste en mode LiveView USB
-    try {
-      camera.setProperty(CameraProperty.ID.Evf_OutputDevice, Option.EvfOutputDevice.None);
-    } catch { /* ignore */ }
+    // stopLiveView() du wrapper fait déjà le reset Evf_OutputDevice &= ~PC
+    camera.stopLiveView();
+    logCanon('LiveView stopped');
   } catch (e) {
     logCanon('LiveView stop error:', e);
   }
