@@ -15,6 +15,10 @@ export function CaptureScreen() {
   const [isFlashing, setIsFlashing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [streamReady, setStreamReady] = useState(false);
+  // DSLR mode (Canon via digiCamControl)
+  const isDslrMode = settings?.capture_source === 'dslr';
+  const [dslrFrame, setDslrFrame] = useState<string | null>(null);
+  const dslrCapturedRef = useRef<string | null>(null);
 
   // Données du template actif (ratio + nombre de slots)
   const [templateRatio, setTemplateRatio] = useState<{ w: number; h: number }>({ w: 1200, h: 1800 });
@@ -47,15 +51,45 @@ export function CaptureScreen() {
     })();
   }, []);
 
-  // ─── Démarre la caméra ──────────────────────────────────────────────────
+  // ─── Démarre la source de capture (webcam OU DSLR) ──────────────────────
   useEffect(() => {
     let cancelled = false;
+    let dslrPollHandle: ReturnType<typeof setInterval> | null = null;
+
+    if (isDslrMode) {
+      (async () => {
+        try {
+          const startRes = await window.api.dslr.start();
+          if (cancelled) return;
+          if (!startRes.ok) {
+            setError(startRes.reason ?? 'Impossible de démarrer la caméra DSLR.');
+            return;
+          }
+          await window.api.dslr.liveviewStart();
+          if (cancelled) return;
+          setStreamReady(true);
+          // Polling du LiveView ~10 fps (le webserver digiCamControl ne tient
+          // pas beaucoup plus haut côté Canon EOS R en USB 2.0).
+          dslrPollHandle = setInterval(async () => {
+            const frame = await window.api.dslr.liveviewFrame();
+            if (!cancelled && frame) setDslrFrame(frame);
+          }, 100);
+          console.log('[Camera] DSLR mode active (digiCamControl)');
+        } catch (e) {
+          console.error('[Camera] DSLR start failed', e);
+          setError("Impossible de démarrer la caméra DSLR. Vérifiez le branchement et digiCamControl.");
+        }
+      })();
+      return () => {
+        cancelled = true;
+        if (dslrPollHandle) clearInterval(dslrPollHandle);
+        window.api.dslr.liveviewStop().catch(() => { /* ignore */ });
+      };
+    }
+
+    // Mode webcam classique (UVC via getUserMedia)
     (async () => {
       try {
-        // On demande à la caméra sa meilleure résolution disponible — la même
-        // que celle réglée pour la vidéo. Plus la source est haute résolution,
-        // plus la photo finale est nette (le crop centré 1200×1800 conserve
-        // un maximum de détail).
         const RES_MAP_PHOTO = {
           '4k': { w: 3840, h: 2160 },
           '1080p': { w: 1920, h: 1080 },
@@ -88,12 +122,11 @@ export function CaptureScreen() {
           const s = track?.getSettings();
           console.log(
             `[Camera] requested ${resKey} (${res.w}×${res.h}) → effective ` +
-            `${s?.width ?? '?'}×${s?.height ?? '?'} @ ${s?.frameRate ?? '?'}fps device="${s?.deviceId ?? '?'}"`,
+            `${s?.width ?? '?'}×${s?.height ?? '?'} @ ${s?.frameRate ?? '?'}fps`,
           );
           if (s?.width && s?.width < res.w) {
             console.warn(
-              `[Camera] La caméra ne supporte pas ${resKey}. Effective: ${s.width}×${s.height}. ` +
-              `Pour la qualité max, utilise une caméra qui supporte au moins ${res.w}×${res.h}.`,
+              `[Camera] La caméra ne supporte pas ${resKey}. Effective: ${s.width}×${s.height}.`,
             );
           }
           setStreamReady(true);
@@ -115,23 +148,80 @@ export function CaptureScreen() {
         streamRef.current = null;
       }
     };
-  }, [settings?.camera_device_id]);
+  }, [isDslrMode, settings?.camera_device_id, settings?.video_resolution]);
 
-  // ─── Capture une photo et push dans le store ────────────────────────────
-  const captureOne = useCallback((): string | null => {
+  // ─── Crop centré d'une image (HTMLImageElement) vers le ratio du template ─
+  const cropImageToTemplate = useCallback(
+    (img: HTMLImageElement, mirror: boolean): string | null => {
+      const vw = img.naturalWidth;
+      const vh = img.naturalHeight;
+      const targetRatioVal = templateRatio.w / templateRatio.h;
+      const videoRatio = vw / vh;
+      let srcW: number, srcH: number, srcX: number, srcY: number;
+      if (videoRatio > targetRatioVal) {
+        srcH = vh;
+        srcW = Math.round(vh * targetRatioVal);
+        srcX = Math.round((vw - srcW) / 2);
+        srcY = 0;
+      } else {
+        srcW = vw;
+        srcH = Math.round(vw / targetRatioVal);
+        srcX = 0;
+        srcY = Math.round((vh - srcH) / 2);
+      }
+      console.log(
+        `[Capture] source=${vw}×${vh} crop=${srcW}×${srcH} target=${templateRatio.w}×${templateRatio.h}` +
+        ` ratio=${(srcW / templateRatio.w).toFixed(2)}× (>1=downsample, <1=upsample)`,
+      );
+      const canvas = document.createElement('canvas');
+      canvas.width = srcW;
+      canvas.height = srcH;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+      if (mirror) {
+        ctx.translate(srcW, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(img, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH);
+      return canvas.toDataURL('image/png');
+    },
+    [templateRatio],
+  );
+
+  // ─── Capture une photo (webcam OU DSLR) et retourne un dataURL PNG ──────
+  const captureOne = useCallback(async (): Promise<string | null> => {
+    // ─── Mode DSLR (Canon via digiCamControl) ───────────────────────────
+    if (isDslrMode) {
+      try {
+        const { dataUrl } = await window.api.dslr.capture();
+        // Charge l'image pour le crop centré au ratio template
+        const img = new Image();
+        img.src = dataUrl;
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error('Image DSLR illisible'));
+        });
+        dslrCapturedRef.current = dataUrl;
+        // Pas de miroir pour la DSLR (la photo est déjà à l'endroit)
+        return cropImageToTemplate(img, false);
+      } catch (e) {
+        console.error('[Capture] DSLR capture failed', e);
+        setError("Échec de la capture DSLR. Vérifiez la caméra et digiCamControl.");
+        return null;
+      }
+    }
+
+    // ─── Mode webcam (flow classique) ──────────────────────────────────
     if (!videoRef.current || !streamReady) return null;
     const video = videoRef.current;
+    // Wrap video element en HTMLImageElement-like via canvas (réutilise cropImageToTemplate
+    // serait possible mais video n'est pas HTMLImageElement — on garde la logique inline).
     const vw = video.videoWidth;
     const vh = video.videoHeight;
-
     const targetRatioVal = templateRatio.w / templateRatio.h;
     const videoRatio = vw / vh;
-
-    // Crop centré au ratio du template — on prend la résolution NATIVE de
-    // la zone utile, sans la forcer à templateRatio.{w,h} (qui ferait un
-    // upsample destructif si la caméra est en 1080p). Le composer fait
-    // ensuite UN seul resize propre (high-quality bicubic) vers la résolution
-    // papier finale (1200×1800 pour 4×6, 1500×2100 pour 5×7, etc.).
     let srcW: number, srcH: number, srcX: number, srcY: number;
     if (videoRatio > targetRatioVal) {
       srcH = vh;
@@ -144,12 +234,10 @@ export function CaptureScreen() {
       srcX = 0;
       srcY = Math.round((vh - srcH) / 2);
     }
-
     console.log(
-      `[Capture] camera=${vw}×${vh} crop=${srcW}×${srcH} target=${templateRatio.w}×${templateRatio.h}` +
-      ` ratio=${(srcW / templateRatio.w).toFixed(2)}× (>1=downsample, <1=upsample)`,
+      `[Capture] webcam=${vw}×${vh} crop=${srcW}×${srcH} target=${templateRatio.w}×${templateRatio.h}` +
+      ` ratio=${(srcW / templateRatio.w).toFixed(2)}×`,
     );
-
     const canvas = document.createElement('canvas');
     canvas.width = srcW;
     canvas.height = srcH;
@@ -160,14 +248,12 @@ export function CaptureScreen() {
     ctx.translate(srcW, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH);
-    // PNG lossless : élimine la 1re compression — le composer recompresse en
-    // JPEG 0.95 une seule fois, pas de cumul d'artefacts.
     return canvas.toDataURL('image/png');
-  }, [streamReady, templateRatio]);
+  }, [isDslrMode, streamReady, templateRatio, cropImageToTemplate]);
 
   // ─── Séquence de capture (1 ou N photos) ───────────────────────────────
-  const runCapture = useCallback(() => {
-    const dataUrl = captureOne();
+  const runCapture = useCallback(async () => {
+    const dataUrl = await captureOne();
     if (!dataUrl) return;
 
     if (soundsOn) sounds.shutter();
@@ -181,17 +267,13 @@ export function CaptureScreen() {
     setCapturedCount(next);
 
     if (next >= totalSlots) {
-      // Dernière photo : on finalise
       if (totalSlots === 1) {
-        // Mode 1 photo : utilise setCurrentPhoto (rétrocompat)
         setCurrentPhoto(dataUrl, null);
       } else {
-        // Multi-photo : on push la dernière puis on navigue
         pushPhoto(dataUrl);
       }
       setTimeout(() => setScreen('preview'), 600);
     } else {
-      // Pas encore fini : push et relancer un compte à rebours après une pause
       pushPhoto(dataUrl);
       setTimeout(() => {
         setCountdown(countdownDuration);
@@ -322,15 +404,31 @@ export function CaptureScreen() {
         </motion.div>
       )}
 
-      {/* Vidéo plein écran */}
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        className="w-full h-full object-cover"
-        style={{ transform: 'scaleX(-1)' }}
-      />
+      {/* Source vidéo plein écran : video WebRTC ou img LiveView DSLR */}
+      {isDslrMode ? (
+        dslrFrame ? (
+          <img
+            src={dslrFrame}
+            alt="LiveView"
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center" style={{ color: '#FAF6EE' }}>
+            <p style={{ fontFamily: 'Inter, sans-serif', letterSpacing: '0.2em', textTransform: 'uppercase', fontSize: '0.75rem' }}>
+              Connexion à la caméra…
+            </p>
+          </div>
+        )
+      ) : (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover"
+          style={{ transform: 'scaleX(-1)' }}
+        />
+      )}
 
       {/* Guide de recadrage — cadre éditorial fin doré */}
       {streamReady && !error && (
