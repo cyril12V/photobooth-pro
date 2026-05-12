@@ -74,6 +74,16 @@ contextBridge.exposeInMainWorld('api', {
     print: (payload: { filepath: string; copies: number; printerName?: string; preview?: boolean }) =>
       ipcRenderer.invoke('printer:print', payload),
   },
+  // DSLR (Canon/Nikon via digiCamControl)
+  dslr: {
+    detect: (customPath?: string) => ipcRenderer.invoke('dslr:detect', customPath),
+    start: () => ipcRenderer.invoke('dslr:start'),
+    stop: () => ipcRenderer.invoke('dslr:stop'),
+    liveviewStart: () => ipcRenderer.invoke('dslr:liveview-start'),
+    liveviewStop: () => ipcRenderer.invoke('dslr:liveview-stop'),
+    liveviewFrame: () => ipcRenderer.invoke('dslr:liveview-frame') as Promise<string | null>,
+    capture: () => ipcRenderer.invoke('dslr:capture') as Promise<{ dataUrl: string; filepath: string }>,
+  },
   // Dialog
   dialog: {
     openImage: () => ipcRenderer.invoke('dialog:openImage'),

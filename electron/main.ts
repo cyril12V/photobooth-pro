@@ -7,6 +7,16 @@ import { handlePrint, listPrinters } from './printer';
 import { shareServer } from './shareServer';
 import { sendPhotoEmail, sendVideoLinkEmail, testSmtp } from './mailer';
 import {
+  dslrCapture,
+  dslrLiveViewFrame,
+  dslrLiveViewStart,
+  dslrLiveViewStop,
+  dslrStart,
+  dslrStop,
+  dslrTempCapturePath,
+  findDigiCamControl,
+} from './dslrCamera';
+import {
   compileEventVideos,
   type VideoCompilerEvent,
   type VideoCompilerSettings,
@@ -520,6 +530,48 @@ function registerIpcHandlers() {
     return handlePrint(mainWindow, { filepath, copies, printerName, paperFormat, preview });
   });
 
+  // ── DSLR (Canon/Nikon via digiCamControl) ─────
+  ipcMain.handle('dslr:detect', async (_e, customPath?: string) => {
+    const paths = await findDigiCamControl(customPath);
+    return paths ? { found: true, ...paths } : { found: false };
+  });
+
+  ipcMain.handle('dslr:start', async () => {
+    const s = getSettings();
+    const customPath = s.digicamcontrol_path as string | undefined;
+    return dslrStart(customPath || undefined);
+  });
+
+  ipcMain.handle('dslr:stop', async () => {
+    dslrStop();
+    return { ok: true };
+  });
+
+  ipcMain.handle('dslr:liveview-start', async () => {
+    await dslrLiveViewStart();
+    return { ok: true };
+  });
+
+  ipcMain.handle('dslr:liveview-stop', async () => {
+    await dslrLiveViewStop();
+    return { ok: true };
+  });
+
+  ipcMain.handle('dslr:liveview-frame', async () => {
+    return dslrLiveViewFrame();
+  });
+
+  ipcMain.handle('dslr:capture', async () => {
+    const outputPath = dslrTempCapturePath();
+    await dslrCapture(outputPath);
+    // Renvoie le fichier en dataURL — le composer/photoSave le traitera comme
+    // n'importe quelle source d'image.
+    const buf = await fs.readFile(outputPath);
+    const ext = path.extname(outputPath).toLowerCase().replace('.', '') || 'jpeg';
+    const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+    return { dataUrl: `data:${mime};base64,${buf.toString('base64')}`, filepath: outputPath };
+  });
+
   // ── Sélecteur fichier (admin) ─────────────────
   ipcMain.handle('dialog:openImage', async () => {
     if (!mainWindow) return null;
@@ -679,10 +731,12 @@ app.whenReady().then(async () => {
 
 app.on('window-all-closed', () => {
   shareServer.stop();
+  dslrStop();
   if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
   shareServer.stop();
+  dslrStop();
 });
