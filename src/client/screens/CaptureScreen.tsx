@@ -135,10 +135,14 @@ export function CaptureScreen() {
     canvas.height = targetH;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
     ctx.translate(targetW, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, srcX, srcY, srcW, srcH, 0, 0, targetW, targetH);
-    return canvas.toDataURL('image/jpeg', 0.92);
+    // PNG lossless : élimine la 1re compression — le composer recompresse en
+    // JPEG 0.95 une seule fois, pas de cumul d'artefacts.
+    return canvas.toDataURL('image/png');
   }, [streamReady, templateRatio]);
 
   // ─── Séquence de capture (1 ou N photos) ───────────────────────────────

@@ -9,6 +9,14 @@ import type {
   PhotoSlotElement,
 } from '@shared/types';
 
+/** Format papier supporté → dimensions cibles à 300 DPI (= max physique DNP DS620). */
+export type PaperFormat = '4x6' | '5x7' | '6x8';
+const PAPER_TARGET_PX: Record<PaperFormat, { w: number; h: number }> = {
+  '4x6': { w: 1200, h: 1800 },
+  '5x7': { w: 1500, h: 2100 },
+  '6x8': { w: 1800, h: 2400 },
+};
+
 /**
  * Compose la photo finale avec le template (cadre, texte, logo, photo-slot, etc.)
  * Retourne un dataURL JPEG.
@@ -16,11 +24,15 @@ import type {
  * @param photoDataUrls - Un seul dataURL (rétrocompat) ou un tableau pour le multi-photo.
  *   Les photo-slots sont remplis dans l'ordre par position (Y croissant, puis X).
  *   Si moins de photos que de slots, le cycle reprend depuis le début.
+ * @param paperFormat - Format papier cible : permet de produire un canvas à 300 DPI
+ *   pile pour l'imprimante DS620 (max physique). Sans ça, on imprime en sous-résolution
+ *   pour 5×7 et 6×8.
  */
 export async function composePhotoWithTemplate(
   photoDataUrls: string | string[],
   template: TemplateConfig | null,
   event: PhotoboothEvent | null,
+  paperFormat: PaperFormat = '4x6',
 ): Promise<string> {
   const urlsArray = Array.isArray(photoDataUrls) ? photoDataUrls : [photoDataUrls];
   const firstUrl = urlsArray[0] ?? '';
@@ -33,8 +45,17 @@ export async function composePhotoWithTemplate(
     return composeLegacy(firstUrl, template, event);
   }
 
-  const W = template.canvas_width || 1200;
-  const H = template.canvas_height || 1800;
+  // Coordonnées du template (espace logique : c'est dans cet espace que les
+  // éléments sont positionnés).
+  const baseW = template.canvas_width || 1200;
+  const baseH = template.canvas_height || 1800;
+
+  // Résolution cible pour l'impression à 300 DPI. On garde le ratio du template
+  // et on prend la dimension qui sature la cible.
+  const target = PAPER_TARGET_PX[paperFormat];
+  const scale = Math.min(target.w / baseW, target.h / baseH);
+  const W = Math.round(baseW * scale);
+  const H = Math.round(baseH * scale);
 
   const canvas = document.createElement('canvas');
   canvas.width = W;
@@ -42,14 +63,21 @@ export async function composePhotoWithTemplate(
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas non disponible');
 
+  // High-quality downsampling (Lanczos-like via Skia côté Chromium)
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  // Tous les drawXxx en aval utilisent les coords du template (baseW × baseH),
+  // l'upscale est automatique vers (W × H).
+  ctx.scale(scale, scale);
+
   // ─── Fond ────────────────────────────────────────────────────────────────
   ctx.fillStyle = template.background_color || '#ffffff';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, baseW, baseH);
 
   if (template.background_image) {
     try {
       const bg = await loadImage(toSrc(template.background_image));
-      ctx.drawImage(bg, 0, 0, W, H);
+      ctx.drawImage(bg, 0, 0, baseW, baseH);
     } catch {
       // ignore
     }
@@ -109,7 +137,7 @@ export async function composePhotoWithTemplate(
     ctx.restore();
   }
 
-  return canvas.toDataURL('image/jpeg', 0.92);
+  return canvas.toDataURL('image/jpeg', 0.95);
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
@@ -339,6 +367,9 @@ async function composeLegacy(
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Canvas non disponible');
 
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
   ctx.fillStyle = template.background_color || '#ffffff';
   ctx.fillRect(0, 0, W, H);
 
@@ -384,7 +415,7 @@ async function composeLegacy(
     ctx.fillText(template.custom_text, W / 2, H - frameWidth - 100);
   }
 
-  return canvas.toDataURL('image/jpeg', 0.92);
+  return canvas.toDataURL('image/jpeg', 0.95);
 }
 
 export type { TemplateElement };

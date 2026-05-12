@@ -18,6 +18,7 @@ export function PreviewScreen() {
     currentPhotoDataUrls,
     event,
     mode,
+    settings,
     setScreen,
     setCurrentPhoto,
   } = useAppStore();
@@ -44,7 +45,8 @@ export function PreviewScreen() {
         const templates = await window.api.template.list();
         if (templates.length > 0) {
           const config = JSON.parse(templates[0].config_json) as TemplateConfig;
-          finalDataUrl = await composePhotoWithTemplate(photos, config, event);
+          const paperFormat = (settings?.paper_format as '4x6' | '5x7' | '6x8' | undefined) ?? '4x6';
+          finalDataUrl = await composePhotoWithTemplate(photos, config, event, paperFormat);
         }
       } catch (e) {
         console.error('[PreviewScreen] Composition template échouée, photo brute conservée :', e);
