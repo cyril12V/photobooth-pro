@@ -100,19 +100,27 @@ class ShareServer {
     });
 
     // ─── LiveView Canon DSLR ────────────────────────────────────────────
-    // Servi via le renderer sous forme de `<img src="/dslr/liveview.jpg?t=N">`.
-    // Le navigateur fait du polling natif (pas d'IPC saturé). Permet aussi
-    // l'accès distant pour debug depuis une autre machine sur le réseau local.
+    let liveviewHits = 0;
+    let liveviewMisses = 0;
     this.app.get('/dslr/liveview.jpg', (_req, res) => {
       const frame = canonGetLatestFrame();
       if (!frame) {
+        liveviewMisses++;
+        if (liveviewMisses % 20 === 1) {
+          console.log(`[LiveView HTTP] miss (no frame ready) — hits=${liveviewHits} misses=${liveviewMisses}`);
+        }
         res.status(204).end();
         return;
+      }
+      liveviewHits++;
+      if (liveviewHits % 30 === 1) {
+        console.log(`[LiveView HTTP] hit ${liveviewHits} — ${frame.buffer.length} bytes`);
       }
       res.set('Content-Type', 'image/jpeg');
       res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
       res.set('Pragma', 'no-cache');
       res.set('Expires', '0');
+      res.set('Access-Control-Allow-Origin', '*');
       res.send(frame.buffer);
     });
 

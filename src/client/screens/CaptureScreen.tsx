@@ -427,6 +427,15 @@ export function CaptureScreen() {
             src={liveviewUrl}
             alt="LiveView"
             className="w-full h-full object-cover"
+            onLoad={() => {
+              if (typeof window !== 'undefined' && !(window as { _lvLoaded?: boolean })._lvLoaded) {
+                (window as { _lvLoaded?: boolean })._lvLoaded = true;
+                console.log('[LiveView] First <img> loaded successfully');
+              }
+            }}
+            onError={(e) => {
+              console.warn('[LiveView] <img> error for url:', (e.currentTarget as HTMLImageElement).src);
+            }}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center" style={{ color: '#FAF6EE' }}>
