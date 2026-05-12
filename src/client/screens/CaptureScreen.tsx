@@ -84,6 +84,18 @@ export function CaptureScreen() {
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
+          const track = stream.getVideoTracks()[0];
+          const s = track?.getSettings();
+          console.log(
+            `[Camera] requested ${resKey} (${res.w}×${res.h}) → effective ` +
+            `${s?.width ?? '?'}×${s?.height ?? '?'} @ ${s?.frameRate ?? '?'}fps device="${s?.deviceId ?? '?'}"`,
+          );
+          if (s?.width && s?.width < res.w) {
+            console.warn(
+              `[Camera] La caméra ne supporte pas ${resKey}. Effective: ${s.width}×${s.height}. ` +
+              `Pour la qualité max, utilise une caméra qui supporte au moins ${res.w}×${res.h}.`,
+            );
+          }
           setStreamReady(true);
         }
       } catch (e: unknown) {
@@ -112,11 +124,14 @@ export function CaptureScreen() {
     const vw = video.videoWidth;
     const vh = video.videoHeight;
 
-    const targetW = templateRatio.w;
-    const targetH = templateRatio.h;
-    const targetRatioVal = targetW / targetH;
+    const targetRatioVal = templateRatio.w / templateRatio.h;
     const videoRatio = vw / vh;
 
+    // Crop centré au ratio du template — on prend la résolution NATIVE de
+    // la zone utile, sans la forcer à templateRatio.{w,h} (qui ferait un
+    // upsample destructif si la caméra est en 1080p). Le composer fait
+    // ensuite UN seul resize propre (high-quality bicubic) vers la résolution
+    // papier finale (1200×1800 pour 4×6, 1500×2100 pour 5×7, etc.).
     let srcW: number, srcH: number, srcX: number, srcY: number;
     if (videoRatio > targetRatioVal) {
       srcH = vh;
@@ -130,16 +145,21 @@ export function CaptureScreen() {
       srcY = Math.round((vh - srcH) / 2);
     }
 
+    console.log(
+      `[Capture] camera=${vw}×${vh} crop=${srcW}×${srcH} target=${templateRatio.w}×${templateRatio.h}` +
+      ` ratio=${(srcW / templateRatio.w).toFixed(2)}× (>1=downsample, <1=upsample)`,
+    );
+
     const canvas = document.createElement('canvas');
-    canvas.width = targetW;
-    canvas.height = targetH;
+    canvas.width = srcW;
+    canvas.height = srcH;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.translate(targetW, 0);
+    ctx.translate(srcW, 0);
     ctx.scale(-1, 1);
-    ctx.drawImage(video, srcX, srcY, srcW, srcH, 0, 0, targetW, targetH);
+    ctx.drawImage(video, srcX, srcY, srcW, srcH, 0, 0, srcW, srcH);
     // PNG lossless : élimine la 1re compression — le composer recompresse en
     // JPEG 0.95 une seule fois, pas de cumul d'artefacts.
     return canvas.toDataURL('image/png');
