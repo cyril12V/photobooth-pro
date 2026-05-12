@@ -61,36 +61,37 @@ export function CaptureScreen() {
       let pollHandle: ReturnType<typeof setInterval> | null = null;
       (async () => {
         try {
+          console.log('[Camera] DSLR start…');
           const startRes = await window.api.dslr.start();
+          console.log('[Camera] DSLR start result:', startRes);
           if (cancelled) return;
           if (!startRes.ok) {
             setError(startRes.reason ?? 'Impossible de démarrer la caméra DSLR.');
             return;
           }
           const lvRes = await window.api.dslr.liveviewStart();
+          console.log('[Camera] DSLR liveview start result:', lvRes);
           if (cancelled) return;
           if (!lvRes.ok) {
             setError(lvRes.reason ?? 'Impossible de démarrer le LiveView.');
             return;
           }
 
-          // Récupère le port du shareServer local
-          const info = await window.api.share.info();
-          if (cancelled) return;
-          const baseUrl = `http://127.0.0.1:${info.port}/dslr/liveview.jpg`;
-
-          // Le navigateur charge l'image, et l'event onLoad de <img> incrémente
-          // un tick local qui re-fetch la prochaine. Plus efficace qu'un
-          // setInterval fixe (s'adapte à la vitesse réseau).
+          // Protocole custom Electron (bypass CORS/CSP/HTTP).
+          const baseUrl = `liveview://frame.jpg`;
           setLiveviewUrl(`${baseUrl}?t=${Date.now()}`);
           setStreamReady(true);
-          // Poll toutes les 80ms en safety net (si l'image actuelle stagne)
+          console.log('[Camera] First liveviewUrl set →', `${baseUrl}?t=...`);
+          // Poll toutes les 80ms pour rafraîchir le src
+          let tickCount = 0;
           pollHandle = setInterval(() => {
             if (cancelled) return;
+            tickCount++;
+            if (tickCount % 50 === 1) {
+              console.log(`[Camera] liveview tick ${tickCount}`);
+            }
             setLiveviewUrl(`${baseUrl}?t=${Date.now()}`);
           }, 80);
-
-          console.log('[Camera] DSLR mode active (Canon EDSDK) →', baseUrl);
         } catch (e) {
           console.error('[Camera] DSLR start failed', e);
           setError("Impossible de démarrer la caméra DSLR. Vérifiez le branchement et qu'aucune autre appli n'utilise la cam.");

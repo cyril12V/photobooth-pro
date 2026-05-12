@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, protocol } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { autoUpdater } from 'electron-updater';
@@ -11,12 +11,30 @@ import {
   canonConnect,
   canonDetect,
   canonDisconnect,
+  canonGetLatestFrame,
   canonStartLiveView,
   canonStopLiveView,
   canonTempCaptureDir,
   initCanonSDK,
   shutdownCanonSDK,
 } from './canonCamera';
+
+// ─── Protocole custom Electron pour le LiveView Canon ────────────────────────
+// Doit être déclaré AVANT app.ready. Le scheme `liveview://` est traité par
+// notre handler qui répond avec le dernier buffer JPEG en mémoire — pas de
+// HTTP, pas de CORS, pas de CSP. Le renderer fait juste `<img src="liveview://frame.jpg?t=N">`.
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'liveview',
+    privileges: {
+      standard: true,
+      secure: true,
+      bypassCSP: true,
+      supportFetchAPI: true,
+      stream: true,
+    },
+  },
+]);
 import {
   compileEventVideos,
   type VideoCompilerEvent,
@@ -683,6 +701,34 @@ app.whenReady().then(async () => {
   } catch (e) {
     console.error('[Canon] init failed:', e);
   }
+
+  // Handler du protocole liveview:// — sert les frames JPEG en mémoire.
+  // Le renderer fait <img src="liveview://frame.jpg?t=N"> et le navigateur
+  // appelle ce handler à chaque requête.
+  let liveviewProtocolHits = 0;
+  let liveviewProtocolMisses = 0;
+  protocol.handle('liveview', () => {
+    const frame = canonGetLatestFrame();
+    if (!frame) {
+      liveviewProtocolMisses++;
+      if (liveviewProtocolMisses % 30 === 1) {
+        console.log(`[LiveView Protocol] miss=${liveviewProtocolMisses} (no frame in buffer)`);
+      }
+      return new Response(null, { status: 204 });
+    }
+    liveviewProtocolHits++;
+    if (liveviewProtocolHits % 30 === 1) {
+      console.log(`[LiveView Protocol] hit=${liveviewProtocolHits} (${frame.buffer.length} bytes)`);
+    }
+    return new Response(frame.buffer, {
+      status: 200,
+      headers: {
+        'Content-Type': 'image/jpeg',
+        'Cache-Control': 'no-store, no-cache, must-revalidate',
+      },
+    });
+  });
+  console.log('[Protocol] liveview:// handler registered');
 
   await createWindow();
 
