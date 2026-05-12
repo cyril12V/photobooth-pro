@@ -426,7 +426,8 @@ export function CaptureScreen() {
           >
             À imiter
           </p>
-          <img
+          {liveviewUrl && (
+            <img
             src={poseSrc(currentPose.image_path)}
             alt={currentPose.label}
             className="w-full object-contain"
@@ -449,7 +450,7 @@ export function CaptureScreen() {
 
       {/* Source vidéo plein écran : video WebRTC ou img LiveView DSLR (HTTP local) */}
       {isDslrMode ? (
-        liveviewUrl ? (
+        <>
           <img
             src={liveviewUrl}
             alt="LiveView"
@@ -458,7 +459,8 @@ export function CaptureScreen() {
             onError={(e) => handleLiveviewError(e.currentTarget.src)}
             style={{ opacity: streamReady ? 1 : 0 }}
           />
-        ) : (
+          )}
+          {!streamReady && (
           <div className="w-full h-full flex items-center justify-center" style={{ color: '#FAF6EE' }}>
             <p style={{ fontFamily: 'Inter, sans-serif', letterSpacing: '0.2em', textTransform: 'uppercase', fontSize: '0.75rem' }}>
               Connexion à la caméra…
