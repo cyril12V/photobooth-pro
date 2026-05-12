@@ -1,7 +1,6 @@
 import { spawn, ChildProcess } from 'node:child_process';
 import fs from 'node:fs/promises';
-import http from 'node:http';
-import { app } from 'electron';
+import { app, net } from 'electron';
 import path from 'node:path';
 
 /**
@@ -313,40 +312,41 @@ async function isWebserverReachable(): Promise<boolean> {
 }
 
 /**
- * Construit les options http.request en activant `insecureHTTPParser`.
+ * HTTP via la stack Chromium d'Electron (electron.net) au lieu de node:http.
  *
  * Pourquoi : digiCamControl émet 2 headers `Content-Length` dans ses réponses
- * (bug serveur connu). Le parser HTTP strict de Node.js refuse ces réponses
- * avec `Parse Error: Duplicate Content-Length`. Activer le parser permissif
- * accepte la réponse — cette option est uniquement pour notre client local
- * vers 127.0.0.1, pas un risque de sécurité.
+ * (bug serveur connu). Le parser HTTP de Node refuse ces réponses avec
+ * `Parse Error: Duplicate Content-Length`, et `insecureHTTPParser: true` ne
+ * couvre PAS ce cas (Node le considère comme vecteur de request smuggling).
+ *
+ * electron.net utilise la stack réseau de Chromium qui tolère ces malformations.
+ * Bonus : timeout natif, support proxy système, gestion d'IPv4/IPv6 cohérente.
  */
-function buildReqOptions(url: string): http.RequestOptions {
-  const u = new URL(url);
-  return {
-    hostname: u.hostname,
-    port: u.port,
-    path: u.pathname + u.search,
-    method: 'GET',
-    insecureHTTPParser: true,
-  };
-}
 
 function httpGet(url: string, timeoutMs = 3000): Promise<string> {
   return new Promise((resolve, reject) => {
-    const req = http.request(buildReqOptions(url), (res) => {
-      let body = '';
-      res.setEncoding('utf8');
-      res.on('data', (chunk) => (body += chunk));
+    const req = net.request({ method: 'GET', url });
+    const timer = setTimeout(() => {
+      req.abort();
+      reject(new Error('HTTP timeout'));
+    }, timeoutMs);
+    req.on('response', (res) => {
+      const chunks: Buffer[] = [];
+      res.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
       res.on('end', () => {
-        if ((res.statusCode ?? 0) >= 400) reject(new Error(`HTTP ${res.statusCode}: ${body}`));
+        clearTimeout(timer);
+        const body = Buffer.concat(chunks).toString('utf8');
+        if (res.statusCode >= 400) reject(new Error(`HTTP ${res.statusCode}: ${body}`));
         else resolve(body);
       });
+      res.on('error', (e: Error) => {
+        clearTimeout(timer);
+        reject(e);
+      });
     });
-    req.on('error', reject);
-    req.setTimeout(timeoutMs, () => {
-      req.destroy();
-      reject(new Error('HTTP timeout'));
+    req.on('error', (e) => {
+      clearTimeout(timer);
+      reject(e);
     });
     req.end();
   });
@@ -354,18 +354,27 @@ function httpGet(url: string, timeoutMs = 3000): Promise<string> {
 
 function httpGetBuffer(url: string, timeoutMs = 3000): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const req = http.request(buildReqOptions(url), (res) => {
+    const req = net.request({ method: 'GET', url });
+    const timer = setTimeout(() => {
+      req.abort();
+      reject(new Error('HTTP timeout'));
+    }, timeoutMs);
+    req.on('response', (res) => {
       const chunks: Buffer[] = [];
       res.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
       res.on('end', () => {
-        if ((res.statusCode ?? 0) >= 400) reject(new Error(`HTTP ${res.statusCode}`));
+        clearTimeout(timer);
+        if (res.statusCode >= 400) reject(new Error(`HTTP ${res.statusCode}`));
         else resolve(Buffer.concat(chunks));
       });
+      res.on('error', (e: Error) => {
+        clearTimeout(timer);
+        reject(e);
+      });
     });
-    req.on('error', reject);
-    req.setTimeout(timeoutMs, () => {
-      req.destroy();
-      reject(new Error('HTTP timeout'));
+    req.on('error', (e) => {
+      clearTimeout(timer);
+      reject(e);
     });
     req.end();
   });
