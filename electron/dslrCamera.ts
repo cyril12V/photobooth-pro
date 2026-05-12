@@ -67,20 +67,92 @@ export async function findDigiCamControl(customPath?: string): Promise<DigiCamPa
 let guiProcess: ChildProcess | null = null;
 let cachedPaths: DigiCamPaths | null = null;
 
+const SETTINGS_FILE_CANDIDATES = [
+  'C:\\ProgramData\\digiCamControl\\settings.json',
+  path.join(process.env.LOCALAPPDATA ?? '', 'digiCamControl', 'settings.json'),
+  path.join(process.env.APPDATA ?? '', 'digiCamControl', 'settings.json'),
+];
+
+async function findSettingsFile(): Promise<string | null> {
+  for (const f of SETTINGS_FILE_CANDIDATES) {
+    try {
+      await fs.access(f);
+      return f;
+    } catch {
+      // try next
+    }
+  }
+  return null;
+}
+
+/**
+ * Active `UseWebserver: true` dans settings.json si nécessaire.
+ * digiCamControl doit être fermé sinon il overwrite à son exit.
+ * Retourne true si une modif a été faite, false si déjà activé ou pas de fichier.
+ */
+async function ensureWebserverEnabled(): Promise<boolean> {
+  const settingsPath = await findSettingsFile();
+  if (!settingsPath) {
+    logDslr('settings.json introuvable — webserver doit être activé manuellement');
+    return false;
+  }
+  try {
+    const raw = await fs.readFile(settingsPath, 'utf8');
+    const data = JSON.parse(raw) as { UseWebserver?: boolean; WebserverPort?: number };
+    if (data.UseWebserver === true && data.WebserverPort === WEBSERVER_PORT) {
+      logDslr('Webserver déjà activé dans settings.json');
+      return false;
+    }
+    data.UseWebserver = true;
+    data.WebserverPort = WEBSERVER_PORT;
+    await fs.writeFile(settingsPath, JSON.stringify(data, null, 2), 'utf8');
+    logDslr('Webserver activé dans', settingsPath);
+    return true;
+  } catch (e) {
+    logDslr('Échec modification settings.json :', e);
+    return false;
+  }
+}
+
+/**
+ * Tue toute instance existante de CameraControl.exe via taskkill.
+ * Indispensable AVANT de modifier settings.json (sinon overwrite à l'exit).
+ */
+async function killExistingDigiCam(): Promise<void> {
+  await new Promise<void>((resolve) => {
+    const child = spawn('taskkill', ['/F', '/IM', 'CameraControl.exe', '/T'], {
+      windowsHide: true,
+    });
+    let killed = false;
+    child.on('close', () => {
+      if (!killed) {
+        killed = true;
+        resolve();
+      }
+    });
+    child.on('error', () => {
+      if (!killed) {
+        killed = true;
+        resolve();
+      }
+    });
+  });
+  // Petit délai pour laisser le process libérer ses handles (port, fichiers)
+  await sleep(500);
+}
+
 /**
  * Démarre CameraControl.exe en arrière-plan + active le webserver REST.
- * Idempotent : si déjà démarré, ne relance pas.
+ * Idempotent : si webserver déjà reachable, ne fait rien.
  */
 export async function dslrStart(customPath?: string): Promise<{ ok: boolean; reason?: string }> {
-  // Si déjà démarré et alive, retourne tel quel
-  if (guiProcess && !guiProcess.killed) {
-    const reachable = await isWebserverReachable();
-    if (reachable) return { ok: true };
-    // Sinon on relance proprement
-    try { guiProcess.kill(); } catch { /* ignore */ }
-    guiProcess = null;
+  // Cas 1 : webserver déjà reachable (digiCamControl tourne avec webserver actif)
+  if (await isWebserverReachable()) {
+    logDslr('Webserver déjà actif — pas besoin de relancer');
+    return { ok: true };
   }
 
+  // Cas 2 : on doit démarrer (et potentiellement activer le webserver)
   const paths = await findDigiCamControl(customPath);
   if (!paths) {
     return {
@@ -92,27 +164,38 @@ export async function dslrStart(customPath?: string): Promise<{ ok: boolean; rea
   cachedPaths = paths;
   logDslr('Found digiCamControl at', paths.installDir);
 
-  // Lance la GUI en mode minimisé (le webserver démarre automatiquement)
+  // Tue toute instance pour pouvoir modifier le settings.json proprement
+  await killExistingDigiCam();
+  const wasEnabled = await ensureWebserverEnabled();
+  if (wasEnabled) logDslr('settings.json modifié — webserver activé pour le prochain démarrage');
+
+  // Lance le GUI (détaché pour qu'il survive si l'app Electron crash)
   guiProcess = spawn(paths.guiExe, [], {
-    detached: false,
-    windowsHide: false, // doit être visible (sinon GUI ne crée pas le webserver de manière fiable)
+    detached: true,
+    windowsHide: false,
     cwd: paths.installDir,
+    stdio: 'ignore',
   });
+  guiProcess.unref();
   guiProcess.on('exit', (code) => {
     logDslr('GUI process exited with code', code);
     guiProcess = null;
   });
 
-  // Attend que le webserver soit joignable (max 10 s)
+  // Attend que le webserver soit joignable (max 15s — premier démarrage est lent)
   const start = Date.now();
-  while (Date.now() - start < 10_000) {
+  while (Date.now() - start < 15_000) {
     if (await isWebserverReachable()) {
       logDslr('Webserver ready in', Date.now() - start, 'ms');
       return { ok: true };
     }
-    await sleep(300);
+    await sleep(500);
   }
-  return { ok: false, reason: 'digiCamControl webserver not reachable after 10s' };
+  return {
+    ok: false,
+    reason:
+      'Webserver digiCamControl pas joignable après 15s. Vérifie que digiCamControl est bien lancé et que le port 5513 n\'est pas bloqué par le pare-feu.',
+  };
 }
 
 /**
