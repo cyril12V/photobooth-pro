@@ -176,6 +176,10 @@ export interface AppSettings {
   camera_device_id: string;
   flash_enabled: boolean;
   sound_enabled: boolean;
+  // Source de capture : 'webcam' (UVC standard) | 'dslr' (digiCamControl PTP)
+  capture_source: 'webcam' | 'dslr';
+  // Chemin custom vers digiCamControl si non installé au défaut
+  digicamcontrol_path: string;
   // SMTP
   smtp_host: string;
   smtp_port: number;
@@ -281,7 +285,20 @@ declare global {
           filepath: string;
           copies: number;
           printerName?: string;
+          preview?: boolean;
         }) => Promise<{ ok: boolean }>;
+      };
+      dslr: {
+        detect: (customPath?: string) => Promise<
+          | { found: true; installDir: string; guiExe: string; cmdExe: string }
+          | { found: false }
+        >;
+        start: () => Promise<{ ok: boolean; reason?: string }>;
+        stop: () => Promise<{ ok: boolean }>;
+        liveviewStart: () => Promise<{ ok: boolean }>;
+        liveviewStop: () => Promise<{ ok: boolean }>;
+        liveviewFrame: () => Promise<string | null>;
+        capture: () => Promise<{ dataUrl: string; filepath: string }>;
       };
       dialog: {
         openImage: () => Promise<string | null>;
