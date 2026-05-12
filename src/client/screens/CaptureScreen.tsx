@@ -20,6 +20,8 @@ export function CaptureScreen() {
   // URL HTTP du LiveView (servie par le shareServer local) — change avec un tick
   // pour forcer le navigateur à refetch. Pas d'IPC pour les frames.
   const [liveviewUrl, setLiveviewUrl] = useState<string | null>(null);
+  const liveviewTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const liveviewLoadedRef = useRef(false);
   const dslrCapturedRef = useRef<string | null>(null);
 
   // Données du template actif (ratio + nombre de slots)
@@ -32,6 +34,36 @@ export function CaptureScreen() {
   const countdownDuration = settings?.countdown_seconds ?? 3;
   const soundsOn = settings?.sound_enabled ?? true;
   const flashOn = settings?.flash_enabled ?? true;
+  const liveviewPort = settings?.share_server_port ?? 4321;
+  const liveviewBaseUrl = `http://127.0.0.1:${liveviewPort}/dslr/liveview.jpg`;
+
+  const clearLiveviewTimer = useCallback(() => {
+    if (liveviewTimerRef.current) {
+      clearTimeout(liveviewTimerRef.current);
+      liveviewTimerRef.current = null;
+    }
+  }, []);
+
+  const queueLiveviewFrame = useCallback((delayMs = 0) => {
+    clearLiveviewTimer();
+    liveviewTimerRef.current = setTimeout(() => {
+      setLiveviewUrl(`${liveviewBaseUrl}?t=${Date.now()}`);
+    }, delayMs);
+  }, [clearLiveviewTimer, liveviewBaseUrl]);
+
+  const handleLiveviewLoad = useCallback(() => {
+    if (!liveviewLoadedRef.current) {
+      liveviewLoadedRef.current = true;
+      setStreamReady(true);
+      console.log('[LiveView] First frame loaded successfully');
+    }
+    queueLiveviewFrame(70);
+  }, [queueLiveviewFrame]);
+
+  const handleLiveviewError = useCallback((src: string) => {
+    console.warn('[LiveView] frame load failed:', src);
+    queueLiveviewFrame(liveviewLoadedRef.current ? 90 : 140);
+  }, [queueLiveviewFrame]);
 
   // ─── Charge le template actif au montage ───────────────────────────────
   useEffect(() => {
