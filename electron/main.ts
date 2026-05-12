@@ -557,7 +557,9 @@ function registerIpcHandlers() {
 
   ipcMain.handle('dslr:liveview-start', async () => {
     await dslrLiveViewStart();
-    // Re-bring notre fenêtre devant après l'ouverture de la fenêtre Live View
+    // Cache à nouveau les fenêtres digiCamControl (au cas où une popup serait
+    // remontée), puis re-bring notre app au premier plan.
+    await hideDigiCamWindows();
     if (mainWindow) {
       mainWindow.show();
       mainWindow.focus();
