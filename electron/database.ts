@@ -5,6 +5,8 @@ import crypto from 'node:crypto';
 
 let _db: Database.Database;
 
+type CaptureResolution = '4k' | '1080p' | '720p' | '480p';
+
 export function getDb() {
   return _db;
 }
@@ -101,6 +103,12 @@ export async function initDatabase() {
   `);
 
   // ─── Valeurs par défaut ───────────────────────────────────────────────────
+  const legacyVideoResolution = readCaptureResolution(
+    (_db.prepare("SELECT value FROM settings WHERE key = 'video_resolution'").get() as
+      | { value?: string }
+      | undefined)?.value,
+  );
+
   const defaults: Record<string, any> = {
     admin_password_hash: hashPassword('admin'),
     max_copies: 4,
@@ -123,10 +131,12 @@ export async function initDatabase() {
     share_server_port: 4321,
     decor_style: 'floral',
     decor_custom_path: null,
+    photo_resolution: legacyVideoResolution,
     // ─── VideoBooth ─────────────────────────────────────────────────────────
     video_enabled: true,
     microphone_device_id: '',
-    video_resolution: '1080p',
+    video_capture_resolution: legacyVideoResolution,
+    video_preview_resolution: '1080p',
     video_max_duration_seconds: 30,
     video_default_question_seconds: 15,
     video_interview_beep: true,
@@ -160,6 +170,19 @@ export async function initDatabase() {
 }
 
 // Hash simple SHA-256 (suffit pour mot de passe admin local — pas de réseau)
+function readCaptureResolution(raw?: string): CaptureResolution {
+  if (!raw) return '1080p';
+  try {
+    const parsed = JSON.parse(raw) as CaptureResolution;
+    if (parsed === '4k' || parsed === '1080p' || parsed === '720p' || parsed === '480p') {
+      return parsed;
+    }
+  } catch {
+    // Ignore malformed legacy value.
+  }
+  return '1080p';
+}
+
 function hashPassword(pw: string): string {
   return crypto.createHash('sha256').update(pw).digest('hex');
 }

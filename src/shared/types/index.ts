@@ -189,10 +189,12 @@ export interface AppSettings {
   // Décor d'angle
   decor_style: DecorStyle;
   decor_custom_path: string | null;
+  photo_resolution: '4k' | '1080p' | '720p' | '480p';
   // VideoBooth
   video_enabled: boolean;
   microphone_device_id: string;
-  video_resolution: '4k' | '1080p' | '720p' | '480p';
+  video_capture_resolution: '4k' | '1080p' | '720p' | '480p';
+  video_preview_resolution: '1080p';
   video_max_duration_seconds: number;
   video_default_question_seconds: number;
   video_interview_beep: boolean;
@@ -308,6 +310,13 @@ declare global {
       share: {
         url: (filepath: string) => Promise<string>;
         info: () => Promise<{ ip: string; port: number; running: boolean }>;
+        restart: () => Promise<{
+          ok: boolean;
+          ip?: string;
+          port?: number;
+          running?: boolean;
+          error?: string;
+        }>;
       };
       app: {
         quit: () => Promise<void>;

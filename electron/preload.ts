@@ -90,6 +90,7 @@ contextBridge.exposeInMainWorld('api', {
   share: {
     url: (filepath: string) => ipcRenderer.invoke('share:url', filepath),
     info: () => ipcRenderer.invoke('share:info'),
+    restart: () => ipcRenderer.invoke('share:restart'),
   },
   // App
   app: {
