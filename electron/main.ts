@@ -127,6 +127,34 @@ function getSettings(): Record<string, any> {
   return obj;
 }
 
+function getShareServerPort() {
+  const settings = getSettings();
+  return Number(settings.share_server_port) || 4321;
+}
+
+async function startShareServer() {
+  const port = getShareServerPort();
+  await shareServer.start(port);
+  return shareServer.info();
+}
+
+async function ensureShareServerRunning() {
+  if (shareServer.info().running) {
+    return shareServer.info();
+  }
+  return startShareServer();
+}
+
+async function registerShareUrl(filepath: string) {
+  try {
+    await ensureShareServerRunning();
+    return shareServer.registerFile(filepath, 60 * 24);
+  } catch (e) {
+    console.error('[ShareServer] impossible de partager le fichier:', filepath, e);
+    return '';
+  }
+}
+
 // ─── IPC Handlers ──────────────────────────────────────────────────────────
 function registerIpcHandlers() {
   // ── Évènements ────────────────────────────────
@@ -202,7 +230,7 @@ function registerIpcHandlers() {
     }
 
     // Enregistre dans le serveur de partage local pour générer l'URL QR
-    const share_url = shareServer.registerFile(filepath, 60 * 24);
+    const share_url = await registerShareUrl(filepath);
 
     const r = db
       .prepare(
@@ -350,7 +378,7 @@ function registerIpcHandlers() {
         await fs.writeFile(csvPath, csvLines.join('\n'), 'utf8');
       }
 
-      const share_url = shareServer.registerFile(filepath, 60 * 24);
+      const share_url = await registerShareUrl(filepath);
 
       const r = db
         .prepare(
@@ -573,11 +601,22 @@ function registerIpcHandlers() {
   });
 
   // ── Partage local ─────────────────────────────
-  ipcMain.handle('share:url', (_e, filepath: string) => {
-    return shareServer.registerFile(filepath, 60 * 24);
+  ipcMain.handle('share:url', async (_e, filepath: string) => {
+    return registerShareUrl(filepath);
   });
 
   ipcMain.handle('share:info', () => shareServer.info());
+
+  ipcMain.handle('share:restart', async () => {
+    try {
+      const port = getShareServerPort();
+      await shareServer.restart(port);
+      return { ok: true, ...shareServer.info() };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return { ok: false, error: msg };
+    }
+  });
 
   // ── Dossier des photos d'un évènement ──────────
   ipcMain.handle('photo:openFolder', async (_e, eventId?: number) => {
@@ -608,10 +647,8 @@ function registerIpcHandlers() {
 app.whenReady().then(async () => {
   await initDatabase();
 
-  const settings = getSettings();
-  const port = settings.share_server_port || 4321;
   try {
-    await shareServer.start(port);
+    await startShareServer();
   } catch (e) {
     console.error('[ShareServer] échec démarrage:', e);
   }

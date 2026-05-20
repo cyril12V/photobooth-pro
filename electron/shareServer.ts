@@ -115,24 +115,44 @@ class ShareServer {
   }
 
   async start(port: number) {
+    if (this.server) {
+      if (this.port === port) {
+        this.localIp = this.detectLocalIp();
+        return;
+      }
+      await this.closeServer();
+    }
+
     this.localIp = this.detectLocalIp();
     return new Promise<void>((resolve, reject) => {
       try {
-        this.server = this.app.listen(port, () => {
+        const onError = (error: Error) => {
+          this.server = null;
+          this.port = 0;
+          reject(error);
+        };
+        const server = this.app.listen(port, () => {
+          server.off('error', onError);
           this.port = port;
+          this.server = server;
           console.log(`[ShareServer] http://${this.localIp}:${port}`);
           resolve();
         });
-        this.server.on('error', reject);
+        server.once('error', onError);
       } catch (e) {
         reject(e);
       }
     });
   }
 
+  async restart(port: number) {
+    await this.closeServer();
+    await this.start(port);
+    return this.info();
+  }
+
   stop() {
-    this.server?.close();
-    this.server = null;
+    void this.closeServer();
   }
 
   /** Enregistre un fichier partagé et retourne l'URL publique. */
@@ -163,6 +183,23 @@ class ShareServer {
       }
     }
     return '127.0.0.1';
+  }
+
+  private closeServer() {
+    return new Promise<void>((resolve) => {
+      if (!this.server) {
+        this.port = 0;
+        resolve();
+        return;
+      }
+
+      const server = this.server;
+      this.server = null;
+      server.close(() => {
+        this.port = 0;
+        resolve();
+      });
+    });
   }
 
   private videoPage(token: string) {
