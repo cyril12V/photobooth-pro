@@ -4,22 +4,16 @@ import { MdArrowBack, MdErrorOutline, MdMic, MdStop } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { sounds } from '@shared/lib/sounds';
+import {
+  VIDEO_BITRATE_MAP,
+  VIDEO_RECORDING_SLICE_MS,
+  applyPreviewElementSize,
+  applyRealtimeCaptureHints,
+  buildVideoTrackConstraints,
+  type CaptureResolution,
+} from '@shared/lib/mediaCapture';
 
 type Phase = 'preparing' | 'countdown' | 'recording' | 'finishing' | 'error';
-
-const RES_MAP = {
-  '4k': { width: 3840, height: 2160 },
-  '1080p': { width: 1920, height: 1080 },
-  '720p': { width: 1280, height: 720 },
-  '480p': { width: 854, height: 480 },
-} as const;
-
-const BITRATE_MAP: Record<keyof typeof RES_MAP, number> = {
-  '4k': 12_000_000,
-  '1080p': 5_000_000,
-  '720p': 2_500_000,
-  '480p': 1_000_000,
-};
 
 function pickMimeType(): string {
   const candidates = [
@@ -53,22 +47,15 @@ export function VideoFreeMessageScreen() {
   const maxSeconds = settings?.video_max_duration_seconds ?? 30;
   const initialCountdown = settings?.countdown_seconds ?? 3;
   const soundsOn = settings?.sound_enabled ?? true;
-  const resolution = settings?.video_resolution ?? '1080p';
+  const resolution = (settings?.video_capture_resolution ?? '1080p') as CaptureResolution;
+  const previewResolution = settings?.video_preview_resolution ?? '1080p';
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const res = RES_MAP[resolution];
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: res.width },
-            height: { ideal: res.height },
-            frameRate: { ideal: 30, max: 30 },
-            deviceId: settings?.camera_device_id
-              ? { exact: settings.camera_device_id }
-              : undefined,
-          },
+          video: buildVideoTrackConstraints(resolution, settings?.camera_device_id),
           audio: settings?.microphone_device_id
             ? { deviceId: { exact: settings.microphone_device_id } }
             : true,
@@ -78,7 +65,9 @@ export function VideoFreeMessageScreen() {
           return;
         }
         streamRef.current = stream;
+        applyRealtimeCaptureHints(stream);
         if (videoRef.current) {
+          applyPreviewElementSize(videoRef.current, previewResolution);
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
         }
@@ -131,7 +120,7 @@ export function VideoFreeMessageScreen() {
     if (!streamRef.current) return;
     // VP9 priorisé pour la 4K (compression bien meilleure), fallback VP8.
     const mime = pickMimeType();
-    const videoBitsPerSecond = BITRATE_MAP[resolution];
+    const videoBitsPerSecond = VIDEO_BITRATE_MAP[resolution];
 
     let recorder: MediaRecorder;
     try {
@@ -159,7 +148,7 @@ export function VideoFreeMessageScreen() {
 
     recorderRef.current = recorder;
     t0Ref.current = performance.now();
-    recorder.start(500);
+    recorder.start(VIDEO_RECORDING_SLICE_MS);
 
     tickerRef.current = window.setInterval(() => {
       const e = (performance.now() - t0Ref.current) / 1000;

@@ -5,6 +5,10 @@ import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { sounds } from '@shared/lib/sounds';
 import { poseSrc } from '@shared/lib/poseAssets';
+import {
+  buildVideoTrackConstraints,
+  type CaptureResolution,
+} from '@shared/lib/mediaCapture';
 import type { TemplateConfig } from '@shared/types';
 
 export function CaptureScreen() {
@@ -56,23 +60,9 @@ export function CaptureScreen() {
         // que celle réglée pour la vidéo. Plus la source est haute résolution,
         // plus la photo finale est nette (le crop centré 1200×1800 conserve
         // un maximum de détail).
-        const RES_MAP_PHOTO = {
-          '4k': { w: 3840, h: 2160 },
-          '1080p': { w: 1920, h: 1080 },
-          '720p': { w: 1280, h: 720 },
-          '480p': { w: 854, h: 480 },
-        } as const;
-        const resKey = settings?.video_resolution ?? '1080p';
-        const res = RES_MAP_PHOTO[resKey];
+        const resKey = (settings?.photo_resolution ?? '1080p') as CaptureResolution;
         const constraints: MediaStreamConstraints = {
-          video: {
-            width: { ideal: res.w },
-            height: { ideal: res.h },
-            frameRate: { ideal: 30, max: 30 },
-            deviceId: settings?.camera_device_id
-              ? { exact: settings.camera_device_id }
-              : undefined,
-          },
+          video: buildVideoTrackConstraints(resKey, settings?.camera_device_id),
           audio: false,
         };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -103,7 +93,7 @@ export function CaptureScreen() {
         streamRef.current = null;
       }
     };
-  }, [settings?.camera_device_id]);
+  }, [settings?.camera_device_id, settings?.photo_resolution]);
 
   // ─── Capture une photo et push dans le store ────────────────────────────
   const captureOne = useCallback((): string | null => {

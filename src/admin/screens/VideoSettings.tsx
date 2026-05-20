@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { MdMic, MdCheck, MdMovie, MdFolder } from 'react-icons/md';
+import {
+  CAPTURE_RESOLUTION_MAP,
+  CAPTURE_RESOLUTIONS,
+  type CaptureResolution,
+} from '@shared/lib/mediaCapture';
 import { useAppStore } from '@shared/store';
 import { AdminCard, AdminPageHeader, AdminToggle } from '../components/AdminUI';
 import { Button } from '@shared/components/Button';
-
-const RESOLUTIONS = ['4k', '1080p', '720p', '480p'] as const;
-type Resolution = (typeof RESOLUTIONS)[number];
 
 type CompileStatus =
   | { kind: 'idle' }
@@ -18,8 +20,8 @@ export function VideoSettings() {
   const [enabled, setEnabled] = useState(settings?.video_enabled ?? true);
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
   const [micId, setMicId] = useState(settings?.microphone_device_id ?? '');
-  const [resolution, setResolution] = useState<Resolution>(
-    settings?.video_resolution ?? '1080p',
+  const [captureResolution, setCaptureResolution] = useState<CaptureResolution>(
+    settings?.video_capture_resolution ?? '1080p',
   );
   const [maxDuration, setMaxDuration] = useState(settings?.video_max_duration_seconds ?? 30);
   const [defaultQuestionSec, setDefaultQuestionSec] = useState(
@@ -29,7 +31,6 @@ export function VideoSettings() {
   const [flash, setFlash] = useState(settings?.video_interview_flash ?? true);
   const [saved, setSaved] = useState(false);
 
-  // Compilation
   const [compEnabled, setCompEnabled] = useState(settings?.video_compilation_enabled ?? true);
   const [compShowQuestions, setCompShowQuestions] = useState(
     settings?.video_compilation_show_questions ?? true,
@@ -48,7 +49,6 @@ export function VideoSettings() {
   useEffect(() => {
     (async () => {
       try {
-        // Petite demande pour autoriser l'accès et obtenir les labels
         const s = await navigator.mediaDevices.getUserMedia({ audio: true });
         s.getTracks().forEach((t) => t.stop());
       } catch {}
@@ -57,7 +57,6 @@ export function VideoSettings() {
     })();
   }, []);
 
-  // Listener progress compilation — un seul listener, vivant tant que la page existe
   useEffect(() => {
     const off = window.api.video.onCompileProgress(({ percent, stage }) => {
       setCompStatus((prev) =>
@@ -72,7 +71,7 @@ export function VideoSettings() {
   const save = async () => {
     await window.api.settings.set('video_enabled', enabled);
     await window.api.settings.set('microphone_device_id', micId);
-    await window.api.settings.set('video_resolution', resolution);
+    await window.api.settings.set('video_capture_resolution', captureResolution);
     await window.api.settings.set('video_max_duration_seconds', maxDuration);
     await window.api.settings.set('video_default_question_seconds', defaultQuestionSec);
     await window.api.settings.set('video_interview_beep', beep);
@@ -90,13 +89,13 @@ export function VideoSettings() {
 
   const startCompile = async () => {
     if (compStatus.kind === 'running') return;
-    // Sauvegarde des settings avant compilation pour qu'ils soient pris en compte
+
     await window.api.settings.set('video_compilation_show_questions', compShowQuestions);
     await window.api.settings.set('video_compilation_show_logo', compShowLogo);
     await window.api.settings.set('video_compilation_show_event_name', compShowEventName);
     await window.api.settings.set('video_compilation_intro_duration', compIntroDuration);
 
-    setCompStatus({ kind: 'running', percent: 0, stage: 'Démarrage' });
+    setCompStatus({ kind: 'running', percent: 0, stage: 'DÃ©marrage' });
     try {
       const result = await window.api.video.compile();
       if (result.ok && result.filepath) {
@@ -117,15 +116,15 @@ export function VideoSettings() {
   return (
     <>
       <AdminPageHeader
-        title="Vidéo"
-        description="Configurez le mode vidéo (interview guidée + message libre)"
+        title="VidÃ©o"
+        description="Configurez le mode vidÃ©o (interview guidÃ©e + message libre)"
       />
 
       <div className="space-y-4">
         <AdminCard title="Activation">
           <AdminToggle
-            label="Activer le mode Vidéobooth"
-            description="Affiche la sélection Photo/Vidéo au lancement de la borne"
+            label="Activer le mode VidÃ©obooth"
+            description="Affiche la sÃ©lection Photo/VidÃ©o au lancement de la borne"
             value={enabled}
             onChange={setEnabled}
           />
@@ -134,7 +133,7 @@ export function VideoSettings() {
         <AdminCard title="Microphone">
           {micDevices.length === 0 ? (
             <p className="text-neutral-500 text-sm">
-              Aucun micro détecté. Branchez votre micro externe ou autorisez l'accès.
+              Aucun micro dÃ©tectÃ©. Branchez votre micro externe ou autorisez l'accÃ¨s.
             </p>
           ) : (
             <div className="space-y-2">
@@ -172,42 +171,48 @@ export function VideoSettings() {
                   size={18}
                   style={{ color: !micId ? '#D4B896' : '#6B5D4F' }}
                 />
-                <span className="flex-1 text-sm font-medium">Micro par défaut du système</span>
+                <span className="flex-1 text-sm font-medium">Micro par dÃ©faut du systÃ¨me</span>
                 {!micId && <MdCheck size={16} style={{ color: '#D4B896' }} />}
               </button>
             </div>
           )}
         </AdminCard>
 
-        <AdminCard title="Qualité">
+        <AdminCard title="QualitÃ©">
           <div className="space-y-4">
             <div>
               <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-3">
-                Résolution
+                QualitÃ© d'enregistrement
               </p>
               <div className="grid grid-cols-4 gap-3">
-                {RESOLUTIONS.map((r) => (
+                {CAPTURE_RESOLUTIONS.map((resolution) => (
                   <button
-                    key={r}
-                    onClick={() => setResolution(r)}
+                    key={resolution}
+                    onClick={() => setCaptureResolution(resolution)}
                     className={`p-3 rounded-xl text-sm font-medium transition-colors ${
-                      resolution === r
+                      captureResolution === resolution
                         ? 'bg-neutral-900 text-white'
                         : 'bg-neutral-50 border border-neutral-200 text-neutral-700 hover:bg-neutral-100'
                     }`}
                   >
-                    {r === '4k' ? '4K' : r}
+                    {resolution === '4k' ? '4K' : resolution}
                   </button>
                 ))}
               </div>
               <p className="text-neutral-400 text-xs mt-2">
-                4K ≈ 90 MB/min, 1080p ≈ 35 MB/min, 720p ≈ 18 MB/min, 480p ≈ 8 MB/min (VP9 ou VP8). Le 4K nécessite une caméra compatible (Canon R6 Mark II en mode Webcam Utility, Sony, GoPro, etc.).
+                AperÃ§u borne affichÃ© en 1080p pour rester fluide, mÃªme si l'enregistrement part en 4K.
+              </p>
+              <p className="text-neutral-400 text-xs mt-1">
+                Source actuelle : {CAPTURE_RESOLUTION_MAP[captureResolution].width}Ã—{CAPTURE_RESOLUTION_MAP[captureResolution].height}.
+              </p>
+              <p className="text-neutral-400 text-xs mt-1">
+                4K â‰ˆ 90 MB/min, 1080p â‰ˆ 35 MB/min, 720p â‰ˆ 18 MB/min, 480p â‰ˆ 8 MB/min. Le 4K nÃ©cessite une camÃ©ra compatible (Canon R6 Mark II en mode Webcam Utility, Sony, GoPro, etc.).
               </p>
             </div>
 
             <div>
               <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-3">
-                Durée max message libre : {maxDuration} secondes
+                DurÃ©e max message libre : {maxDuration} secondes
               </p>
               <input
                 type="range"
@@ -222,7 +227,7 @@ export function VideoSettings() {
 
             <div>
               <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-3">
-                Durée par défaut d'une question : {defaultQuestionSec} secondes
+                DurÃ©e par dÃ©faut d'une question : {defaultQuestionSec} secondes
               </p>
               <input
                 type="range"
@@ -234,7 +239,7 @@ export function VideoSettings() {
                 className="w-full accent-neutral-900"
               />
               <p className="text-neutral-400 text-xs mt-2">
-                Cette valeur est utilisée comme valeur initiale pour les nouvelles questions.
+                Cette valeur est utilisÃ©e comme valeur initiale pour les nouvelles questions.
               </p>
             </div>
           </div>
@@ -244,13 +249,13 @@ export function VideoSettings() {
           <div className="divide-y divide-neutral-100">
             <AdminToggle
               label="Bip audio entre questions"
-              description="Discret, aide au repérage des coupes au montage"
+              description="Discret, aide au repÃ©rage des coupes au montage"
               value={beep}
               onChange={setBeep}
             />
             <AdminToggle
               label="Flash visuel entre questions"
-              description="Court éclair blanc, repérable visuellement au montage"
+              description="Court Ã©clair blanc, repÃ©rable visuellement au montage"
               value={flash}
               onChange={setFlash}
             />
@@ -262,7 +267,7 @@ export function VideoSettings() {
             <div className="divide-y divide-neutral-100">
               <AdminToggle
                 label="Activer la compilation"
-                description="Permet de générer une vidéo unique regroupant toutes les interviews"
+                description="Permet de gÃ©nÃ©rer une vidÃ©o unique regroupant toutes les interviews"
                 value={compEnabled}
                 onChange={setCompEnabled}
               />
@@ -274,13 +279,13 @@ export function VideoSettings() {
               />
               <AdminToggle
                 label="Afficher le logo"
-                description="Logo de l'évènement en haut à droite"
+                description="Logo de l'Ã©vÃ¨nement en haut Ã  droite"
                 value={compShowLogo}
                 onChange={setCompShowLogo}
               />
               <AdminToggle
-                label="Afficher le nom des mariés"
-                description="Nom de l'évènement en bas à gauche"
+                label="Afficher le nom des mariÃ©s"
+                description="Nom de l'Ã©vÃ¨nement en bas Ã  gauche"
                 value={compShowEventName}
                 onChange={setCompShowEventName}
               />
@@ -288,7 +293,7 @@ export function VideoSettings() {
 
             <div>
               <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-3">
-                Durée de l'intro : {compIntroDuration} seconde{compIntroDuration > 1 ? 's' : ''}
+                DurÃ©e de l'intro : {compIntroDuration} seconde{compIntroDuration > 1 ? 's' : ''}
               </p>
               <input
                 type="range"
@@ -300,7 +305,7 @@ export function VideoSettings() {
                 className="w-full accent-neutral-900"
               />
               <p className="text-neutral-400 text-xs mt-2">
-                Carton d'intro avec le nom des mariés et la date.
+                Carton d'intro avec le nom des mariÃ©s et la date.
               </p>
             </div>
 
@@ -313,8 +318,8 @@ export function VideoSettings() {
                 disabled={compStatus.kind === 'running' || !compEnabled}
               >
                 {compStatus.kind === 'running'
-                  ? `Compilation en cours… ${compStatus.percent}%`
-                  : 'Générer la compilation maintenant'}
+                  ? `Compilation en coursâ€¦ ${compStatus.percent}%`
+                  : 'GÃ©nÃ©rer la compilation maintenant'}
               </Button>
 
               {compStatus.kind === 'running' && (
@@ -335,7 +340,7 @@ export function VideoSettings() {
               {compStatus.kind === 'done' && (
                 <div className="mt-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
                   <p className="text-emerald-800 text-sm font-medium">
-                    Compilation générée avec succès
+                    Compilation gÃ©nÃ©rÃ©e avec succÃ¨s
                   </p>
                   <p className="text-emerald-700 text-xs mt-1 break-all">
                     {compStatus.filepath}
@@ -353,7 +358,7 @@ export function VideoSettings() {
               {compStatus.kind === 'error' && (
                 <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-200">
                   <p className="text-red-800 text-sm font-medium">
-                    Échec de la compilation
+                    Ã‰chec de la compilation
                   </p>
                   <p className="text-red-700 text-xs mt-1">{compStatus.message}</p>
                 </div>
@@ -368,7 +373,7 @@ export function VideoSettings() {
           icon={saved ? <MdCheck size={20} /> : undefined}
           fullWidth
         >
-          {saved ? 'Enregistré' : 'Enregistrer'}
+          {saved ? 'EnregistrÃ©' : 'Enregistrer'}
         </Button>
       </div>
     </>

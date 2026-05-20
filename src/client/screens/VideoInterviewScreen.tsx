@@ -3,6 +3,14 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { MdArrowBack, MdErrorOutline, MdMic, MdStop } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
+import {
+  VIDEO_BITRATE_MAP,
+  VIDEO_RECORDING_SLICE_MS,
+  applyPreviewElementSize,
+  applyRealtimeCaptureHints,
+  buildVideoTrackConstraints,
+  type CaptureResolution,
+} from '@shared/lib/mediaCapture';
 import { sounds } from '@shared/lib/sounds';
 import { InterviewTimecodeBuilder } from '@shared/lib/videoTimecode';
 import type { InterviewQuestion } from '@shared/types';

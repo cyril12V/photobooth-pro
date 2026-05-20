@@ -1,5 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { MdCameraAlt, MdCheck } from 'react-icons/md';
+import {
+  CAPTURE_RESOLUTION_MAP,
+  CAPTURE_RESOLUTIONS,
+  buildVideoTrackConstraints,
+  type CaptureResolution,
+} from '@shared/lib/mediaCapture';
 import { useAppStore } from '@shared/store';
 import { AdminCard, AdminPageHeader, AdminToggle } from '../components/AdminUI';
 import { Button } from '@shared/components/Button';
@@ -11,6 +17,9 @@ export function CameraSettings() {
   const [flashEnabled, setFlashEnabled] = useState(settings?.flash_enabled ?? true);
   const [soundEnabled, setSoundEnabled] = useState(settings?.sound_enabled ?? true);
   const [countdown, setCountdown] = useState(settings?.countdown_seconds ?? 3);
+  const [photoResolution, setPhotoResolution] = useState<CaptureResolution>(
+    settings?.photo_resolution ?? '1080p',
+  );
   const [saved, setSaved] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -35,7 +44,7 @@ export function CameraSettings() {
           streamRef.current.getTracks().forEach((t) => t.stop());
         }
         const s = await navigator.mediaDevices.getUserMedia({
-          video: { deviceId: { exact: selectedId } },
+          video: buildVideoTrackConstraints(photoResolution, selectedId),
         });
         if (cancelled) {
           s.getTracks().forEach((t) => t.stop());
@@ -54,15 +63,17 @@ export function CameraSettings() {
       cancelled = true;
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
       }
     };
-  }, [selectedId]);
+  }, [photoResolution, selectedId]);
 
   const save = async () => {
     await window.api.settings.set('camera_device_id', selectedId);
     await window.api.settings.set('flash_enabled', flashEnabled);
     await window.api.settings.set('sound_enabled', soundEnabled);
     await window.api.settings.set('countdown_seconds', countdown);
+    await window.api.settings.set('photo_resolution', photoResolution);
     const newSettings = await window.api.settings.get();
     setSettings(newSettings);
     setSaved(true);
@@ -123,6 +134,35 @@ export function CameraSettings() {
 
         <AdminCard title="Capture">
           <div className="space-y-4">
+            <div>
+              <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
+                QualitÃ© photo
+              </p>
+              <div className="grid grid-cols-4 gap-3">
+                {CAPTURE_RESOLUTIONS.map((resolution) => (
+                  <button
+                    key={resolution}
+                    onClick={() => setPhotoResolution(resolution)}
+                    className="p-3 text-sm font-medium transition-colors"
+                    style={{
+                      backgroundColor: photoResolution === resolution ? '#1A1A1A' : '#F4ECDD',
+                      color: photoResolution === resolution ? '#FAF6EE' : '#1A1A1A',
+                      border: '1px solid rgba(212, 184, 150, 0.3)',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {resolution === '4k' ? '4K' : resolution}
+                  </button>
+                ))}
+              </div>
+              <p
+                className="mt-2"
+                style={{ color: '#6B5D4F', fontFamily: 'Inter, sans-serif', fontSize: '0.75rem' }}
+              >
+                Source camÃ©ra photo : {CAPTURE_RESOLUTION_MAP[photoResolution].width}Ã—{CAPTURE_RESOLUTION_MAP[photoResolution].height}
+              </p>
+            </div>
             <div>
               <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
                 Compte à rebours : {countdown} seconde{countdown > 1 ? 's' : ''}
