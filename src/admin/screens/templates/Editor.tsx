@@ -90,11 +90,11 @@ export function Editor({ templateId, templateName, initialConfig, onSaved, onCan
 
   const [name, setName] = useState(templateName);
   const [config, setConfig] = useState<TemplateConfig>(() => ({
-    canvas_width: CANVAS_W,
-    canvas_height: CANVAS_H,
-    background_color: '#faf6ef',
-    elements: [],
     ...initialConfig,
+    canvas_width: initialConfig.canvas_width || CANVAS_W,
+    canvas_height: initialConfig.canvas_height || CANVAS_H,
+    background_color: initialConfig.background_color || '#faf6ef',
+    elements: Array.isArray(initialConfig.elements) ? initialConfig.elements : [],
   }));
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
