@@ -178,11 +178,11 @@ export function VideoSettings() {
           )}
         </AdminCard>
 
-        <AdminCard title="QualitÃ©">
+        <AdminCard title="Qualité">
           <div className="space-y-4">
             <div>
               <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-3">
-                QualitÃ© d'enregistrement
+                Qualité d'enregistrement
               </p>
               <div className="grid grid-cols-4 gap-3">
                 {CAPTURE_RESOLUTIONS.map((resolution) => (
@@ -200,13 +200,13 @@ export function VideoSettings() {
                 ))}
               </div>
               <p className="text-neutral-400 text-xs mt-2">
-                AperÃ§u borne affichÃ© en 1080p pour rester fluide, mÃªme si l'enregistrement part en 4K.
+                Source actuelle : {CAPTURE_RESOLUTION_MAP[captureResolution].width}×{CAPTURE_RESOLUTION_MAP[captureResolution].height}.
               </p>
               <p className="text-neutral-400 text-xs mt-1">
-                Source actuelle : {CAPTURE_RESOLUTION_MAP[captureResolution].width}Ã—{CAPTURE_RESOLUTION_MAP[captureResolution].height}.
+                Poids approximatif : 4K ≈ 50 MB/min, 1080p ≈ 30 MB/min, 720p ≈ 15 MB/min, 480p ≈ 8 MB/min.
               </p>
               <p className="text-neutral-400 text-xs mt-1">
-                4K â‰ˆ 90 MB/min, 1080p â‰ˆ 35 MB/min, 720p â‰ˆ 18 MB/min, 480p â‰ˆ 8 MB/min. Le 4K nÃ©cessite une camÃ©ra compatible (Canon R6 Mark II en mode Webcam Utility, Sony, GoPro, etc.).
+                La 4K est exigeante : ta caméra doit fournir un vrai flux 4K (Canon R6 Mark II en mode Webcam Utility, Sony Imaging Edge, GoPro, etc.) et la machine doit pouvoir l'encoder en temps réel. En cas de lag ou de fichier cassé, retombe en 1080p.
               </p>
             </div>
 

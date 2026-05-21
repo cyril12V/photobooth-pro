@@ -136,7 +136,7 @@ export function CameraSettings() {
           <div className="space-y-4">
             <div>
               <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
-                QualitÃ© photo
+                Qualité photo
               </p>
               <div className="grid grid-cols-4 gap-3">
                 {CAPTURE_RESOLUTIONS.map((resolution) => (
@@ -160,7 +160,13 @@ export function CameraSettings() {
                 className="mt-2"
                 style={{ color: '#6B5D4F', fontFamily: 'Inter, sans-serif', fontSize: '0.75rem' }}
               >
-                Source camÃ©ra photo : {CAPTURE_RESOLUTION_MAP[photoResolution].width}Ã—{CAPTURE_RESOLUTION_MAP[photoResolution].height}
+                Source caméra photo : {CAPTURE_RESOLUTION_MAP[photoResolution].width}×{CAPTURE_RESOLUTION_MAP[photoResolution].height}
+              </p>
+              <p
+                className="mt-1"
+                style={{ color: '#6B5D4F', fontFamily: 'Inter, sans-serif', fontSize: '0.75rem' }}
+              >
+                Indépendant de la vidéo : tu peux capturer les photos en 4K et garder la vidéo en 1080p (réglage séparé dans Vidéo › Vidéo).
               </p>
             </div>
             <div>

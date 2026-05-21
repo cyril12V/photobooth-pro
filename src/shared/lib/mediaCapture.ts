@@ -15,7 +15,7 @@ export const PREVIEW_RESOLUTION_MAP: Record<PreviewResolution, { width: number; 
 };
 
 export const VIDEO_BITRATE_MAP: Record<CaptureResolution, number> = {
-  '4k': 10_000_000,
+  '4k': 6_500_000,
   '1080p': 4_000_000,
   '720p': 2_000_000,
   '480p': 1_000_000,

@@ -17,25 +17,6 @@ import type { InterviewQuestion } from '@shared/types';
 
 type Phase = 'loading' | 'preparing' | 'countdown' | 'recording' | 'finishing' | 'error';
 
-const RES_MAP = {
-  '4k': { width: 3840, height: 2160 },
-  '1080p': { width: 1920, height: 1080 },
-  '720p': { width: 1280, height: 720 },
-  '480p': { width: 854, height: 480 },
-} as const;
-
-// Bitrate adapté à la résolution (qualité visuelle / taille fichier raisonnables)
-const BITRATE_MAP: Record<keyof typeof RES_MAP, number> = {
-  '4k': 12_000_000,
-  '1080p': 5_000_000,
-  '720p': 2_500_000,
-  '480p': 1_000_000,
-};
-
-/**
- * Choisit le mimeType supporté le plus efficace.
- * VP9 compresse mieux que VP8 (essentiel en 4K).
- */
 function pickMimeType(): string {
   const candidates = [
     'video/webm;codecs=vp9,opus',
@@ -72,7 +53,8 @@ export function VideoInterviewScreen() {
   const beepEnabled = settings?.video_interview_beep ?? true;
   const flashEnabled = settings?.video_interview_flash ?? true;
   const soundsOn = settings?.sound_enabled ?? true;
-  const resolution = settings?.video_resolution ?? '1080p';
+  const resolution = (settings?.video_capture_resolution ?? '1080p') as CaptureResolution;
+  const previewResolution = settings?.video_preview_resolution ?? '1080p';
   const initialCountdown = settings?.countdown_seconds ?? 3;
 
   const currentQuestion = questions[currentIdx];
@@ -104,28 +86,20 @@ export function VideoInterviewScreen() {
     let cancelled = false;
     (async () => {
       try {
-        const res = RES_MAP[resolution];
-        const constraints: MediaStreamConstraints = {
-          video: {
-            width: { ideal: res.width },
-            height: { ideal: res.height },
-            // frameRate fixé à 30 fps : élimine les saccades dues à un fps variable.
-            frameRate: { ideal: 30, max: 30 },
-            deviceId: settings?.camera_device_id
-              ? { exact: settings.camera_device_id }
-              : undefined,
-          },
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: buildVideoTrackConstraints(resolution, settings?.camera_device_id),
           audio: settings?.microphone_device_id
             ? { deviceId: { exact: settings.microphone_device_id } }
             : true,
-        };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        });
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());
           return;
         }
         streamRef.current = stream;
+        applyRealtimeCaptureHints(stream);
         if (videoRef.current) {
+          applyPreviewElementSize(videoRef.current, previewResolution);
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
         }
@@ -147,6 +121,7 @@ export function VideoInterviewScreen() {
   }, [
     phase,
     resolution,
+    previewResolution,
     settings?.camera_device_id,
     settings?.microphone_device_id,
     initialCountdown,
@@ -202,12 +177,8 @@ export function VideoInterviewScreen() {
 
   const startRecording = () => {
     if (!streamRef.current) return;
-    // VP8 prioritaire : c'est le codec WebM le plus largement supporté par
-    // les builds ffmpeg-static (VP9 peut manquer du support de décodage et
-    // faire échouer la compilation).
-    // VP9 priorisé (compression bien meilleure en 4K), fallback VP8.
     const mime = pickMimeType();
-    const videoBitsPerSecond = BITRATE_MAP[resolution];
+    const videoBitsPerSecond = VIDEO_BITRATE_MAP[resolution];
 
     let recorder: MediaRecorder;
     try {
@@ -237,8 +208,7 @@ export function VideoInterviewScreen() {
     recorderRef.current = recorder;
     t0Ref.current = performance.now();
     builderRef.current = new InterviewTimecodeBuilder(t0Ref.current);
-    // Slices plus petits → moins de buffering en RAM, moins de saccades visibles
-    recorder.start(500);
+    recorder.start(VIDEO_RECORDING_SLICE_MS);
 
     setCurrentIdx(0);
     setPhase('recording');
