@@ -1,0 +1,16 @@
+[Unit]
+Description=PhotoBooth VPS upload server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/photobooth/vps-server
+EnvironmentFile=/opt/photobooth/vps-server/.env
+ExecStart=/usr/bin/node /opt/photobooth/vps-server/server.mjs
+Restart=always
+RestartSec=3
+User=www-data
+Group=www-data
+
+[Install]
+WantedBy=multi-user.target

@@ -1,7 +1,7 @@
 # 📸 PhotoBooth Pro
 
 Logiciel Photo Booth professionnel pour mariages et évènements.
-**Stack** : Electron + React + TypeScript + Tailwind + SQLite + Supabase (optionnel).
+**Stack** : Electron + React + TypeScript + Tailwind + SQLite + VPS upload (optionnel).
 
 ---
 
@@ -32,6 +32,16 @@ npm run build
 ```
 
 L'installateur Windows est généré dans `release/`.
+
+## ☁️ VPS / Cloud
+
+Un serveur VPS minimal prêt à déployer est fourni dans `vps-server/`.
+
+- upload public pour photos et videos
+- pages de partage QR accessibles hors du Wi-Fi local
+- exemple `systemd`, `.env` et `nginx` inclus
+
+Voir `vps-server/README.md` pour le déploiement.
 
 ## 🎮 Utilisation
 
@@ -79,7 +89,7 @@ Tables : `events`, `photos`, `templates`, `challenge_poses`, `settings`, `print_
 
 - [ ] Reflex DSLR Canon/Nikon/Sony (gphoto2 / SDK natifs)
 - [ ] SDK imprimantes pro (DNP, Mitsubishi)
-- [ ] Galerie cloud Supabase + envoi email réel (Resend/SendGrid)
+- [ ] Expiration automatique des medias cloud + nettoyage planifie
 - [ ] Système de licence (clé d'activation)
 - [ ] Sauvegarde redondante automatique sur clé USB
 - [ ] Effets IA, GIF animés, boomerang
