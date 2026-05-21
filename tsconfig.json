@@ -23,6 +23,5 @@
       "@admin/*": ["src/admin/*"]
     }
   },
-  "include": ["src"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["src"]
 }
