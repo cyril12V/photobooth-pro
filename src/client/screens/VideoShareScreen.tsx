@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
-  MdMail,
   MdQrCode2,
   MdHome,
   MdCheck,
   MdRefresh,
   MdContentCopy,
-  MdErrorOutline,
 } from 'react-icons/md';
 import QRCode from 'qrcode';
 import { useAppStore } from '@shared/store';
@@ -24,20 +22,13 @@ export function VideoShareScreen() {
     currentVideoBlobUrl,
     currentVideoShareUrl,
     settings,
-    event,
     resetCapture,
   } = useAppStore();
 
-  const [showEmail, setShowEmail] = useState(false);
   const [showQr, setShowQr] = useState(true);
-  const [email, setEmail] = useState('');
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
-  const [emailSent, setEmailSent] = useState(false);
-  const [emailSending, setEmailSending] = useState(false);
-  const [emailError, setEmailError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const enableEmail = settings?.enable_email ?? true;
   const enableQr = settings?.enable_qr ?? true;
 
   useEffect(() => {
@@ -59,34 +50,6 @@ export function VideoShareScreen() {
       }
     })();
   }, [showQr, currentVideoShareUrl]);
-
-  const sendEmail = async () => {
-    if (!email.trim() || !currentVideoShareUrl || emailSending) return;
-    setEmailSending(true);
-    setEmailError(null);
-    try {
-      const result = await window.api.email.sendVideo({
-        to: email.trim(),
-        shareUrl: currentVideoShareUrl,
-        eventName: event?.name,
-      });
-      if (result.ok) {
-        setEmailSent(true);
-        setTimeout(() => {
-          setShowEmail(false);
-          setEmail('');
-          setEmailSent(false);
-        }, 2000);
-      } else {
-        setEmailError(result.error ?? "Erreur inconnue lors de l'envoi.");
-      }
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Erreur inconnue.';
-      setEmailError(msg);
-    } finally {
-      setEmailSending(false);
-    }
-  };
 
   const copyUrl = async () => {
     if (!currentVideoShareUrl) return;
@@ -190,37 +153,21 @@ export function VideoShareScreen() {
                   maxWidth: '32rem',
                 }}
               >
-                Scannez le QR code pour récupérer votre vidéo, ou recevez le lien par email.
+                Scannez le QR code pour récupérer votre vidéo.
               </motion.p>
             </div>
 
-            <motion.div {...fadeUp(0.65)} className="grid grid-cols-2 gap-3">
-              {enableQr && (
+            {enableQr && (
+              <motion.div {...fadeUp(0.65)}>
                 <button
-                  onClick={() => {
-                    setShowQr(true);
-                    setShowEmail(false);
-                  }}
-                  className={showQr ? 'btn-editorial-primary' : 'btn-editorial-secondary'}
+                  onClick={() => setShowQr((v) => !v)}
+                  className={showQr ? 'btn-editorial-primary w-full' : 'btn-editorial-secondary w-full'}
                 >
                   <MdQrCode2 size={18} />
                   QR Code
                 </button>
-              )}
-              {enableEmail && (
-                <button
-                  onClick={() => {
-                    setShowEmail(true);
-                    setShowQr(false);
-                    setEmailError(null);
-                  }}
-                  className={showEmail ? 'btn-editorial-primary' : 'btn-editorial-secondary'}
-                >
-                  <MdMail size={18} />
-                  Email
-                </button>
-              )}
-            </motion.div>
+              </motion.div>
+            )}
 
             {showQr && (
               <motion.div
@@ -305,74 +252,6 @@ export function VideoShareScreen() {
                   >
                     Lien indisponible
                   </p>
-                )}
-              </motion.div>
-            )}
-
-            {showEmail && (
-              <motion.div
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-                className="card-editorial p-6"
-              >
-                {emailSent ? (
-                  <div className="flex items-center gap-3" style={{ color: '#1A1A1A' }}>
-                    <MdCheck size={20} />
-                    <span style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.9375rem' }}>
-                      Lien envoyé à {email}
-                    </span>
-                  </div>
-                ) : (
-                  <>
-                    <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
-                      Votre email
-                    </p>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => {
-                        setEmail(e.target.value);
-                        setEmailError(null);
-                      }}
-                      placeholder="vous@exemple.fr"
-                      className="w-full px-4 py-3 mb-3 focus:outline-none"
-                      style={{
-                        backgroundColor: '#F4ECDD',
-                        border: '1px solid rgba(212, 184, 150, 0.4)',
-                        color: '#1A1A1A',
-                        borderRadius: '4px',
-                        fontFamily: 'Inter, sans-serif',
-                        fontSize: '1rem',
-                      }}
-                    />
-                    {emailError && (
-                      <div
-                        className="flex items-start gap-2 px-3 py-2 mb-3"
-                        style={{
-                          backgroundColor: '#F4ECDD',
-                          border: '1px solid #1A1A1A',
-                          borderRadius: '4px',
-                        }}
-                      >
-                        <MdErrorOutline size={16} style={{ color: '#1A1A1A', marginTop: 2 }} />
-                        <p
-                          className="text-sm"
-                          style={{ color: '#1A1A1A', fontFamily: 'Inter, sans-serif' }}
-                        >
-                          {emailError}
-                        </p>
-                      </div>
-                    )}
-                    <button
-                      onClick={sendEmail}
-                      disabled={!email.trim() || emailSending}
-                      className="btn-editorial-primary w-full"
-                    >
-                      {emailSending && <MdRefresh size={18} className="animate-spin" />}
-                      {emailSending ? 'Envoi...' : 'Envoyer'}
-                    </button>
-                  </>
                 )}
               </motion.div>
             )}

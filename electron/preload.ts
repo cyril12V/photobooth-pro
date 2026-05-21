@@ -78,13 +78,9 @@ contextBridge.exposeInMainWorld('api', {
   dialog: {
     openImage: () => ipcRenderer.invoke('dialog:openImage'),
   },
-  // Email SMTP
-  email: {
-    send: (payload: { to: string; filepath: string; eventName?: string }) =>
-      ipcRenderer.invoke('email:send', payload),
-    sendVideo: (payload: { to: string; shareUrl: string; eventName?: string }) =>
-      ipcRenderer.invoke('email:sendVideo', payload),
-    test: (smtp: any) => ipcRenderer.invoke('email:test', smtp),
+  cloud: {
+    test: (payload: { baseUrl: string; apiKey: string }) =>
+      ipcRenderer.invoke('cloud:test', payload),
   },
   // Partage local (serveur HTTP / QR)
   share: {

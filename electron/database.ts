@@ -88,6 +88,7 @@ export async function initDatabase() {
       duration_ms INTEGER NOT NULL DEFAULT 0,
       interview_log_path TEXT,
       qr_code TEXT,
+      cloud_url TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (event_id) REFERENCES events(id) ON DELETE CASCADE
     );
@@ -102,6 +103,9 @@ export async function initDatabase() {
     );
   `);
 
+  ensureColumn('photos', 'cloud_url', 'TEXT');
+  ensureColumn('videos', 'cloud_url', 'TEXT');
+
   // ─── Valeurs par défaut ───────────────────────────────────────────────────
   const legacyVideoResolution = readCaptureResolution(
     (_db.prepare("SELECT value FROM settings WHERE key = 'video_resolution'").get() as
@@ -113,21 +117,15 @@ export async function initDatabase() {
     admin_password_hash: hashPassword('admin'),
     max_copies: 4,
     countdown_seconds: 3,
-    enable_email: true,
     enable_qr: true,
     enable_cloud: false,
+    cloud_vps_url: '',
+    cloud_vps_api_key: '',
     printer_name: '',
     paper_format: '4x6',
     camera_device_id: '',
     flash_enabled: true,
     sound_enabled: true,
-    smtp_host: '',
-    smtp_port: 587,
-    smtp_secure: false,
-    smtp_user: '',
-    smtp_password: '',
-    smtp_from: '',
-    smtp_from_name: 'PhotoBooth',
     share_server_port: 4321,
     decor_style: 'floral',
     decor_custom_path: null,
@@ -181,6 +179,12 @@ function readCaptureResolution(raw?: string): CaptureResolution {
     // Ignore malformed legacy value.
   }
   return '1080p';
+}
+
+function ensureColumn(table: string, column: string, definition: string) {
+  const rows = _db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+  if (rows.some((row) => row.name === column)) return;
+  _db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
 }
 
 function hashPassword(pw: string): string {

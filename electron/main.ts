@@ -1,11 +1,11 @@
 import { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell } from 'electron';
 import path from 'node:path';
+import fsNative from 'node:fs';
 import fs from 'node:fs/promises';
 import { autoUpdater } from 'electron-updater';
 import { initDatabase, db } from './database';
 import { handlePrint, listPrinters } from './printer';
 import { shareServer } from './shareServer';
-import { sendPhotoEmail, sendVideoLinkEmail, testSmtp } from './mailer';
 import {
   compileEventVideos,
   type VideoCompilerEvent,
@@ -155,6 +155,170 @@ async function registerShareUrl(filepath: string) {
   }
 }
 
+type CloudMediaKind = 'photo' | 'video';
+
+interface CloudUploadResult {
+  localShareUrl: string;
+  cloudShareUrl: string | null;
+  finalShareUrl: string;
+}
+
+function normalizeBaseUrl(value: string) {
+  return value.trim().replace(/\/+$/, '');
+}
+
+function joinBaseUrl(baseUrl: string, pathname: string) {
+  const normalizedBase = normalizeBaseUrl(baseUrl);
+  const normalizedPath = pathname.replace(/^\/+/, '');
+  return `${normalizedBase}/${normalizedPath}`;
+}
+
+function getCloudConfig(settings = getSettings()) {
+  return {
+    enabled: Boolean(settings.enable_cloud),
+    baseUrl: normalizeBaseUrl(String(settings.cloud_vps_url ?? '')),
+    apiKey: String(settings.cloud_vps_api_key ?? ''),
+  };
+}
+
+function canUseCloud(settings = getSettings()) {
+  const cloud = getCloudConfig(settings);
+  return cloud.enabled && Boolean(cloud.baseUrl) && Boolean(cloud.apiKey);
+}
+
+function slugify(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .toLowerCase() || 'event';
+}
+
+function mimeFromFilepath(filepath: string) {
+  const ext = path.extname(filepath).toLowerCase();
+  switch (ext) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.png':
+      return 'image/png';
+    case '.webp':
+      return 'image/webp';
+    case '.webm':
+      return 'video/webm';
+    case '.mp4':
+      return 'video/mp4';
+    case '.mov':
+      return 'video/quicktime';
+    case '.mkv':
+      return 'video/x-matroska';
+    default:
+      return 'application/octet-stream';
+  }
+}
+
+async function parseJsonSafe(response: Response): Promise<any> {
+  try {
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+async function testCloudServer(baseUrl: string, apiKey: string) {
+  if (!normalizeBaseUrl(baseUrl)) {
+    throw new Error("URL VPS manquante");
+  }
+  if (!apiKey.trim()) {
+    throw new Error("ClÃ© API VPS manquante");
+  }
+  const response = await fetch(joinBaseUrl(baseUrl, '/api/health'), {
+    method: 'GET',
+    headers: {
+      'x-api-key': apiKey,
+    },
+  });
+  const payload = await parseJsonSafe(response);
+  if (!response.ok) {
+    throw new Error(payload?.error ?? `Serveur cloud en erreur (${response.status})`);
+  }
+  return {
+    ok: true,
+    server: payload?.server ?? normalizeBaseUrl(baseUrl),
+  };
+}
+
+async function uploadFileToCloud(
+  filepath: string,
+  event: { id: number; name: string; date?: string | null },
+  kind: CloudMediaKind,
+  settings = getSettings(),
+) {
+  const cloud = getCloudConfig(settings);
+  if (!canUseCloud(settings)) return null;
+
+  const stat = await fs.stat(filepath);
+  const timeoutMs = 120_000;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const requestInit: any = {
+      method: 'POST',
+      headers: {
+        'content-type': mimeFromFilepath(filepath),
+        'content-length': String(stat.size),
+        'x-api-key': cloud.apiKey,
+        'x-photobooth-kind': kind,
+        'x-photobooth-event-id': String(event.id),
+        'x-photobooth-event-name': event.name,
+        'x-photobooth-event-date': event.date ?? '',
+        'x-photobooth-filename': path.basename(filepath),
+      },
+      body: fsNative.createReadStream(filepath),
+      signal: controller.signal,
+      duplex: 'half',
+    };
+
+    const response = await fetch(joinBaseUrl(cloud.baseUrl, '/api/upload'), requestInit);
+    const payload = await parseJsonSafe(response);
+    if (!response.ok) {
+      throw new Error(payload?.error ?? `Upload VPS refusÃ© (${response.status})`);
+    }
+    if (!payload?.shareUrl) {
+      throw new Error("Le VPS n'a pas renvoyÃ© d'URL de partage.");
+    }
+    return String(payload.shareUrl);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function resolveShareUrl(
+  filepath: string,
+  event: { id: number; name: string; date?: string | null },
+  kind: CloudMediaKind,
+  settings = getSettings(),
+): Promise<CloudUploadResult> {
+  const localShareUrl = await registerShareUrl(filepath);
+  let cloudShareUrl: string | null = null;
+
+  if (canUseCloud(settings)) {
+    try {
+      cloudShareUrl = await uploadFileToCloud(filepath, event, kind, settings);
+    } catch (e) {
+      console.error('[Cloud] upload Ã©chouÃ©, fallback local:', e);
+    }
+  }
+
+  return {
+    localShareUrl,
+    cloudShareUrl,
+    finalShareUrl: cloudShareUrl || localShareUrl,
+  };
+}
+
 // ─── IPC Handlers ──────────────────────────────────────────────────────────
 function registerIpcHandlers() {
   // ── Évènements ────────────────────────────────
@@ -230,15 +394,16 @@ function registerIpcHandlers() {
     }
 
     // Enregistre dans le serveur de partage local pour générer l'URL QR
-    const share_url = await registerShareUrl(filepath);
+    const settings = getSettings();
+    const { cloudShareUrl, finalShareUrl } = await resolveShareUrl(filepath, event, 'photo', settings);
 
     const r = db
       .prepare(
-        'INSERT INTO photos (event_id, filepath, mode, qr_code, created_at) VALUES (?, ?, ?, ?, ?)',
+        'INSERT INTO photos (event_id, filepath, mode, qr_code, cloud_url, created_at) VALUES (?, ?, ?, ?, ?, ?)',
       )
-      .run(eventId, filepath, mode, share_url, new Date().toISOString());
+      .run(eventId, filepath, mode, finalShareUrl, cloudShareUrl, new Date().toISOString());
 
-    return { id: r.lastInsertRowid, filepath, share_url };
+    return { id: r.lastInsertRowid, filepath, share_url: finalShareUrl };
   });
 
   ipcMain.handle('photo:list', (_e, eventId: number) => {
@@ -378,12 +543,13 @@ function registerIpcHandlers() {
         await fs.writeFile(csvPath, csvLines.join('\n'), 'utf8');
       }
 
-      const share_url = await registerShareUrl(filepath);
+      const settings = getSettings();
+      const { cloudShareUrl, finalShareUrl } = await resolveShareUrl(filepath, event, 'video', settings);
 
       const r = db
         .prepare(
-          `INSERT INTO videos (event_id, filepath, mode, duration_ms, interview_log_path, qr_code, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO videos (event_id, filepath, mode, duration_ms, interview_log_path, qr_code, cloud_url, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(
           eventId,
@@ -391,14 +557,15 @@ function registerIpcHandlers() {
           mode,
           durationMs,
           interview_log_path,
-          share_url,
+          finalShareUrl,
+          cloudShareUrl,
           new Date().toISOString(),
         );
 
       return {
         id: r.lastInsertRowid,
         filepath,
-        share_url,
+        share_url: finalShareUrl,
         interview_log_path,
       };
     },
@@ -559,45 +726,13 @@ function registerIpcHandlers() {
     return r.filePaths[0];
   });
 
-  // ── Email SMTP ────────────────────────────────
-  ipcMain.handle('email:send', async (_e, { to, filepath, eventName }) => {
-    const s = getSettings();
-    return sendPhotoEmail(
-      {
-        host: s.smtp_host,
-        port: s.smtp_port,
-        secure: s.smtp_secure,
-        user: s.smtp_user,
-        password: s.smtp_password,
-        from: s.smtp_from,
-        fromName: s.smtp_from_name,
-      },
-      to,
-      filepath,
-      eventName,
-    );
-  });
-
-  ipcMain.handle('email:test', async (_e, smtp) => {
-    return testSmtp(smtp);
-  });
-
-  ipcMain.handle('email:sendVideo', async (_e, { to, shareUrl, eventName }) => {
-    const s = getSettings();
-    return sendVideoLinkEmail(
-      {
-        host: s.smtp_host,
-        port: s.smtp_port,
-        secure: s.smtp_secure,
-        user: s.smtp_user,
-        password: s.smtp_password,
-        from: s.smtp_from,
-        fromName: s.smtp_from_name,
-      },
-      to,
-      shareUrl,
-      eventName,
-    );
+  ipcMain.handle('cloud:test', async (_e, { baseUrl, apiKey }) => {
+    try {
+      return await testCloudServer(String(baseUrl ?? ''), String(apiKey ?? ''));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      return { ok: false, error: msg };
+    }
   });
 
   // ── Partage local ─────────────────────────────

@@ -11,7 +11,6 @@ import {
   MdSettings,
   MdVideocam,
   MdQuestionAnswer,
-  MdMail,
   MdLogout,
   MdMenuBook,
 } from 'react-icons/md';
@@ -27,7 +26,6 @@ import { Templates } from './screens/Templates';
 import { ChallengePoses } from './screens/ChallengePoses';
 import { ThemeSettings } from './screens/ThemeSettings';
 import { GeneralSettings } from './screens/GeneralSettings';
-import { EmailSettings } from './screens/EmailSettings';
 import { VideoSettings } from './screens/VideoSettings';
 import { InterviewQuestions } from './screens/InterviewQuestions';
 import { Album } from './screens/Album';
@@ -43,7 +41,6 @@ type AdminTab =
   | 'poses'
   | 'album'
   | 'theme'
-  | 'email'
   | 'general';
 
 interface TabItem {
@@ -86,7 +83,6 @@ const sections: SidebarSection[] = [
   {
     title: 'Technique',
     tabs: [
-      { id: 'email', label: 'Email', icon: MdMail },
       { id: 'general', label: 'Général', icon: MdSettings },
     ],
   },
@@ -263,7 +259,6 @@ export function AdminApp() {
               {tab === 'poses' && <ChallengePoses />}
               {tab === 'album' && <Album />}
               {tab === 'theme' && <ThemeSettings />}
-              {tab === 'email' && <EmailSettings />}
               {tab === 'general' && <GeneralSettings />}
             </ErrorBoundary>
           </motion.div>

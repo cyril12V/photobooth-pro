@@ -16,7 +16,6 @@ async function sha256(text: string): Promise<string> {
 export function GeneralSettings() {
   const { settings, setSettings } = useAppStore();
 
-  const [enableEmail, setEnableEmail] = useState(settings?.enable_email ?? true);
   const [enableQr, setEnableQr] = useState(settings?.enable_qr ?? true);
   const [enableCloud, setEnableCloud] = useState(settings?.enable_cloud ?? false);
   const [saved, setSaved] = useState(false);
@@ -27,7 +26,6 @@ export function GeneralSettings() {
   const [pwMessage, setPwMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   const saveToggles = async () => {
-    await window.api.settings.set('enable_email', enableEmail);
     await window.api.settings.set('enable_qr', enableQr);
     await window.api.settings.set('enable_cloud', enableCloud);
     const fresh = await window.api.settings.get();
@@ -99,12 +97,6 @@ export function GeneralSettings() {
               description="Affiche un QR code pour récupérer la photo sur smartphone"
               value={enableQr}
               onChange={setEnableQr}
-            />
-            <AdminToggle
-              label="Email"
-              description="Permet aux invités d'envoyer la photo par email"
-              value={enableEmail}
-              onChange={setEnableEmail}
             />
             <AdminToggle
               label="Cloud / galerie en ligne"

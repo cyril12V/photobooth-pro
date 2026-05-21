@@ -167,7 +167,6 @@ export interface AppSettings {
   admin_password_hash: string;
   max_copies: number;
   countdown_seconds: number;
-  enable_email: boolean;
   enable_qr: boolean;
   enable_cloud: boolean;
   printer_name: string;
@@ -176,14 +175,6 @@ export interface AppSettings {
   camera_device_id: string;
   flash_enabled: boolean;
   sound_enabled: boolean;
-  // SMTP
-  smtp_host: string;
-  smtp_port: number;
-  smtp_secure: boolean;
-  smtp_user: string;
-  smtp_password: string;
-  smtp_from: string;
-  smtp_from_name: string;
   // QR / partage local
   share_server_port: number;
   // Décor d'angle
@@ -287,25 +278,6 @@ declare global {
       };
       dialog: {
         openImage: () => Promise<string | null>;
-      };
-      email: {
-        send: (payload: {
-          to: string;
-          filepath: string;
-          eventName?: string;
-        }) => Promise<{ ok: boolean; error?: string }>;
-        sendVideo: (payload: {
-          to: string;
-          shareUrl: string;
-          eventName?: string;
-        }) => Promise<{ ok: boolean; error?: string }>;
-        test: (smtp: {
-          host: string;
-          port: number;
-          secure: boolean;
-          user: string;
-          password: string;
-        }) => Promise<{ ok: boolean; error?: string }>;
       };
       share: {
         url: (filepath: string) => Promise<string>;
