@@ -113,6 +113,22 @@ export async function initDatabase() {
       | undefined)?.value,
   );
 
+  const legacyVideoEnabled = (
+    _db.prepare("SELECT value FROM settings WHERE key = 'video_enabled'").get() as
+      | { value?: string }
+      | undefined
+  )?.value;
+  const legacyCaptureMode: 'photo' | 'video' | 'both' =
+    legacyVideoEnabled === undefined
+      ? 'both'
+      : (() => {
+          try {
+            return JSON.parse(legacyVideoEnabled) ? 'both' : 'photo';
+          } catch {
+            return 'both';
+          }
+        })();
+
   const defaults: Record<string, any> = {
     admin_password_hash: hashPassword('admin'),
     max_copies: 4,
@@ -132,6 +148,7 @@ export async function initDatabase() {
     photo_resolution: legacyVideoResolution,
     // ─── VideoBooth ─────────────────────────────────────────────────────────
     video_enabled: true,
+    capture_mode: legacyCaptureMode,
     microphone_device_id: '',
     video_capture_resolution: legacyVideoResolution,
     video_preview_resolution: '1080p',

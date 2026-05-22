@@ -9,6 +9,13 @@ import { useAppStore } from '@shared/store';
 import { AdminCard, AdminPageHeader, AdminToggle } from '../components/AdminUI';
 import { Button } from '@shared/components/Button';
 
+type CaptureMode = 'photo' | 'video' | 'both';
+const CAPTURE_MODE_OPTIONS: Array<{ value: CaptureMode; label: string }> = [
+  { value: 'photo', label: 'Photo seule' },
+  { value: 'video', label: 'Vidéo seule' },
+  { value: 'both', label: 'Les deux' },
+];
+
 type CompileStatus =
   | { kind: 'idle' }
   | { kind: 'running'; percent: number; stage: string }
@@ -17,7 +24,9 @@ type CompileStatus =
 
 export function VideoSettings() {
   const { settings, setSettings } = useAppStore();
-  const [enabled, setEnabled] = useState(settings?.video_enabled ?? true);
+  const [captureMode, setCaptureMode] = useState<CaptureMode>(
+    (settings?.capture_mode ?? 'both') as CaptureMode,
+  );
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
   const [micId, setMicId] = useState(settings?.microphone_device_id ?? '');
   const [captureResolution, setCaptureResolution] = useState<CaptureResolution>(
@@ -69,7 +78,8 @@ export function VideoSettings() {
   }, []);
 
   const save = async () => {
-    await window.api.settings.set('video_enabled', enabled);
+    await window.api.settings.set('capture_mode', captureMode);
+    await window.api.settings.set('video_enabled', captureMode !== 'photo');
     await window.api.settings.set('microphone_device_id', micId);
     await window.api.settings.set('video_capture_resolution', captureResolution);
     await window.api.settings.set('video_max_duration_seconds', maxDuration);
@@ -116,18 +126,44 @@ export function VideoSettings() {
   return (
     <>
       <AdminPageHeader
-        title="VidÃ©o"
-        description="Configurez le mode vidÃ©o (interview guidÃ©e + message libre)"
+        title="Mode & Vidéo"
+        description="Choisis ce que la borne propose au démarrage et configure la vidéo"
       />
 
       <div className="space-y-4">
-        <AdminCard title="Activation">
-          <AdminToggle
-            label="Activer le mode VidÃ©obooth"
-            description="Affiche la sÃ©lection Photo/VidÃ©o au lancement de la borne"
-            value={enabled}
-            onChange={setEnabled}
-          />
+        <AdminCard title="Mode de la borne">
+          <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
+            Que peut faire l'invité au démarrage ?
+          </p>
+          <div className="grid grid-cols-3 gap-3">
+            {CAPTURE_MODE_OPTIONS.map(({ value, label }) => {
+              const active = captureMode === value;
+              return (
+                <button
+                  key={value}
+                  onClick={() => setCaptureMode(value)}
+                  className="p-3 text-sm font-medium transition-colors"
+                  style={{
+                    backgroundColor: active ? '#1A1A1A' : '#F4ECDD',
+                    color: active ? '#FAF6EE' : '#1A1A1A',
+                    border: '1px solid rgba(212, 184, 150, 0.3)',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          <p
+            className="mt-2"
+            style={{ color: '#6B5D4F', fontFamily: 'Inter, sans-serif', fontSize: '0.75rem' }}
+          >
+            {captureMode === 'photo' && 'La borne démarre directement sur le mode photo, l\'écran de choix Photo/Vidéo est masqué.'}
+            {captureMode === 'video' && 'La borne démarre directement sur le mode vidéo, l\'écran de choix Photo/Vidéo est masqué.'}
+            {captureMode === 'both' && 'L\'invité voit un écran de choix Photo / Vidéo au démarrage.'}
+          </p>
         </AdminCard>
 
         <AdminCard title="Microphone">

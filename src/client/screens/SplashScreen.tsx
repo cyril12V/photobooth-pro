@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { MdCameraAlt, MdVideocam } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
@@ -20,7 +21,7 @@ function formatYear(iso?: string): string {
 
 export function SplashScreen() {
   const { event, settings, setScreen, setFlow } = useAppStore();
-  const videoEnabled = settings?.video_enabled ?? true;
+  const captureMode = settings?.capture_mode ?? 'both';
 
   const eventName = event?.name ?? 'Notre Évènement';
   const year = formatYear(event?.date);
@@ -31,10 +32,24 @@ export function SplashScreen() {
   };
 
   const chooseVideo = () => {
-    if (!videoEnabled) return;
+    if (captureMode === 'photo') return;
     setFlow('video');
     setScreen('video-home');
   };
+
+  useEffect(() => {
+    if (captureMode === 'photo') {
+      setFlow('photo');
+      setScreen('home');
+    } else if (captureMode === 'video') {
+      setFlow('video');
+      setScreen('video-home');
+    }
+  }, [captureMode, setFlow, setScreen]);
+
+  if (captureMode !== 'both') {
+    return null;
+  }
 
   return (
     <Screen className="overflow-hidden">
@@ -123,7 +138,6 @@ export function SplashScreen() {
             <motion.button
               {...fadeUp(0.85)}
               onClick={chooseVideo}
-              disabled={!videoEnabled}
               className="flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02]"
               style={{
                 width: 280,
@@ -132,11 +146,10 @@ export function SplashScreen() {
                 borderRadius: '24px',
                 border: '1px solid rgba(212, 184, 150, 0.4)',
                 boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-                opacity: videoEnabled ? 1 : 0.4,
-                cursor: videoEnabled ? 'pointer' : 'not-allowed',
+                cursor: 'pointer',
                 gap: '1.75rem',
               }}
-              title={videoEnabled ? 'Enregistrer une vidéo' : 'Mode vidéo désactivé'}
+              title="Enregistrer une vidéo"
             >
               <MdVideocam size={56} color="#1A1A1A" />
               <h2

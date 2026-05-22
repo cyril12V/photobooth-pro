@@ -181,10 +181,16 @@ export const useAppStore = create<AppState>((set, get) => ({
         URL.revokeObjectURL(prev);
       } catch {}
     }
-    const videoEnabled = get().settings?.video_enabled ?? true;
+    const captureMode = get().settings?.capture_mode ?? 'both';
+    const nextScreen =
+      captureMode === 'photo'
+        ? 'home'
+        : captureMode === 'video'
+          ? 'video-home'
+          : 'splash';
     set({
-      screen: videoEnabled ? 'splash' : 'home',
-      flow: null,
+      screen: nextScreen,
+      flow: captureMode === 'photo' ? 'photo' : captureMode === 'video' ? 'video' : null,
       mode: 'classic',
       videoMode: null,
       selectedPose: null,
