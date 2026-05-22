@@ -3,8 +3,10 @@ import path from 'node:path';
 import fs from 'node:fs';
 import fsPromises from 'node:fs/promises';
 import crypto from 'node:crypto';
+import { spawn } from 'node:child_process';
 import { pipeline } from 'node:stream/promises';
 import { Transform } from 'node:stream';
+import ffmpegPath from 'ffmpeg-static';
 
 const HOST = process.env.HOST || '0.0.0.0';
 const PORT = Number(process.env.PORT || 8787);
@@ -99,9 +101,25 @@ async function handleUpload(req, res) {
     return json(res, 500, { ok: false, error: 'Upload failed' });
   }
 
+  let servedFilename = finalFilename;
+  let servedPath = finalPath;
+
+  if (kind === 'video' && extension.toLowerCase() === '.webm') {
+    const mp4Filename = finalFilename.replace(/\.webm$/i, '.mp4');
+    const mp4Path = path.join(mediaDir, mp4Filename);
+    try {
+      await transcodeWebmToMp4(finalPath, mp4Path);
+      await fsPromises.unlink(finalPath).catch(() => {});
+      servedFilename = mp4Filename;
+      servedPath = mp4Path;
+    } catch (error) {
+      console.error('[photobooth-vps] transcode failed, serving webm', error);
+    }
+  }
+
   const publicBaseUrl = getPublicBaseUrl(req);
-  const sharePath = `/share/${eventSlug}/${kind}/${encodeURIComponent(finalFilename)}`;
-  const mediaPath = `/media/${eventSlug}/${kind}/${encodeURIComponent(finalFilename)}`;
+  const sharePath = `/share/${eventSlug}/${kind}/${encodeURIComponent(servedFilename)}`;
+  const mediaPath = `/media/${eventSlug}/${kind}/${encodeURIComponent(servedFilename)}`;
 
   return json(res, 201, {
     ok: true,
@@ -109,8 +127,39 @@ async function handleUpload(req, res) {
     mediaUrl: `${publicBaseUrl}${mediaPath}`,
     eventSlug,
     kind,
-    filename: finalFilename,
+    filename: servedFilename,
     size: limiter.bytesRead,
+  });
+}
+
+function transcodeWebmToMp4(input, output) {
+  return new Promise((resolve, reject) => {
+    if (!ffmpegPath) {
+      return reject(new Error('ffmpeg binary not found'));
+    }
+    const args = [
+      '-y',
+      '-i', input,
+      '-c:v', 'libx264',
+      '-preset', 'fast',
+      '-crf', '22',
+      '-pix_fmt', 'yuv420p',
+      '-c:a', 'aac',
+      '-b:a', '128k',
+      '-movflags', '+faststart',
+      output,
+    ];
+    const proc = spawn(ffmpegPath, args, { stdio: ['ignore', 'ignore', 'pipe'] });
+    let stderr = '';
+    proc.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+      if (stderr.length > 4096) stderr = stderr.slice(-4096);
+    });
+    proc.on('error', reject);
+    proc.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`ffmpeg exit ${code}: ${stderr.slice(-500)}`));
+    });
   });
 }
 
