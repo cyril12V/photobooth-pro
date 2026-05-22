@@ -40,6 +40,10 @@ const server = http.createServer(async (req, res) => {
       return handleUpload(req, res);
     }
 
+    if (req.method === 'GET' && pathname.startsWith('/api/transcode-status/')) {
+      return handleTranscodeStatus(req, res, pathname);
+    }
+
     if (req.method === 'GET' && pathname.startsWith('/share/')) {
       return handleSharePage(req, res, pathname);
     }
@@ -102,19 +106,17 @@ async function handleUpload(req, res) {
   }
 
   let servedFilename = finalFilename;
-  let servedPath = finalPath;
+  let transcoding = false;
 
   if (kind === 'video' && extension.toLowerCase() === '.webm') {
     const mp4Filename = finalFilename.replace(/\.webm$/i, '.mp4');
     const mp4Path = path.join(mediaDir, mp4Filename);
-    try {
-      await transcodeWebmToMp4(finalPath, mp4Path);
-      await fsPromises.unlink(finalPath).catch(() => {});
-      servedFilename = mp4Filename;
-      servedPath = mp4Path;
-    } catch (error) {
-      console.error('[photobooth-vps] transcode failed, serving webm', error);
-    }
+    servedFilename = mp4Filename;
+    transcoding = true;
+
+    transcodeWebmToMp4(finalPath, mp4Path)
+      .then(() => fsPromises.unlink(finalPath).catch(() => {}))
+      .catch((error) => console.error('[photobooth-vps] async transcode failed', error));
   }
 
   const publicBaseUrl = getPublicBaseUrl(req);
@@ -128,8 +130,26 @@ async function handleUpload(req, res) {
     eventSlug,
     kind,
     filename: servedFilename,
+    transcoding,
     size: limiter.bytesRead,
   });
+}
+
+function handleTranscodeStatus(req, res, pathname) {
+  const segments = pathname.replace('/api/transcode-status/', '').split('/').filter(Boolean);
+  if (segments.length !== 2) {
+    return json(res, 400, { ok: false, error: 'Invalid path' });
+  }
+  const [eventSlug, encodedFilename] = segments;
+  const filename = decodeURIComponent(encodedFilename);
+  if (!isSafeSegment(eventSlug) || !isSafeSegment(filename)) {
+    return json(res, 400, { ok: false, error: 'Invalid path' });
+  }
+  const mp4Path = path.join(STORAGE_DIR, eventSlug, 'video', filename);
+  if (!mp4Path.startsWith(STORAGE_DIR)) {
+    return json(res, 400, { ok: false, error: 'Invalid path' });
+  }
+  return json(res, 200, { ready: fs.existsSync(mp4Path) });
 }
 
 function transcodeWebmToMp4(input, output) {
@@ -172,11 +192,25 @@ function handleSharePage(req, res, pathname) {
   }
 
   const { eventSlug, kind, filename, absolutePath } = match;
+  const publicBaseUrl = getPublicBaseUrl(req);
+
   if (!fs.existsSync(absolutePath)) {
+    if (kind === 'video' && filename.toLowerCase().endsWith('.mp4')) {
+      const webmFilename = filename.replace(/\.mp4$/i, '.webm');
+      const webmPath = path.join(STORAGE_DIR, eventSlug, kind, webmFilename);
+      if (fs.existsSync(webmPath)) {
+        const statusUrl = `${publicBaseUrl}/api/transcode-status/${eventSlug}/${encodeURIComponent(filename)}`;
+        res.writeHead(200, {
+          'Content-Type': 'text/html; charset=utf-8',
+          'Cache-Control': 'no-cache',
+        });
+        res.end(transcodingPage(statusUrl));
+        return;
+      }
+    }
     return notFoundPage(res);
   }
 
-  const publicBaseUrl = getPublicBaseUrl(req);
   const mediaUrl = `${publicBaseUrl}/media/${eventSlug}/${kind}/${encodeURIComponent(filename)}`;
   const downloadUrl = `${publicBaseUrl}/download/${eventSlug}/${kind}/${encodeURIComponent(filename)}`;
 
@@ -185,6 +219,44 @@ function handleSharePage(req, res, pathname) {
     'Cache-Control': 'no-cache',
   });
   res.end(kind === 'video' ? videoPage(mediaUrl, downloadUrl) : photoPage(mediaUrl, downloadUrl));
+}
+
+function transcodingPage(statusUrl) {
+  return `<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Préparation de votre vidéo</title>
+  <style>
+    body{margin:0;padding:32px 20px;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:linear-gradient(135deg,#0a0e1f 0%,#1f2a55 100%);color:#faf6ef;text-align:center;min-height:100vh;display:flex;align-items:center;justify-content:center}
+    .wrap{max-width:520px;margin:0 auto}
+    h1{font-size:36px;font-family:Georgia,serif;font-style:italic;font-weight:400;margin-bottom:24px}
+    p{opacity:.75;line-height:1.6;font-size:16px}
+    .spinner{width:48px;height:48px;border:4px solid rgba(255,255,255,.15);border-top-color:#ff8e72;border-radius:50%;margin:32px auto;animation:spin .9s linear infinite}
+    @keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Votre vidéo arrive</h1>
+    <div class="spinner"></div>
+    <p id="status">Préparation pour mobile en cours, encore quelques secondes…</p>
+  </div>
+  <script>
+    var tries = 0;
+    function check(){
+      tries++;
+      fetch(${JSON.stringify(statusUrl)},{cache:'no-store'}).then(function(r){return r.json();}).then(function(d){
+        if(d && d.ready){location.reload();return;}
+        if(tries < 90){setTimeout(check, 1500);}
+        else{document.getElementById('status').textContent="Préparation plus longue que prévue. Recharge la page dans 30 secondes.";}
+      }).catch(function(){if(tries < 90){setTimeout(check, 2500);}});
+    }
+    setTimeout(check, 1200);
+  </script>
+</body>
+</html>`;
 }
 
 function handleMedia(req, res, pathname, download) {
