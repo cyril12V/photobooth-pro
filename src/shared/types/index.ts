@@ -169,6 +169,8 @@ export interface AppSettings {
   countdown_seconds: number;
   enable_qr: boolean;
   enable_cloud: boolean;
+  cloud_vps_url: string;
+  cloud_vps_api_key: string;
   printer_name: string;
   // Format papier de l'imprimante photo (DNP DS620, etc.)
   paper_format: '4x6' | '5x7' | '6x8';
@@ -183,6 +185,7 @@ export interface AppSettings {
   photo_resolution: '4k' | '1080p' | '720p' | '480p';
   // VideoBooth
   video_enabled: boolean;
+  capture_mode: 'photo' | 'video' | 'both';
   microphone_device_id: string;
   video_capture_resolution: '4k' | '1080p' | '720p' | '480p';
   video_preview_resolution: '1080p';
@@ -278,6 +281,12 @@ declare global {
       };
       dialog: {
         openImage: () => Promise<string | null>;
+      };
+      cloud: {
+        test: (payload: {
+          baseUrl: string;
+          apiKey: string;
+        }) => Promise<{ ok: boolean; server?: string; error?: string }>;
       };
       share: {
         url: (filepath: string) => Promise<string>;

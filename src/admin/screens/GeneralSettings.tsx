@@ -1,8 +1,14 @@
 import { useState } from 'react';
-import { MdCheck, MdKey, MdPowerSettingsNew, MdSave } from 'react-icons/md';
+import { MdCheck, MdCloud, MdKey, MdPowerSettingsNew, MdSave } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { AdminCard, AdminPageHeader, AdminToggle } from '../components/AdminUI';
 import { Button } from '@shared/components/Button';
+
+type CloudTestState =
+  | { kind: 'idle' }
+  | { kind: 'running' }
+  | { kind: 'ok'; server: string }
+  | { kind: 'error'; message: string };
 
 // Hash SHA-256 client-side (compatible avec celui généré côté Electron)
 async function sha256(text: string): Promise<string> {
@@ -18,6 +24,9 @@ export function GeneralSettings() {
 
   const [enableQr, setEnableQr] = useState(settings?.enable_qr ?? true);
   const [enableCloud, setEnableCloud] = useState(settings?.enable_cloud ?? false);
+  const [cloudVpsUrl, setCloudVpsUrl] = useState(settings?.cloud_vps_url ?? '');
+  const [cloudVpsApiKey, setCloudVpsApiKey] = useState(settings?.cloud_vps_api_key ?? '');
+  const [cloudTest, setCloudTest] = useState<CloudTestState>({ kind: 'idle' });
   const [saved, setSaved] = useState(false);
 
   const [oldPw, setOldPw] = useState('');
@@ -28,10 +37,30 @@ export function GeneralSettings() {
   const saveToggles = async () => {
     await window.api.settings.set('enable_qr', enableQr);
     await window.api.settings.set('enable_cloud', enableCloud);
+    await window.api.settings.set('cloud_vps_url', cloudVpsUrl.trim());
+    await window.api.settings.set('cloud_vps_api_key', cloudVpsApiKey.trim());
     const fresh = await window.api.settings.get();
     setSettings(fresh);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const testCloud = async () => {
+    setCloudTest({ kind: 'running' });
+    try {
+      const res = await window.api.cloud.test({
+        baseUrl: cloudVpsUrl.trim(),
+        apiKey: cloudVpsApiKey.trim(),
+      });
+      if (res.ok) {
+        setCloudTest({ kind: 'ok', server: res.server ?? cloudVpsUrl.trim() });
+      } else {
+        setCloudTest({ kind: 'error', message: res.error ?? 'Connexion impossible' });
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setCloudTest({ kind: 'error', message: msg });
+    }
   };
 
   const changePassword = async () => {
@@ -99,12 +128,107 @@ export function GeneralSettings() {
               onChange={setEnableQr}
             />
             <AdminToggle
-              label="Cloud / galerie en ligne"
-              description="Synchronise les photos sur Supabase (nécessite internet)"
+              label="Cloud / serveur VPS"
+              description="Upload photos et vidéos sur ton serveur VPS pour que les invités hors Wi-Fi puissent récupérer leur média (vidéos converties en .mp4 lisibles iPhone/Android)."
               value={enableCloud}
               onChange={setEnableCloud}
             />
           </div>
+
+          {enableCloud && (
+            <div className="mt-5 space-y-4 pl-1">
+              <label className="block">
+                <span className="block label-editorial mb-2" style={{ color: '#6B5D4F' }}>
+                  URL du serveur VPS
+                </span>
+                <input
+                  type="url"
+                  value={cloudVpsUrl}
+                  onChange={(e) => {
+                    setCloudVpsUrl(e.target.value);
+                    setCloudTest({ kind: 'idle' });
+                  }}
+                  placeholder="https://lumos-videobooth.fr"
+                  className="w-full px-4 py-3 focus:outline-none"
+                  style={{
+                    backgroundColor: '#F4ECDD',
+                    border: '1px solid rgba(212, 184, 150, 0.4)',
+                    color: '#1A1A1A',
+                    borderRadius: '4px',
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '0.9375rem',
+                  }}
+                />
+              </label>
+
+              <label className="block">
+                <span className="block label-editorial mb-2" style={{ color: '#6B5D4F' }}>
+                  Clé API
+                </span>
+                <input
+                  type="password"
+                  value={cloudVpsApiKey}
+                  onChange={(e) => {
+                    setCloudVpsApiKey(e.target.value);
+                    setCloudTest({ kind: 'idle' });
+                  }}
+                  placeholder="••••••••"
+                  className="w-full px-4 py-3 focus:outline-none"
+                  style={{
+                    backgroundColor: '#F4ECDD',
+                    border: '1px solid rgba(212, 184, 150, 0.4)',
+                    color: '#1A1A1A',
+                    borderRadius: '4px',
+                    fontFamily: 'Inter, sans-serif',
+                    fontSize: '0.9375rem',
+                    letterSpacing: '0.1em',
+                  }}
+                />
+              </label>
+
+              <Button
+                variant="secondary"
+                size="md"
+                onClick={testCloud}
+                icon={<MdCloud size={18} />}
+                disabled={
+                  cloudTest.kind === 'running' || !cloudVpsUrl.trim() || !cloudVpsApiKey.trim()
+                }
+                fullWidth
+              >
+                {cloudTest.kind === 'running' ? 'Test en cours…' : 'Tester la connexion'}
+              </Button>
+
+              {cloudTest.kind === 'ok' && (
+                <p
+                  className="px-3 py-2 text-sm"
+                  style={{
+                    backgroundColor: '#F4ECDD',
+                    border: '1px solid #1A1A1A',
+                    borderRadius: '4px',
+                    color: '#1A1A1A',
+                    fontFamily: 'Inter, sans-serif',
+                  }}
+                >
+                  Connexion OK ({cloudTest.server})
+                </p>
+              )}
+              {cloudTest.kind === 'error' && (
+                <p
+                  className="px-3 py-2 text-sm"
+                  style={{
+                    backgroundColor: '#F4ECDD',
+                    border: '1px solid #B5462E',
+                    borderRadius: '4px',
+                    color: '#B5462E',
+                    fontFamily: 'Inter, sans-serif',
+                  }}
+                >
+                  Échec : {cloudTest.message}
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="mt-5">
             <Button
