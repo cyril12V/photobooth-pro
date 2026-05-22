@@ -240,6 +240,8 @@ declare global {
           mode: VideoMode;
           durationMs: number;
           interviewLog?: { questions: InterviewLogEntry[] };
+          cloudShareUrl?: string | null;
+          skipCloudUpload?: boolean;
         }) => Promise<{
           id: number;
           filepath: string;

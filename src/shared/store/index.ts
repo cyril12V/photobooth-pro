@@ -6,6 +6,7 @@ import type {
   InterviewLogEntry,
   VideoMode,
 } from '@shared/types';
+import { isCloudConfigured, uploadBlobToCloud } from '@shared/lib/cloudUpload';
 
 export type Screen =
   | 'splash'
@@ -163,16 +164,68 @@ export const useAppStore = create<AppState>((set, get) => ({
 
     const ev = get().event;
     if (!ev) return;
+    const settings = get().settings;
     const mode = get().videoMode ?? 'free_message';
-    const savePromise: Promise<VideoSaveResult> = blob.arrayBuffer().then((buf) =>
-      window.api.video.save({
-        buffer: new Uint8Array(buf),
+    const cloudConfig = isCloudConfigured({
+      baseUrl: settings?.cloud_vps_url ?? '',
+      apiKey: settings?.cloud_vps_api_key ?? '',
+    }) && settings?.enable_cloud
+      ? { baseUrl: settings.cloud_vps_url, apiKey: settings.cloud_vps_api_key }
+      : null;
+
+    const buildLocalSavePayload = (buf: ArrayBuffer) => ({
+      buffer: new Uint8Array(buf),
+      eventId: ev.id,
+      mode,
+      durationMs,
+      interviewLog: mode === 'interview' ? { questions: interviewLog } : undefined,
+    });
+
+    let savePromise: Promise<VideoSaveResult>;
+
+    if (cloudConfig) {
+      const cloudUploadPromise = uploadBlobToCloud(blob, cloudConfig, {
         eventId: ev.id,
-        mode,
-        durationMs,
-        interviewLog: mode === 'interview' ? { questions: interviewLog } : undefined,
-      }),
-    );
+        eventName: ev.name,
+        eventDate: ev.date ?? null,
+        kind: 'video',
+        filename: `${Date.now()}_${mode}.webm`,
+      });
+
+      savePromise = cloudUploadPromise
+        .then(async (cloudRes) => {
+          // Save locale en arrière-plan (DB + disque) avec le cloud URL déjà obtenu —
+          // n'affecte pas le temps que voit l'invité.
+          blob
+            .arrayBuffer()
+            .then((buf) =>
+              window.api.video.save({
+                ...buildLocalSavePayload(buf),
+                cloudShareUrl: cloudRes.shareUrl,
+                skipCloudUpload: true,
+              }),
+            )
+            .then((localRes) => {
+              if (get().currentVideoBlobUrl === blobUrl) {
+                set({ currentVideoFilepath: localRes.filepath });
+              }
+            })
+            .catch((e) => {
+              console.warn('Sauvegarde locale en arrière-plan échouée:', e);
+            });
+          return { filepath: '', share_url: cloudRes.shareUrl } satisfies VideoSaveResult;
+        })
+        .catch(async (err) => {
+          console.warn('Upload cloud direct a échoué, fallback IPC:', err);
+          const buf = await blob.arrayBuffer();
+          return window.api.video.save(buildLocalSavePayload(buf));
+        });
+    } else {
+      savePromise = blob
+        .arrayBuffer()
+        .then((buf) => window.api.video.save(buildLocalSavePayload(buf)));
+    }
+
     savePromise.catch((e) => {
       const msg = e instanceof Error ? e.message : String(e);
       if (get().currentVideoSavePromise === savePromise) {

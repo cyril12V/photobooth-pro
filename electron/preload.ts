@@ -37,6 +37,8 @@ contextBridge.exposeInMainWorld('api', {
       interviewLog?: {
         questions: Array<{ index: number; text: string; startMs: number; endMs: number }>;
       };
+      cloudShareUrl?: string | null;
+      skipCloudUpload?: boolean;
     }) => ipcRenderer.invoke('video:save', payload),
     list: (eventId: number) => ipcRenderer.invoke('video:list', eventId),
     delete: (id: number) => ipcRenderer.invoke('video:delete', id),

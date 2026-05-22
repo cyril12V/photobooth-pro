@@ -465,6 +465,8 @@ function registerIpcHandlers() {
         mode,
         durationMs,
         interviewLog,
+        cloudShareUrl,
+        skipCloudUpload,
       }: {
         buffer: ArrayBuffer | Uint8Array;
         eventId: number;
@@ -477,6 +479,8 @@ function registerIpcHandlers() {
           totalDurationMs?: number;
           questions: Array<{ index: number; text: string; startMs: number; endMs: number }>;
         };
+        cloudShareUrl?: string | null;
+        skipCloudUpload?: boolean;
       },
     ) => {
       const event: any = db.prepare('SELECT * FROM events WHERE id = ?').get(eventId);
@@ -544,7 +548,18 @@ function registerIpcHandlers() {
       }
 
       const settings = getSettings();
-      const { cloudShareUrl, finalShareUrl } = await resolveShareUrl(filepath, event, 'video', settings);
+      let finalCloudUrl: string | null;
+      let finalShareUrl: string;
+
+      if (skipCloudUpload) {
+        const localShareUrl = await registerShareUrl(filepath);
+        finalCloudUrl = cloudShareUrl ?? null;
+        finalShareUrl = finalCloudUrl ?? localShareUrl;
+      } else {
+        const r = await resolveShareUrl(filepath, event, 'video', settings);
+        finalCloudUrl = r.cloudShareUrl;
+        finalShareUrl = r.finalShareUrl;
+      }
 
       const r = db
         .prepare(
@@ -558,7 +573,7 @@ function registerIpcHandlers() {
           durationMs,
           interview_log_path,
           finalShareUrl,
-          cloudShareUrl,
+          finalCloudUrl,
           new Date().toISOString(),
         );
 
