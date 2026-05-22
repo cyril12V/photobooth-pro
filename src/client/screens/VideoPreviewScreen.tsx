@@ -15,7 +15,6 @@ export function VideoPreviewScreen() {
     currentVideoBlob,
     currentVideoBlobUrl,
     currentVideoDurationMs,
-    currentInterviewLog,
     videoMode,
     event,
     setScreen,
@@ -35,20 +34,15 @@ export function VideoPreviewScreen() {
   if (!currentVideoBlobUrl || !currentVideoBlob) return null;
 
   const validate = async () => {
-    if (!event || saving) return;
+    if (saving) return;
     setSaving(true);
     setError(null);
     try {
-      const buf = await currentVideoBlob.arrayBuffer();
-      const mode = videoMode ?? 'free_message';
-      const res = await window.api.video.save({
-        buffer: new Uint8Array(buf),
-        eventId: event.id,
-        mode,
-        durationMs: currentVideoDurationMs,
-        interviewLog:
-          mode === 'interview' ? { questions: currentInterviewLog } : undefined,
-      });
+      const promise = useAppStore.getState().currentVideoSavePromise;
+      if (!promise) {
+        throw new Error('Upload non démarré');
+      }
+      const res = await promise;
       setVideoSaved({ filepath: res.filepath, shareUrl: res.share_url });
       setScreen('video-share');
     } catch (e) {

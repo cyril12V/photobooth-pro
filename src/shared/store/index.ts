@@ -25,6 +25,8 @@ export type CaptureMode = 'classic' | 'challenge';
 
 export type AppFlow = 'photo' | 'video' | null;
 
+export type VideoSaveResult = { filepath: string; share_url: string };
+
 interface AppState {
   // Données
   event: PhotoboothEvent | null;
@@ -53,6 +55,8 @@ interface AppState {
   currentVideoShareUrl: string | null;
   currentVideoDurationMs: number;
   currentInterviewLog: InterviewLogEntry[];
+  currentVideoSavePromise: Promise<VideoSaveResult> | null;
+  currentVideoSaveError: string | null;
 
   // Admin
   adminMode: boolean;
@@ -106,6 +110,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentVideoShareUrl: null,
   currentVideoDurationMs: 0,
   currentInterviewLog: [],
+  currentVideoSavePromise: null,
+  currentVideoSaveError: null,
   adminMode: false,
   adminAuthenticated: false,
 
@@ -151,7 +157,29 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentVideoShareUrl: null,
       currentVideoDurationMs: durationMs,
       currentInterviewLog: interviewLog,
+      currentVideoSavePromise: null,
+      currentVideoSaveError: null,
     });
+
+    const ev = get().event;
+    if (!ev) return;
+    const mode = get().videoMode ?? 'free_message';
+    const savePromise: Promise<VideoSaveResult> = blob.arrayBuffer().then((buf) =>
+      window.api.video.save({
+        buffer: new Uint8Array(buf),
+        eventId: ev.id,
+        mode,
+        durationMs,
+        interviewLog: mode === 'interview' ? { questions: interviewLog } : undefined,
+      }),
+    );
+    savePromise.catch((e) => {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (get().currentVideoSavePromise === savePromise) {
+        set({ currentVideoSaveError: msg });
+      }
+    });
+    set({ currentVideoSavePromise: savePromise });
   },
   setVideoSaved: ({ filepath, shareUrl }) =>
     set({ currentVideoFilepath: filepath, currentVideoShareUrl: shareUrl }),
@@ -170,6 +198,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentVideoShareUrl: null,
       currentVideoDurationMs: 0,
       currentInterviewLog: [],
+      currentVideoSavePromise: null,
+      currentVideoSaveError: null,
     });
   },
   setAdminMode: (adminMode) => set({ adminMode, adminAuthenticated: false }),
@@ -206,6 +236,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentVideoShareUrl: null,
       currentVideoDurationMs: 0,
       currentInterviewLog: [],
+      currentVideoSavePromise: null,
+      currentVideoSaveError: null,
     });
   },
 }));
