@@ -9,6 +9,7 @@ import {
   applyPreviewElementSize,
   applyRealtimeCaptureHints,
   buildVideoTrackConstraints,
+  pickRecorderMimeType,
   type CaptureResolution,
 } from '@shared/lib/mediaCapture';
 import { sounds } from '@shared/lib/sounds';
@@ -16,20 +17,6 @@ import { InterviewTimecodeBuilder } from '@shared/lib/videoTimecode';
 import type { InterviewQuestion } from '@shared/types';
 
 type Phase = 'loading' | 'preparing' | 'countdown' | 'recording' | 'finishing' | 'error';
-
-function pickMimeType(): string {
-  const candidates = [
-    'video/webm;codecs=vp9,opus',
-    'video/webm;codecs=vp8,opus',
-    'video/webm',
-  ];
-  for (const c of candidates) {
-    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(c)) {
-      return c;
-    }
-  }
-  return 'video/webm';
-}
 
 export function VideoInterviewScreen() {
   const { settings, setScreen, setVideoCapture } = useAppStore();
@@ -177,7 +164,7 @@ export function VideoInterviewScreen() {
 
   const startRecording = () => {
     if (!streamRef.current) return;
-    const mime = pickMimeType();
+    const mime = pickRecorderMimeType();
     const videoBitsPerSecond = VIDEO_BITRATE_MAP[resolution];
 
     let recorder: MediaRecorder;

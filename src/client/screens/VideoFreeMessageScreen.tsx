@@ -10,24 +10,11 @@ import {
   applyPreviewElementSize,
   applyRealtimeCaptureHints,
   buildVideoTrackConstraints,
+  pickRecorderMimeType,
   type CaptureResolution,
 } from '@shared/lib/mediaCapture';
 
 type Phase = 'preparing' | 'countdown' | 'recording' | 'finishing' | 'error';
-
-function pickMimeType(): string {
-  const candidates = [
-    'video/webm;codecs=vp9,opus',
-    'video/webm;codecs=vp8,opus',
-    'video/webm',
-  ];
-  for (const c of candidates) {
-    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(c)) {
-      return c;
-    }
-  }
-  return 'video/webm';
-}
 
 export function VideoFreeMessageScreen() {
   const { settings, setScreen, setVideoCapture } = useAppStore();
@@ -118,8 +105,7 @@ export function VideoFreeMessageScreen() {
 
   const startRecording = () => {
     if (!streamRef.current) return;
-    // VP9 priorisé pour la 4K (compression bien meilleure), fallback VP8.
-    const mime = pickMimeType();
+    const mime = pickRecorderMimeType();
     const videoBitsPerSecond = VIDEO_BITRATE_MAP[resolution];
 
     let recorder: MediaRecorder;

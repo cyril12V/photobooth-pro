@@ -239,10 +239,10 @@ export function VideoSettings() {
                 Source actuelle : {CAPTURE_RESOLUTION_MAP[captureResolution].width}×{CAPTURE_RESOLUTION_MAP[captureResolution].height}.
               </p>
               <p className="text-neutral-400 text-xs mt-1">
-                Poids approximatif : 4K ≈ 50 MB/min, 1080p ≈ 30 MB/min, 720p ≈ 15 MB/min, 480p ≈ 8 MB/min.
+                Poids approximatif : 4K ≈ 75 MB/min, 1080p ≈ 40 MB/min, 720p ≈ 20 MB/min, 480p ≈ 10 MB/min.
               </p>
               <p className="text-neutral-400 text-xs mt-1">
-                La 4K est exigeante : ta caméra doit fournir un vrai flux 4K (Canon R6 Mark II en mode Webcam Utility, Sony Imaging Edge, GoPro, etc.) et la machine doit pouvoir l'encoder en temps réel. En cas de lag ou de fichier cassé, retombe en 1080p.
+                La 4K est exigeante : ta caméra doit fournir un vrai flux 4K (Canon R6 Mark II en mode Webcam Utility, Sony Imaging Edge, GoPro, etc.) et la machine doit pouvoir l'encoder en temps réel (processeur 4 cœurs / 8 threads minimum). En cas de lag ou de fichier cassé, retombe en 1080p.
               </p>
             </div>
 
