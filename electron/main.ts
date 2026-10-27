@@ -831,22 +831,11 @@ app.whenReady().then(async () => {
       mainWindow?.webContents.send('update:progress', { percent: p.percent });
     });
     autoUpdater.on('update-downloaded', (info) => {
-      console.log('[updater] téléchargée:', info.version);
+      // Pas de boîte de dialogue : en kiosque elle s'afficherait devant les
+      // invités et un tap redémarrerait l'app en plein évènement. La mise à
+      // jour s'installe à la fermeture de l'app (autoInstallOnAppQuit).
+      console.log('[updater] téléchargée, installée à la fermeture:', info.version);
       mainWindow?.webContents.send('update:downloaded', { version: info.version });
-      // Affiche une notif native qui propose de redémarrer
-      dialog
-        .showMessageBox(mainWindow!, {
-          type: 'info',
-          buttons: ['Redémarrer maintenant', 'Plus tard'],
-          defaultId: 0,
-          cancelId: 1,
-          title: 'Mise à jour PhotoBooth',
-          message: `Version ${info.version} prête à être installée`,
-          detail: "L'application va redémarrer pour appliquer la mise à jour.",
-        })
-        .then((r) => {
-          if (r.response === 0) autoUpdater.quitAndInstall(false, true);
-        });
     });
     autoUpdater.on('error', (err) => {
       console.error('[updater] erreur:', err);
