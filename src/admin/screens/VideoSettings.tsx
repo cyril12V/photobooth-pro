@@ -16,6 +16,69 @@ const CAPTURE_MODE_OPTIONS: Array<{ value: CaptureMode; label: string }> = [
   { value: 'both', label: 'Les deux' },
 ];
 
+/**
+ * Niveau sonore en direct du micro choisi : si la barre ne bouge pas quand on
+ * parle, ce micro n'enregistre rien (ex. l'entrée audio HDMI de la Cam Link).
+ */
+function MicLevel({ deviceId }: { deviceId: string }) {
+  const [level, setLevel] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let stopped = false;
+    let raf = 0;
+    let stream: MediaStream | null = null;
+    let ctx: AudioContext | null = null;
+    setError(null);
+    (async () => {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: deviceId ? { deviceId: { exact: deviceId } } : true,
+        });
+        if (stopped) return;
+        ctx = new AudioContext();
+        await ctx.resume();
+        const analyser = ctx.createAnalyser();
+        analyser.fftSize = 1024;
+        ctx.createMediaStreamSource(stream).connect(analyser);
+        const samples = new Float32Array(analyser.fftSize);
+        const tick = () => {
+          analyser.getFloatTimeDomainData(samples);
+          let peak = 0;
+          for (const v of samples) peak = Math.max(peak, Math.abs(v));
+          setLevel(peak);
+          raf = requestAnimationFrame(tick);
+        };
+        tick();
+      } catch {
+        if (!stopped) setError('Micro inaccessible.');
+      }
+    })();
+    return () => {
+      stopped = true;
+      cancelAnimationFrame(raf);
+      stream?.getTracks().forEach((t) => t.stop());
+      ctx?.close();
+    };
+  }, [deviceId]);
+
+  return (
+    <div className="mt-4">
+      <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-2">Niveau du micro</p>
+      <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#E8DFD0' }}>
+        <div
+          className="h-full"
+          style={{ width: `${Math.min(100, level * 140)}%`, backgroundColor: level > 0.02 ? '#2F6B3A' : '#B8A88F' }}
+        />
+      </div>
+      <p className="text-neutral-400 text-xs mt-2">
+        {error ??
+          "Parle près du micro : la barre doit bouger. Si elle reste vide, les vidéos seront sans son : choisis un autre micro (l'entrée audio de la Cam Link ne capte que le son HDMI de l'appareil)."}
+      </p>
+    </div>
+  );
+}
+
 type CompileStatus =
   | { kind: 'idle' }
   | { kind: 'running'; percent: number; stage: string }
@@ -105,7 +168,7 @@ export function VideoSettings() {
     await window.api.settings.set('video_compilation_show_event_name', compShowEventName);
     await window.api.settings.set('video_compilation_intro_duration', compIntroDuration);
 
-    setCompStatus({ kind: 'running', percent: 0, stage: 'DÃ©marrage' });
+    setCompStatus({ kind: 'running', percent: 0, stage: 'Démarrage' });
     try {
       const result = await window.api.video.compile();
       if (result.ok && result.filepath) {
@@ -169,7 +232,7 @@ export function VideoSettings() {
         <AdminCard title="Microphone">
           {micDevices.length === 0 ? (
             <p className="text-neutral-500 text-sm">
-              Aucun micro dÃ©tectÃ©. Branchez votre micro externe ou autorisez l'accÃ¨s.
+              Aucun micro détecté. Branchez votre micro externe ou autorisez l'accès.
             </p>
           ) : (
             <div className="space-y-2">
@@ -207,11 +270,12 @@ export function VideoSettings() {
                   size={18}
                   style={{ color: !micId ? '#D4B896' : '#6B5D4F' }}
                 />
-                <span className="flex-1 text-sm font-medium">Micro par dÃ©faut du systÃ¨me</span>
+                <span className="flex-1 text-sm font-medium">Micro par défaut du système</span>
                 {!micId && <MdCheck size={16} style={{ color: '#D4B896' }} />}
               </button>
             </div>
           )}
+          <MicLevel deviceId={micId} />
         </AdminCard>
 
         <AdminCard title="Qualité">
@@ -248,7 +312,7 @@ export function VideoSettings() {
 
             <div>
               <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-3">
-                DurÃ©e max message libre : {maxDuration} secondes
+                Durée max message libre : {maxDuration} secondes
               </p>
               <input
                 type="range"
@@ -263,7 +327,7 @@ export function VideoSettings() {
 
             <div>
               <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-3">
-                DurÃ©e par dÃ©faut d'une question : {defaultQuestionSec} secondes
+                Durée par défaut d'une question : {defaultQuestionSec} secondes
               </p>
               <input
                 type="range"
@@ -275,7 +339,7 @@ export function VideoSettings() {
                 className="w-full accent-neutral-900"
               />
               <p className="text-neutral-400 text-xs mt-2">
-                Cette valeur est utilisÃ©e comme valeur initiale pour les nouvelles questions.
+                Cette valeur est utilisée comme valeur initiale pour les nouvelles questions.
               </p>
             </div>
           </div>
@@ -285,13 +349,13 @@ export function VideoSettings() {
           <div className="divide-y divide-neutral-100">
             <AdminToggle
               label="Bip audio entre questions"
-              description="Discret, aide au repÃ©rage des coupes au montage"
+              description="Discret, aide au repérage des coupes au montage"
               value={beep}
               onChange={setBeep}
             />
             <AdminToggle
               label="Flash visuel entre questions"
-              description="Court Ã©clair blanc, repÃ©rable visuellement au montage"
+              description="Court éclair blanc, repérable visuellement au montage"
               value={flash}
               onChange={setFlash}
             />
@@ -303,7 +367,7 @@ export function VideoSettings() {
             <div className="divide-y divide-neutral-100">
               <AdminToggle
                 label="Activer la compilation"
-                description="Permet de gÃ©nÃ©rer une vidÃ©o unique regroupant toutes les interviews"
+                description="Permet de générer une vidéo unique regroupant toutes les interviews"
                 value={compEnabled}
                 onChange={setCompEnabled}
               />
@@ -315,13 +379,13 @@ export function VideoSettings() {
               />
               <AdminToggle
                 label="Afficher le logo"
-                description="Logo de l'Ã©vÃ¨nement en haut Ã  droite"
+                description="Logo de l'évènement en haut à droite"
                 value={compShowLogo}
                 onChange={setCompShowLogo}
               />
               <AdminToggle
-                label="Afficher le nom des mariÃ©s"
-                description="Nom de l'Ã©vÃ¨nement en bas Ã  gauche"
+                label="Afficher le nom des mariés"
+                description="Nom de l'évènement en bas à gauche"
                 value={compShowEventName}
                 onChange={setCompShowEventName}
               />
@@ -329,7 +393,7 @@ export function VideoSettings() {
 
             <div>
               <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-3">
-                DurÃ©e de l'intro : {compIntroDuration} seconde{compIntroDuration > 1 ? 's' : ''}
+                Durée de l'intro : {compIntroDuration} seconde{compIntroDuration > 1 ? 's' : ''}
               </p>
               <input
                 type="range"
@@ -341,7 +405,7 @@ export function VideoSettings() {
                 className="w-full accent-neutral-900"
               />
               <p className="text-neutral-400 text-xs mt-2">
-                Carton d'intro avec le nom des mariÃ©s et la date.
+                Carton d'intro avec le nom des mariés et la date.
               </p>
             </div>
 
@@ -355,7 +419,7 @@ export function VideoSettings() {
               >
                 {compStatus.kind === 'running'
                   ? `Compilation en coursâ€¦ ${compStatus.percent}%`
-                  : 'GÃ©nÃ©rer la compilation maintenant'}
+                  : 'Générer la compilation maintenant'}
               </Button>
 
               {compStatus.kind === 'running' && (
@@ -376,7 +440,7 @@ export function VideoSettings() {
               {compStatus.kind === 'done' && (
                 <div className="mt-3 p-3 rounded-xl bg-emerald-50 border border-emerald-200">
                   <p className="text-emerald-800 text-sm font-medium">
-                    Compilation gÃ©nÃ©rÃ©e avec succÃ¨s
+                    Compilation générée avec succès
                   </p>
                   <p className="text-emerald-700 text-xs mt-1 break-all">
                     {compStatus.filepath}
@@ -394,7 +458,7 @@ export function VideoSettings() {
               {compStatus.kind === 'error' && (
                 <div className="mt-3 p-3 rounded-xl bg-red-50 border border-red-200">
                   <p className="text-red-800 text-sm font-medium">
-                    Ã‰chec de la compilation
+                    Échec de la compilation
                   </p>
                   <p className="text-red-700 text-xs mt-1">{compStatus.message}</p>
                 </div>
@@ -409,7 +473,7 @@ export function VideoSettings() {
           icon={saved ? <MdCheck size={20} /> : undefined}
           fullWidth
         >
-          {saved ? 'EnregistrÃ©' : 'Enregistrer'}
+          {saved ? 'Enregistré' : 'Enregistrer'}
         </Button>
       </div>
     </>
