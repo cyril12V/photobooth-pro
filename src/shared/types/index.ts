@@ -320,6 +320,10 @@ declare global {
         copyText: (text: string) => Promise<{ ok: boolean }>;
         version: () => Promise<string>;
       };
+      update: {
+        status: () => Promise<{ version: string; ready: string | null }>;
+        install: () => Promise<{ ok: boolean }>;
+      };
     };
   }
 }

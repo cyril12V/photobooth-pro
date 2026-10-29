@@ -873,6 +873,13 @@ app.whenReady().then(async () => {
   await createWindow();
 
   // ─── Auto-update (uniquement en production, packagé) ─────────────────────
+  const launchedAt = Date.now();
+  let updateReady: string | null = null;
+  ipcMain.handle('update:status', () => ({ version: app.getVersion(), ready: updateReady }));
+  ipcMain.handle('update:install', () => {
+    if (updateReady) autoUpdater.quitAndInstall(true, true);
+    return { ok: !!updateReady };
+  });
   if (app.isPackaged) {
     autoUpdater.autoDownload = true;
     autoUpdater.autoInstallOnAppQuit = true;
@@ -890,10 +897,18 @@ app.whenReady().then(async () => {
     });
     autoUpdater.on('update-downloaded', (info) => {
       // Pas de boîte de dialogue : en kiosque elle s'afficherait devant les
-      // invités et un tap redémarrerait l'app en plein évènement. La mise à
-      // jour s'installe à la fermeture de l'app (autoInstallOnAppQuit).
-      console.log('[updater] téléchargée, installée à la fermeture:', info.version);
+      // invités et un tap redémarrerait l'app en plein évènement.
+      updateReady = info.version;
       mainWindow?.webContents.send('update:downloaded', { version: info.version });
+      // Prête juste après le lancement : personne n'utilise encore la borne, on
+      // installe et on relance tout de suite. Sans ça, un PC éteint sans fermer
+      // l'app ne recevait jamais la mise à jour. Sinon : à la fermeture ou via l'admin.
+      if (Date.now() - launchedAt < 90_000) {
+        console.log('[updater] installée au démarrage:', info.version);
+        setImmediate(() => autoUpdater.quitAndInstall(true, true));
+      } else {
+        console.log('[updater] téléchargée, installée à la fermeture:', info.version);
+      }
     });
     autoUpdater.on('error', (err) => {
       console.error('[updater] erreur:', err);

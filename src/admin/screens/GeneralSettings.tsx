@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { MdCheck, MdCloud, MdKey, MdPowerSettingsNew, MdSave } from 'react-icons/md';
+import { useEffect, useState } from 'react';
+import { MdCheck, MdCloud, MdKey, MdPowerSettingsNew, MdSave, MdSystemUpdateAlt } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { AdminCard, AdminPageHeader, AdminToggle } from '../components/AdminUI';
 import { Button } from '@shared/components/Button';
@@ -28,6 +28,11 @@ export function GeneralSettings() {
   const [cloudVpsApiKey, setCloudVpsApiKey] = useState(settings?.cloud_vps_api_key ?? '');
   const [cloudTest, setCloudTest] = useState<CloudTestState>({ kind: 'idle' });
   const [saved, setSaved] = useState(false);
+  const [update, setUpdate] = useState<{ version: string; ready: string | null } | null>(null);
+
+  useEffect(() => {
+    window.api.update.status().then(setUpdate);
+  }, []);
 
   const [oldPw, setOldPw] = useState('');
   const [newPw, setNewPw] = useState('');
@@ -343,6 +348,30 @@ export function GeneralSettings() {
 
         {/* ─── Application ─────────────────────────────────────────────── */}
         <AdminCard title="Application" description="Gestion globale">
+          {update && (
+            <div className="mb-4">
+              <p style={{ color: '#1A1A1A', fontFamily: 'Inter, sans-serif', fontSize: '0.875rem', fontWeight: 600 }}>
+                Version installée : {update.version}
+              </p>
+              {update.ready ? (
+                <div className="mt-3">
+                  <Button
+                    variant="primary"
+                    size="md"
+                    onClick={() => window.api.update.install()}
+                    icon={<MdSystemUpdateAlt size={20} />}
+                    fullWidth
+                  >
+                    Installer la version {update.ready} et redémarrer
+                  </Button>
+                </div>
+              ) : (
+                <p style={{ color: '#6B5D4F', fontFamily: 'Inter, sans-serif', fontSize: '0.75rem' }}>
+                  Les mises à jour se téléchargent seules et s'installent au prochain démarrage de l'app.
+                </p>
+              )}
+            </div>
+          )}
           <Button
             variant="danger"
             size="md"

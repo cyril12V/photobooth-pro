@@ -119,4 +119,9 @@ contextBridge.exposeInMainWorld('api', {
     copyText: (text: string) => ipcRenderer.invoke('app:copyText', text),
     version: () => ipcRenderer.invoke('app:version'),
   },
+  // Mises à jour automatiques (GitHub Releases)
+  update: {
+    status: () => ipcRenderer.invoke('update:status'),
+    install: () => ipcRenderer.invoke('update:install'),
+  },
 });
