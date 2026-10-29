@@ -22,7 +22,8 @@ export function CaptureScreen() {
   const [streamReady, setStreamReady] = useState(false);
 
   // Données du template actif (ratio + nombre de slots)
-  const [templateRatio, setTemplateRatio] = useState<{ w: number; h: number }>({ w: 1200, h: 1800 });
+  // null = aucun template : la photo garde le cadrage de la caméra (horizontal en général).
+  const [templateRatio, setTemplateRatio] = useState<{ w: number; h: number } | null>(null);
   const [totalSlots, setTotalSlots] = useState(1);
   const [capturedCount, setCapturedCount] = useState(0);
   // Ref pour lire capturedCount synchroniquement dans les callbacks
@@ -159,8 +160,10 @@ export function CaptureScreen() {
 
   // ─── Recadre une image source au ratio du template ─────────────────────
   const cropToTemplate = useCallback((source: CanvasImageSource, vw: number, vh: number, mirror: boolean) => {
-    const targetW = templateRatio.w;
-    const targetH = templateRatio.h;
+    // Sans template : image entière, côté long limité à 2400 px (assez pour un tirage 10×15).
+    const scale = templateRatio ? 1 : Math.min(1, 2400 / Math.max(vw, vh));
+    const targetW = templateRatio ? templateRatio.w : Math.round(vw * scale);
+    const targetH = templateRatio ? templateRatio.h : Math.round(vh * scale);
     const targetRatioVal = targetW / targetH;
     const videoRatio = vw / vh;
 
@@ -293,7 +296,7 @@ export function CaptureScreen() {
     return () => clearTimeout(t);
   }, [countdown, runCapture, soundsOn]);
 
-  const aspectRatioString = `${templateRatio.w} / ${templateRatio.h}`;
+  const aspectRatioString = templateRatio ? `${templateRatio.w} / ${templateRatio.h}` : '';
   const currentPose = selectedPoses[capturedCount] ?? selectedPose;
 
   return (
@@ -431,8 +434,8 @@ export function CaptureScreen() {
         </div>
       )}
 
-      {/* Guide de recadrage — cadre éditorial fin doré */}
-      {ready && !error && (
+      {/* Guide de recadrage — cadre éditorial fin doré (seulement avec un template) */}
+      {ready && !error && templateRatio && (
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
           <div
             className="relative h-[86vh]"

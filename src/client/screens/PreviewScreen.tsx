@@ -28,11 +28,20 @@ export function PreviewScreen() {
     ? currentPhotoDataUrls
     : currentPhotoDataUrl ? [currentPhotoDataUrl] : [];
   const isMulti = photos.length > 1;
+  // Format réel des clichés (horizontal ou vertical) pour les vignettes multi-photos.
+  const [ratio, setRatio] = useState('3 / 4');
 
   useEffect(() => {
     if (photos.length === 0) setScreen('home');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (!photos[0]) return;
+    const img = new Image();
+    img.onload = () => setRatio(`${img.naturalWidth} / ${img.naturalHeight}`);
+    img.src = photos[0];
+  }, [photos[0]]);
 
   if (photos.length === 0) return null;
 
@@ -114,7 +123,7 @@ export function PreviewScreen() {
                     style={{
                       borderRadius: '4px',
                       boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
-                      aspectRatio: '3/4',
+                      aspectRatio: ratio,
                     }}
                   >
                     <img
@@ -130,20 +139,21 @@ export function PreviewScreen() {
                 initial={{ opacity: 0, scale: 0.97 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: 0.3, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                className="relative"
-                style={{ aspectRatio: '3/4', maxHeight: '60vh' }}
+                className="relative max-w-full"
               >
                 <div
-                  className="overflow-hidden h-full"
+                  className="overflow-hidden"
                   style={{
                     borderRadius: '4px',
                     boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
                   }}
                 >
+                  {/* Photo entière, dans son vrai format (horizontal ou vertical). */}
                   <img
                     src={photos[0]}
                     alt="Aperçu"
-                    className="w-full h-full object-cover photo-warm"
+                    className="block photo-warm"
+                    style={{ maxHeight: '60vh', maxWidth: '100%' }}
                   />
                 </div>
               </motion.div>
