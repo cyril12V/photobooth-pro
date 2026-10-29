@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, clipboard } from 'electron';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import path from 'node:path';
 import fsNative from 'node:fs';
 import fs from 'node:fs/promises';
@@ -108,6 +108,34 @@ function installUpdateAndRelaunch() {
     windowsHide: true,
   }).unref();
   autoUpdater.quitAndInstall(true, true);
+}
+
+/**
+ * Ce que Windows voit des appareils Canon en USB (identifiant fabricant 04A9) et
+ * les logiciels Canon ouverts, qui peuvent monopoliser l'appareil.
+ */
+function windowsCanonCheck(): Promise<{
+  usb: Array<{ name: string; kind: string; status: string }>;
+  canonApps: string[];
+  error?: string;
+}> {
+  const script = [
+    "$usb = @(Get-PnpDevice -PresentOnly -ErrorAction SilentlyContinue | Where-Object { $_.InstanceId -match 'VID_04A9' } | ForEach-Object { [pscustomobject]@{ name = $_.FriendlyName; kind = $_.Class; status = [string]$_.Status } })",
+    "$procs = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -match 'EOS|Canon' } | Select-Object -ExpandProperty ProcessName -Unique)",
+    "$services = @(Get-Service -ErrorAction SilentlyContinue | Where-Object { $_.Status -eq 'Running' -and $_.DisplayName -match 'EOS|Canon' } | Select-Object -ExpandProperty DisplayName)",
+    '[pscustomobject]@{ usb = $usb; canonApps = @($procs + $services) } | ConvertTo-Json -Depth 3 -Compress',
+  ].join('; ');
+  return new Promise((resolve) => {
+    execFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { windowsHide: true, timeout: 20_000 }, (err, stdout) => {
+      try {
+        const j = JSON.parse(String(stdout));
+        // PowerShell renvoie un objet seul au lieu d'un tableau d'un élément.
+        resolve({ usb: [j.usb ?? []].flat(), canonApps: [j.canonApps ?? []].flat() });
+      } catch {
+        resolve({ usb: [], canonApps: [], error: err?.message ?? 'diagnostic Windows indisponible' });
+      }
+    });
+  });
 }
 
 /** Les erreurs Canon arrivent au renderer comme valeur, pas comme exception IPC. */
@@ -817,6 +845,7 @@ function registerIpcHandlers() {
     ),
   );
   ipcMain.handle('canon:logs', () => canonService.recentLogs());
+  ipcMain.handle('canon:windowsCheck', () => windowsCanonCheck());
 
   // ── Sélecteur fichier (admin) ─────────────────
   ipcMain.handle('dialog:openImage', async () => {

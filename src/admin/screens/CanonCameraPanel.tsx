@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { MdCameraAlt, MdContentCopy, MdLink, MdLinkOff, MdRefresh, MdVisibility } from 'react-icons/md';
 import { Button } from '@shared/components/Button';
 import { CanonLiveView } from '@shared/components/CanonLiveView';
-import type { CanonCapture, CanonResult, CanonStatus } from '@shared/types';
+import type { CanonCapture, CanonResult, CanonStatus, CanonWindowsCheck } from '@shared/types';
 import { AdminCard } from '../components/AdminUI';
 
 const text: React.CSSProperties = { color: '#6B5D4F', fontFamily: 'Inter, sans-serif', fontSize: '0.8125rem', lineHeight: 1.6 };
@@ -68,6 +68,45 @@ async function measureVideoFeed<T>(deviceId: string, run: () => Promise<T>): Pro
   }
 }
 
+/** Explique pourquoi le SDK ne trouve pas l'appareil, d'après ce que Windows voit en USB. */
+function WindowsDiagnosis({ check }: { check: CanonWindowsCheck }) {
+  const item = (t: string) => <li>{t}</li>;
+  return (
+    <div style={box}>
+      <p style={strong}>Diagnostic</p>
+      {check.error ? (
+        <p style={text}>Diagnostic Windows impossible : {check.error}</p>
+      ) : check.usb.length === 0 ? (
+        <>
+          <p style={{ ...text, color: '#9B2C2C', fontWeight: 600 }}>Windows ne voit aucun appareil Canon branché en USB.</p>
+          <ul className="list-disc pl-5" style={text}>
+            {item("L'appareil est-il allumé ?")}
+            {item('Le câble USB-C transmet-il les données ? Beaucoup de câbles ne font que charger : essaie celui fourni avec l’appareil.')}
+            {item('Branche-le directement sur le PC, sans hub ni rallonge.')}
+          </ul>
+        </>
+      ) : (
+        <>
+          <p style={text}>
+            Windows voit : {check.usb.map((d) => `${d.name} (${d.kind}, ${d.status})`).join(' · ')}
+          </p>
+          <p style={{ ...text, color: '#9B2C2C', fontWeight: 600 }}>… mais le SDK Canon ne peut pas s'y connecter :</p>
+          <ul className="list-disc pl-5" style={text}>
+            {item("Désactive le Wi-Fi et le Bluetooth de l'appareil (mode avion) : tant qu'ils sont actifs, il refuse la connexion USB à un logiciel.")}
+            {item('Ferme EOS Utility, EOS Webcam Utility et l’import de photos de Windows.')}
+            {item('Débranche puis rebranche le câble, attends 5 secondes et clique sur « Détecter ».')}
+          </ul>
+        </>
+      )}
+      {check.canonApps.length > 0 && (
+        <p className="mt-2" style={{ ...text, color: '#9B2C2C', fontWeight: 600 }}>
+          Logiciels Canon ouverts : {check.canonApps.join(', ')}. Ferme-les, y compris près de l'horloge Windows.
+        </p>
+      )}
+    </div>
+  );
+}
+
 /** Réglages et tests de l'appareil Canon branché en USB (pilotage EDSDK). */
 export function CanonCameraPanel({ videoDeviceId }: { videoDeviceId: string }) {
   const [status, setStatus] = useState<CanonStatus | null>(null);
@@ -75,6 +114,7 @@ export function CanonCameraPanel({ videoDeviceId }: { videoDeviceId: string }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [preview, setPreview] = useState(false);
   const [photoTest, setPhotoTest] = useState<PhotoTest | null>(null);
+  const [winCheck, setWinCheck] = useState<CanonWindowsCheck | null>(null);
   const [logs, setLogs] = useState<string[]>([]);
   const [copied, setCopied] = useState(false);
   const previewRef = useRef(false);
@@ -100,8 +140,19 @@ export function CanonCameraPanel({ videoDeviceId }: { videoDeviceId: string }) {
     }
   };
 
-  const detect = () => run('detect', async () => applyStatus(await window.api.canon.status()));
-  const connect = () => run('connect', async () => applyStatus(await window.api.canon.connect()));
+  const detect = () =>
+    run('detect', async () => {
+      const r = await window.api.canon.status();
+      applyStatus(r);
+      const missing = !r.ok || (!r.result.connected && r.result.cameras.length === 0);
+      setWinCheck(missing ? await window.api.canon.windowsCheck() : null);
+    });
+  const connect = () =>
+    run('connect', async () => {
+      const r = await window.api.canon.connect();
+      applyStatus(r);
+      setWinCheck(r.ok ? null : await window.api.canon.windowsCheck());
+    });
   const disconnect = () =>
     run('disconnect', async () => {
       setPreview(false);
@@ -137,6 +188,7 @@ export function CanonCameraPanel({ videoDeviceId }: { videoDeviceId: string }) {
       date: new Date().toISOString(),
       status: status ?? statusError,
       videoDevice: videoDeviceId || null,
+      windows: winCheck ?? (await window.api.canon.windowsCheck()),
       photoTest,
       logs: await window.api.canon.logs(),
     };
@@ -171,8 +223,9 @@ export function CanonCameraPanel({ videoDeviceId }: { videoDeviceId: string }) {
       <div className="space-y-5">
         <div style={box}>
           <p style={text}>
-            Photos : branche l'appareil (EOS R50…) en USB-C et allume-le. Ferme EOS Utility et EOS Webcam Utility,
-            désactive l'arrêt automatique et mets la molette sur un mode photo (P, Av ou M).
+            Photos : branche l'appareil (EOS R50…) en USB-C et allume-le. Désactive son Wi-Fi et son Bluetooth
+            (mode avion), ferme EOS Utility et EOS Webcam Utility, désactive l'arrêt automatique et mets la molette
+            sur un mode photo (P, Av ou M).
             <br />
             Vidéo : la Cam Link (HDMI) reste la caméra sélectionnée plus bas. Règle l'affichage HDMI de l'appareil
             « sans informations », sinon les réglages apparaissent à l'image.
@@ -213,6 +266,8 @@ export function CanonCameraPanel({ videoDeviceId }: { videoDeviceId: string }) {
             )}
           </div>
         </div>
+
+        {!connected && winCheck && <WindowsDiagnosis check={winCheck} />}
 
         {connected && (
           <>

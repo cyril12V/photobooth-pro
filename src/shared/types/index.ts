@@ -312,6 +312,7 @@ declare global {
         liveview: (on: boolean) => Promise<CanonResult<CanonStatus>>;
         capture: () => Promise<CanonResult<CanonCapture>>;
         logs: () => Promise<string[]>;
+        windowsCheck: () => Promise<CanonWindowsCheck>;
         onFrame: (cb: (jpeg: Uint8Array) => void) => () => void;
         onState: (cb: (state: { connected: boolean; model?: string }) => void) => () => void;
       };
@@ -339,6 +340,12 @@ export interface CanonStatus {
   model?: string;
   battery?: number;
   liveview: boolean;
+}
+
+export interface CanonWindowsCheck {
+  usb: Array<{ name: string; kind: string; status: string }>;
+  canonApps: string[];
+  error?: string;
 }
 
 export interface CanonCapture {

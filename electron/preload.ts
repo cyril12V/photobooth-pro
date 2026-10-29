@@ -98,6 +98,7 @@ contextBridge.exposeInMainWorld('api', {
     liveview: (on: boolean) => ipcRenderer.invoke('canon:liveview', on),
     capture: () => ipcRenderer.invoke('canon:capture'),
     logs: () => ipcRenderer.invoke('canon:logs'),
+    windowsCheck: () => ipcRenderer.invoke('canon:windowsCheck'),
     onFrame: (cb: (jpeg: Uint8Array) => void) => {
       const listener = (_e: Electron.IpcRendererEvent, data: Uint8Array) => cb(data);
       ipcRenderer.on('canon:frame', listener);
