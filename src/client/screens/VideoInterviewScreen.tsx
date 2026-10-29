@@ -73,6 +73,8 @@ export function VideoInterviewScreen() {
     let cancelled = false;
     (async () => {
       try {
+        // Libère l'appareil Canon piloté en USB pour les photos : la vidéo passe par la caméra sélectionnée.
+        if (settings?.capture_source === 'canon') await window.api.canon.disconnect();
         const stream = await navigator.mediaDevices.getUserMedia({
           video: buildVideoTrackConstraints(resolution, settings?.camera_device_id),
           audio: settings?.microphone_device_id

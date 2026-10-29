@@ -8,7 +8,8 @@ export default defineConfig({
     react(),
     electron({
       main: {
-        entry: 'electron/main.ts',
+        // canonWorker : process utilitaire qui pilote l'appareil Canon (EDSDK).
+        entry: { main: 'electron/main.ts', canonWorker: 'electron/canon/worker.ts' },
         vite: {
           build: {
             rollupOptions: {
@@ -20,6 +21,7 @@ export default defineConfig({
                 'nodemailer',
                 'ffmpeg-static',
                 'fluent-ffmpeg',
+                'koffi',
                 /^node:.*/,
               ],
             },

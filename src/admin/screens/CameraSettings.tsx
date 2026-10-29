@@ -9,6 +9,18 @@ import {
 import { useAppStore } from '@shared/store';
 import { AdminCard, AdminPageHeader, AdminToggle } from '../components/AdminUI';
 import { Button } from '@shared/components/Button';
+import type { AppSettings } from '@shared/types';
+import { CanonCameraPanel } from './CanonCameraPanel';
+
+const CAPTURE_SOURCES: Array<{ id: AppSettings['capture_source']; label: string; description: string }> = [
+  { id: 'webcam', label: 'Webcam / flux vidéo', description: "La photo est une image tirée du flux de la caméra sélectionnée ci-dessous." },
+  { id: 'canon', label: 'Appareil Canon (USB)', description: "L'app déclenche l'appareil et récupère la vraie photo en pleine résolution." },
+];
+
+const CANON_PREVIEWS: Array<{ id: AppSettings['canon_preview']; label: string; description: string }> = [
+  { id: 'video', label: 'Caméra vidéo sélectionnée', description: 'Aperçu fluide depuis la Cam Link (HDMI), comme pour la vidéo.' },
+  { id: 'usb', label: "Aperçu USB de l'appareil", description: "Moins défini, mais n'a besoin que du câble USB." },
+];
 
 export function CameraSettings() {
   const { settings, setSettings } = useAppStore();
@@ -19,6 +31,12 @@ export function CameraSettings() {
   const [countdown, setCountdown] = useState(settings?.countdown_seconds ?? 3);
   const [photoResolution, setPhotoResolution] = useState<CaptureResolution>(
     settings?.photo_resolution ?? '1080p',
+  );
+  const [captureSource, setCaptureSource] = useState<AppSettings['capture_source']>(
+    settings?.capture_source ?? 'webcam',
+  );
+  const [canonPreview, setCanonPreview] = useState<AppSettings['canon_preview']>(
+    settings?.canon_preview ?? 'video',
   );
   const [saved, setSaved] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -74,6 +92,8 @@ export function CameraSettings() {
     await window.api.settings.set('sound_enabled', soundEnabled);
     await window.api.settings.set('countdown_seconds', countdown);
     await window.api.settings.set('photo_resolution', photoResolution);
+    await window.api.settings.set('capture_source', captureSource);
+    await window.api.settings.set('canon_preview', canonPreview);
     const newSettings = await window.api.settings.get();
     setSettings(newSettings);
     setSaved(true);
@@ -88,6 +108,65 @@ export function CameraSettings() {
       />
 
       <div className="space-y-4">
+        <AdminCard title="Source des photos">
+          <div className="grid grid-cols-2 gap-3">
+            {CAPTURE_SOURCES.map((source) => (
+              <button
+                key={source.id}
+                onClick={() => setCaptureSource(source.id)}
+                className="p-4 text-left transition-colors"
+                style={{
+                  backgroundColor: captureSource === source.id ? '#1A1A1A' : '#F4ECDD',
+                  color: captureSource === source.id ? '#FAF6EE' : '#1A1A1A',
+                  border: '1px solid rgba(212, 184, 150, 0.3)',
+                  borderRadius: '4px',
+                  fontFamily: 'Inter, sans-serif',
+                  cursor: 'pointer',
+                }}
+              >
+                <span className="block text-sm font-medium">{source.label}</span>
+                <span className="block mt-1" style={{ fontSize: '0.75rem', opacity: 0.75 }}>
+                  {source.description}
+                </span>
+              </button>
+            ))}
+          </div>
+          {captureSource === 'canon' && (
+            <>
+              <p className="label-editorial mt-5 mb-3" style={{ color: '#6B5D4F' }}>
+                Aperçu pendant la photo
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                {CANON_PREVIEWS.map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setCanonPreview(p.id)}
+                    className="p-4 text-left transition-colors"
+                    style={{
+                      backgroundColor: canonPreview === p.id ? '#1A1A1A' : '#F4ECDD',
+                      color: canonPreview === p.id ? '#FAF6EE' : '#1A1A1A',
+                      border: '1px solid rgba(212, 184, 150, 0.3)',
+                      borderRadius: '4px',
+                      fontFamily: 'Inter, sans-serif',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    <span className="block text-sm font-medium">{p.label}</span>
+                    <span className="block mt-1" style={{ fontSize: '0.75rem', opacity: 0.75 }}>
+                      {p.description}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+          <p className="mt-3" style={{ color: '#6B5D4F', fontFamily: 'Inter, sans-serif', fontSize: '0.75rem' }}>
+            Les vidéos utilisent toujours la caméra sélectionnée plus bas (Cam Link). N'oublie pas « Enregistrer ».
+          </p>
+        </AdminCard>
+
+        {captureSource === 'canon' && <CanonCameraPanel videoDeviceId={selectedId} />}
+
         <AdminCard title="Sélection caméra">
           {devices.length === 0 ? (
             <p style={{ color: '#6B5D4F', fontFamily: 'Inter, sans-serif', fontSize: '0.875rem' }}>Aucune caméra détectée. Branchez votre webcam ou reflex.</p>

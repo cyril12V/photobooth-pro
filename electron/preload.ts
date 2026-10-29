@@ -90,8 +90,33 @@ contextBridge.exposeInMainWorld('api', {
     info: () => ipcRenderer.invoke('share:info'),
     restart: () => ipcRenderer.invoke('share:restart'),
   },
+  // Appareil Canon en USB (EDSDK)
+  canon: {
+    status: () => ipcRenderer.invoke('canon:status'),
+    connect: () => ipcRenderer.invoke('canon:connect'),
+    disconnect: () => ipcRenderer.invoke('canon:disconnect'),
+    liveview: (on: boolean) => ipcRenderer.invoke('canon:liveview', on),
+    capture: () => ipcRenderer.invoke('canon:capture'),
+    logs: () => ipcRenderer.invoke('canon:logs'),
+    onFrame: (cb: (jpeg: Uint8Array) => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, data: Uint8Array) => cb(data);
+      ipcRenderer.on('canon:frame', listener);
+      return () => {
+        ipcRenderer.removeListener('canon:frame', listener);
+      };
+    },
+    onState: (cb: (state: { connected: boolean; model?: string }) => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, state: { connected: boolean; model?: string }) => cb(state);
+      ipcRenderer.on('canon:state', listener);
+      return () => {
+        ipcRenderer.removeListener('canon:state', listener);
+      };
+    },
+  },
   // App
   app: {
     quit: () => ipcRenderer.invoke('app:quit'),
+    copyText: (text: string) => ipcRenderer.invoke('app:copyText', text),
+    version: () => ipcRenderer.invoke('app:version'),
   },
 });

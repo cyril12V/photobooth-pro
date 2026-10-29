@@ -146,6 +146,8 @@ export async function initDatabase() {
     decor_style: 'floral',
     decor_custom_path: null,
     photo_resolution: legacyVideoResolution,
+    capture_source: 'webcam',
+    canon_preview: 'video',
     // ─── VideoBooth ─────────────────────────────────────────────────────────
     video_enabled: true,
     capture_mode: legacyCaptureMode,

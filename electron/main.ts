@@ -1,8 +1,11 @@
-import { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, clipboard } from 'electron';
 import path from 'node:path';
 import fsNative from 'node:fs';
 import fs from 'node:fs/promises';
+import { pathToFileURL } from 'node:url';
 import { autoUpdater } from 'electron-updater';
+import { canonService } from './canon/service';
+import type { CanonCaptureResult, CanonStatus } from './canon/protocol';
 import { initDatabase, db } from './database';
 import { handlePrint, listPrinters } from './printer';
 import { shareServer } from './shareServer';
@@ -70,6 +73,15 @@ function msToHms(ms: number): string {
   const s = totalSec % 60;
   const msPart = String(ms % 1000).padStart(3, '0');
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${msPart}`;
+}
+
+/** Les erreurs Canon arrivent au renderer comme valeur, pas comme exception IPC. */
+async function canonCall<T>(p: Promise<T>): Promise<{ ok: true; result: T } | { ok: false; error: string }> {
+  try {
+    return { ok: true, result: await p };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 /** Retourne le dossier racine d'un évènement (créé si absent + README). */
@@ -730,6 +742,47 @@ function registerIpcHandlers() {
     return handlePrint(mainWindow, { filepath, copies, printerName, paperFormat, preview });
   });
 
+  // ── Appareil Canon en USB (EDSDK, process séparé) ─────
+  ipcMain.handle('canon:status', (e) => {
+    canonService.watchState(e.sender);
+    return canonCall(canonService.request<CanonStatus>({ cmd: 'status' }));
+  });
+  ipcMain.handle('canon:connect', (e) => {
+    canonService.watchState(e.sender);
+    return canonCall(canonService.request<CanonStatus>({ cmd: 'connect' }));
+  });
+  ipcMain.handle('canon:disconnect', () => {
+    canonService.setFrameTarget(null);
+    return canonCall(canonService.request<CanonStatus>({ cmd: 'disconnect' }));
+  });
+  ipcMain.handle('canon:liveview', (e, on: boolean) => {
+    canonService.setFrameTarget(on ? e.sender : null);
+    return canonCall(canonService.request<CanonStatus>({ cmd: 'liveview', on }));
+  });
+  ipcMain.handle('canon:capture', () =>
+    canonCall(
+      (async () => {
+        const shot = await canonService.request<CanonCaptureResult>(
+          { cmd: 'capture', dir: path.join(app.getPath('temp'), 'photobooth-canon') },
+          30_000,
+        );
+        // L'original pleine résolution est gardé dans le dossier de l'évènement.
+        let filepath = shot.path;
+        const event: any = db.prepare('SELECT * FROM events WHERE active = 1 LIMIT 1').get();
+        if (event) {
+          const dir = path.join(await ensureEventFolder(event), 'Originaux');
+          await fs.mkdir(dir, { recursive: true });
+          const ts = new Date().toISOString().replace(/[:.]/g, '-');
+          filepath = path.join(dir, `${ts}_${shot.name}`);
+          await fs.copyFile(shot.path, filepath);
+          await fs.unlink(shot.path).catch(() => {});
+        }
+        return { ...shot, path: filepath, url: pathToFileURL(filepath).href };
+      })(),
+    ),
+  );
+  ipcMain.handle('canon:logs', () => canonService.recentLogs());
+
   // ── Sélecteur fichier (admin) ─────────────────
   ipcMain.handle('dialog:openImage', async () => {
     if (!mainWindow) return null;
@@ -791,6 +844,11 @@ function registerIpcHandlers() {
   ipcMain.handle('app:quit', () => {
     app.quit();
   });
+  ipcMain.handle('app:copyText', (_e, text: string) => {
+    clipboard.writeText(text);
+    return { ok: true };
+  });
+  ipcMain.handle('app:version', () => app.getVersion());
 }
 
 // ─── Lancement ──────────────────────────────────────────────────────────────
@@ -856,6 +914,16 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   shareServer.stop();
   if (process.platform !== 'darwin') app.quit();
+});
+
+// Ferme proprement la session Canon avant de quitter (sinon l'appareil peut
+// rester en mode « piloté par PC », écran éteint, jusqu'à ce qu'on le rallume).
+let canonClosed = false;
+app.on('before-quit', (e) => {
+  if (canonClosed) return;
+  e.preventDefault();
+  canonClosed = true;
+  Promise.race([canonService.shutdown(), new Promise((r) => setTimeout(r, 3000))]).finally(() => app.quit());
 });
 
 app.on('will-quit', () => {

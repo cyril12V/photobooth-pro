@@ -183,6 +183,10 @@ export interface AppSettings {
   decor_style: DecorStyle;
   decor_custom_path: string | null;
   photo_resolution: '4k' | '1080p' | '720p' | '480p';
+  // 'webcam' : image tirée du flux vidéo ; 'canon' : vraie photo déclenchée sur l'appareil en USB
+  capture_source: 'webcam' | 'canon';
+  // Mode Canon : aperçu tiré de la caméra vidéo sélectionnée (Cam Link HDMI) ou du LiveView USB
+  canon_preview: 'video' | 'usb';
   // VideoBooth
   video_enabled: boolean;
   capture_mode: 'photo' | 'video' | 'both';
@@ -301,9 +305,43 @@ declare global {
           error?: string;
         }>;
       };
+      canon: {
+        status: () => Promise<CanonResult<CanonStatus>>;
+        connect: () => Promise<CanonResult<CanonStatus>>;
+        disconnect: () => Promise<CanonResult<CanonStatus>>;
+        liveview: (on: boolean) => Promise<CanonResult<CanonStatus>>;
+        capture: () => Promise<CanonResult<CanonCapture>>;
+        logs: () => Promise<string[]>;
+        onFrame: (cb: (jpeg: Uint8Array) => void) => () => void;
+        onState: (cb: (state: { connected: boolean; model?: string }) => void) => () => void;
+      };
       app: {
         quit: () => Promise<void>;
+        copyText: (text: string) => Promise<{ ok: boolean }>;
+        version: () => Promise<string>;
       };
     };
   }
+}
+
+// ─── Appareil Canon (USB) ─────────────────────────────────────────────────
+export type CanonResult<T> = { ok: true; result: T } | { ok: false; error: string };
+
+export interface CanonStatus {
+  sdkLoaded: boolean;
+  sdkError?: string;
+  cameras: string[];
+  connected: boolean;
+  model?: string;
+  battery?: number;
+  liveview: boolean;
+}
+
+export interface CanonCapture {
+  path: string;
+  url: string;
+  name: string;
+  bytes: number;
+  ms: number;
+  afFallback: boolean;
 }

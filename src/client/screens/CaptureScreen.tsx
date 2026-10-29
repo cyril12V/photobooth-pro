@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MdArrowBack, MdErrorOutline } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
+import { CanonLiveView } from '@shared/components/CanonLiveView';
 import { sounds } from '@shared/lib/sounds';
 import { poseSrc } from '@shared/lib/poseAssets';
 import {
@@ -30,6 +31,29 @@ export function CaptureScreen() {
   const countdownDuration = settings?.countdown_seconds ?? 3;
   const soundsOn = settings?.sound_enabled ?? true;
   const flashOn = settings?.flash_enabled ?? true;
+  // Appareil Canon en USB : vraie photo déclenchée sur l'appareil. L'aperçu vient
+  // de la caméra vidéo sélectionnée (Cam Link HDMI) ou du LiveView USB de l'appareil.
+  const canonMode = settings?.capture_source === 'canon';
+  const usbPreview = canonMode && settings?.canon_preview === 'usb';
+  const [canonConnected, setCanonConnected] = useState(false);
+  const ready = streamReady && (!canonMode || canonConnected);
+  const [capturing, setCapturing] = useState(false);
+  const capturingRef = useRef(false);
+  const canonFrameSeenRef = useRef(false);
+  const aliveRef = useRef(true);
+  const timersRef = useRef<number[]>([]);
+  const later = (fn: () => void, ms: number) => {
+    timersRef.current.push(window.setTimeout(fn, ms));
+  };
+
+  useEffect(() => {
+    aliveRef.current = true;
+    return () => {
+      aliveRef.current = false;
+      timersRef.current.forEach((t) => window.clearTimeout(t));
+      timersRef.current = [];
+    };
+  }, []);
 
   // ─── Charge le template actif au montage ───────────────────────────────
   useEffect(() => {
@@ -54,6 +78,39 @@ export function CaptureScreen() {
   // ─── Démarre la caméra ──────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
+    let noFrameTimer = 0;
+    setCanonConnected(false);
+    if (canonMode) {
+      canonFrameSeenRef.current = false;
+      (async () => {
+        const conn = await window.api.canon.connect();
+        if (cancelled) return;
+        if (!conn.ok) {
+          setError(conn.error);
+          return;
+        }
+        setCanonConnected(true);
+        if (!usbPreview) return;
+        const lv = await window.api.canon.liveview(true);
+        if (cancelled) return;
+        if (!lv.ok) {
+          setError(lv.error);
+          return;
+        }
+        noFrameTimer = window.setTimeout(() => {
+          if (!canonFrameSeenRef.current) {
+            setError("L'aperçu de l'appareil ne démarre pas. Vérifie qu'il est allumé et en mode photo.");
+          }
+        }, 10_000);
+      })();
+    }
+    if (usbPreview) {
+      return () => {
+        cancelled = true;
+        window.clearTimeout(noFrameTimer);
+        window.api.canon.liveview(false);
+      };
+    }
     (async () => {
       try {
         // On demande à la caméra sa meilleure résolution disponible — la même
@@ -93,15 +150,15 @@ export function CaptureScreen() {
         streamRef.current = null;
       }
     };
-  }, [settings?.camera_device_id, settings?.photo_resolution]);
+  }, [canonMode, usbPreview, settings?.camera_device_id, settings?.photo_resolution]);
 
-  // ─── Capture une photo et push dans le store ────────────────────────────
-  const captureOne = useCallback((): string | null => {
-    if (!videoRef.current || !streamReady) return null;
-    const video = videoRef.current;
-    const vw = video.videoWidth;
-    const vh = video.videoHeight;
+  const onCanonFirstFrame = useCallback(() => {
+    canonFrameSeenRef.current = true;
+    setStreamReady(true);
+  }, []);
 
+  // ─── Recadre une image source au ratio du template ─────────────────────
+  const cropToTemplate = useCallback((source: CanvasImageSource, vw: number, vh: number, mirror: boolean) => {
     const targetW = templateRatio.w;
     const targetH = templateRatio.h;
     const targetRatioVal = targetW / targetH;
@@ -127,24 +184,68 @@ export function CaptureScreen() {
     if (!ctx) return null;
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
-    ctx.translate(targetW, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, srcX, srcY, srcW, srcH, 0, 0, targetW, targetH);
+    if (mirror) {
+      ctx.translate(targetW, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(source, srcX, srcY, srcW, srcH, 0, 0, targetW, targetH);
     // PNG lossless : élimine la 1re compression — le composer recompresse en
     // JPEG 0.95 une seule fois, pas de cumul d'artefacts.
     return canvas.toDataURL('image/png');
-  }, [streamReady, templateRatio]);
+  }, [templateRatio]);
 
-  // ─── Séquence de capture (1 ou N photos) ───────────────────────────────
-  const runCapture = useCallback(() => {
-    const dataUrl = captureOne();
-    if (!dataUrl) return;
+  // ─── Capture une photo et push dans le store ────────────────────────────
+  const captureOne = useCallback(async (): Promise<string | null> => {
+    if (!ready) return null;
+    if (canonMode) {
+      // La photo de l'appareil n'est pas inversée (seul l'aperçu l'est, effet miroir).
+      const shot = await window.api.canon.capture();
+      if (!aliveRef.current) return null;
+      if (!shot.ok) {
+        setError(shot.error);
+        return null;
+      }
+      const img = new Image();
+      img.src = shot.result.url;
+      await img.decode();
+      return cropToTemplate(img, img.naturalWidth, img.naturalHeight, false);
+    }
+    const video = videoRef.current;
+    if (!video) return null;
+    return cropToTemplate(video, video.videoWidth, video.videoHeight, true);
+  }, [canonMode, cropToTemplate, ready]);
 
+  const triggerShutterEffects = useCallback(() => {
     if (soundsOn) sounds.shutter();
     if (flashOn) {
       setIsFlashing(true);
-      setTimeout(() => setIsFlashing(false), 500);
+      later(() => setIsFlashing(false), 500);
     }
+  }, [soundsOn, flashOn]);
+
+  // ─── Séquence de capture (1 ou N photos) ───────────────────────────────
+  const runCapture = useCallback(async () => {
+    if (capturingRef.current) return;
+    capturingRef.current = true;
+    let dataUrl: string | null = null;
+    try {
+      if (canonMode) {
+        // L'appareil met ~1 s (mise au point + transfert) : le flash part au déclenchement.
+        triggerShutterEffects();
+        setCapturing(true);
+      }
+      dataUrl = await captureOne();
+    } catch (e) {
+      console.error('[Capture] échec', e);
+      if (aliveRef.current) setError("La photo n'a pas pu être récupérée. Réessaie.");
+    } finally {
+      capturingRef.current = false;
+      if (aliveRef.current) setCapturing(false);
+    }
+    // L'invité a pu annuler pendant la prise (jusqu'à plusieurs secondes avec l'appareil) :
+    // ne plus toucher au store ni naviguer.
+    if (!dataUrl || !aliveRef.current) return;
+    if (!canonMode) triggerShutterEffects();
 
     const next = capturedCountRef.current + 1;
     capturedCountRef.current = next;
@@ -159,19 +260,17 @@ export function CaptureScreen() {
         // Multi-photo : on push la dernière puis on navigue
         pushPhoto(dataUrl);
       }
-      setTimeout(() => setScreen('preview'), 600);
+      later(() => setScreen('preview'), 600);
     } else {
       // Pas encore fini : push et relancer un compte à rebours après une pause
       pushPhoto(dataUrl);
-      setTimeout(() => {
-        setCountdown(countdownDuration);
-      }, 1500);
+      later(() => setCountdown(countdownDuration), 1500);
     }
-  }, [captureOne, totalSlots, soundsOn, flashOn, setCurrentPhoto, pushPhoto, setScreen, countdownDuration]);
+  }, [canonMode, captureOne, triggerShutterEffects, totalSlots, setCurrentPhoto, pushPhoto, setScreen, countdownDuration]);
 
   // ─── Lance le compte à rebours auto une fois prêt ───────────────────────
   useEffect(() => {
-    if (!streamReady || error) return;
+    if (!ready || error) return;
     // Vide les photos précédentes avant une nouvelle séquence
     clearPhotos();
     capturedCountRef.current = 0;
@@ -179,7 +278,7 @@ export function CaptureScreen() {
     const startTimer = setTimeout(() => setCountdown(countdownDuration), 1500);
     return () => clearTimeout(startTimer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [streamReady, error, countdownDuration]);
+  }, [ready, error, countdownDuration]);
 
   // ─── Tick du compte à rebours ───────────────────────────────────────────
   useEffect(() => {
@@ -292,18 +391,48 @@ export function CaptureScreen() {
         </motion.div>
       )}
 
-      {/* Vidéo plein écran */}
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        className="w-full h-full object-cover"
-        style={{ transform: 'scaleX(-1)' }}
-      />
+      {/* Aperçu plein écran (inversé façon miroir) */}
+      {usbPreview ? (
+        <CanonLiveView
+          className="w-full h-full object-cover"
+          style={{ transform: 'scaleX(-1)' }}
+          onFirstFrame={onCanonFirstFrame}
+        />
+      ) : (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover"
+          style={{ transform: 'scaleX(-1)' }}
+        />
+      )}
+
+      {capturing && !error && (
+        <div
+          className="absolute z-30"
+          style={{ bottom: '4rem', left: '50%', transform: 'translateX(-50%)' }}
+        >
+          <span
+            style={{
+              color: '#FAF6EE',
+              fontFamily: 'Inter, sans-serif',
+              fontSize: '0.75rem',
+              letterSpacing: '0.35em',
+              textTransform: 'uppercase',
+              fontWeight: 500,
+              whiteSpace: 'nowrap',
+              opacity: 0.85,
+            }}
+          >
+            Photo en cours…
+          </span>
+        </div>
+      )}
 
       {/* Guide de recadrage — cadre éditorial fin doré */}
-      {streamReady && !error && (
+      {ready && !error && (
         <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
           <div
             className="relative h-[86vh]"
