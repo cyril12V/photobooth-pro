@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, globalShortcut, dialog, shell, clipboard } from 'electron';
+import { spawn } from 'node:child_process';
 import path from 'node:path';
 import fsNative from 'node:fs';
 import fs from 'node:fs/promises';
@@ -20,6 +21,19 @@ const KIOSK_MODE = process.env.KIOSK === '1' || process.env.NODE_ENV === 'produc
 const VITE_DEV_SERVER_URL = process.env.VITE_DEV_SERVER_URL;
 
 let mainWindow: BrowserWindow | null = null;
+
+// Une seule instance : un double-clic sur l'icône ou une relance après mise à
+// jour en double ne doit pas ouvrir deux bornes qui se disputent la caméra.
+const isPrimaryInstance = app.requestSingleInstanceLock();
+if (!isPrimaryInstance) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  });
+}
 
 // ─── Création de la fenêtre principale ─────────────────────────────────────
 async function createWindow() {
@@ -73,6 +87,27 @@ function msToHms(ms: number): string {
   const s = totalSec % 60;
   const msPart = String(ms % 1000).padStart(3, '0');
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${msPart}`;
+}
+
+/**
+ * Installe la mise à jour téléchargée en silence puis rouvre l'app.
+ * La relance de l'installeur (--force-run) n'a pas pu être vérifiée avec
+ * l'installeur assisté (nsis.oneClick = false) : un petit script détaché
+ * attend aussi la fin de l'installeur et relance l'exe. Si les deux relancent,
+ * le verrou d'instance unique n'en garde qu'une.
+ */
+function installUpdateAndRelaunch() {
+  const exe = process.execPath.replace(/'/g, "''");
+  const script =
+    "Start-Sleep -Seconds 3; $t = 0; " +
+    "while ((Get-Process -Name 'PhotoBooth-Pro-Setup*' -ErrorAction SilentlyContinue) -and $t -lt 300) { Start-Sleep -Seconds 1; $t++ }; " +
+    `Start-Process -FilePath '${exe}'`;
+  spawn('powershell.exe', ['-NoProfile', '-WindowStyle', 'Hidden', '-Command', script], {
+    detached: true,
+    stdio: 'ignore',
+    windowsHide: true,
+  }).unref();
+  autoUpdater.quitAndInstall(true, true);
 }
 
 /** Les erreurs Canon arrivent au renderer comme valeur, pas comme exception IPC. */
@@ -853,6 +888,7 @@ function registerIpcHandlers() {
 
 // ─── Lancement ──────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {
+  if (!isPrimaryInstance) return;
   await initDatabase();
 
   try {
@@ -877,7 +913,7 @@ app.whenReady().then(async () => {
   let updateReady: string | null = null;
   ipcMain.handle('update:status', () => ({ version: app.getVersion(), ready: updateReady }));
   ipcMain.handle('update:install', () => {
-    if (updateReady) autoUpdater.quitAndInstall(true, true);
+    if (updateReady) installUpdateAndRelaunch();
     return { ok: !!updateReady };
   });
   if (app.isPackaged) {
@@ -905,7 +941,7 @@ app.whenReady().then(async () => {
       // l'app ne recevait jamais la mise à jour. Sinon : à la fermeture ou via l'admin.
       if (Date.now() - launchedAt < 90_000) {
         console.log('[updater] installée au démarrage:', info.version);
-        setImmediate(() => autoUpdater.quitAndInstall(true, true));
+        setImmediate(installUpdateAndRelaunch);
       } else {
         console.log('[updater] téléchargée, installée à la fermeture:', info.version);
       }
