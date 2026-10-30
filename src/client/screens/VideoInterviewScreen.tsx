@@ -4,7 +4,7 @@ import { MdArrowBack, MdErrorOutline, MdMic, MdStop } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { CanonLiveView } from '@shared/components/CanonLiveView';
-import { finishCanonMovie, prepareCanonMovie, releaseCanonMovie, startCanonMovie } from '@shared/lib/canonMovie';
+import { finishCanonMovie, prepareCanonMovie, releaseCanonMovie, startCanonMovie, switchCanonToMovieForHdmi } from '@shared/lib/canonMovie';
 import {
   VIDEO_BITRATE_MAP,
   VIDEO_RECORDING_SLICE_MS,
@@ -24,6 +24,8 @@ export function VideoInterviewScreen() {
   const { settings, setScreen, setVideoCapture, setCameraVideoCapture } = useAppStore();
   // Appareil Canon en USB : il enregistre lui-même, l'aperçu vient de son LiveView.
   const canonVideo = settings?.video_source === 'canon';
+  // Appareil Canon + Cam Link : bascule auto en mode vidéo par USB, l'app enregistre la Cam Link.
+  const canonHdmi = settings?.video_source === 'canon_hdmi';
   const canonRecordingRef = useRef(false);
   const [downloadPercent, setDownloadPercent] = useState<number | null>(null);
 
@@ -91,8 +93,16 @@ export function VideoInterviewScreen() {
           setPhase('countdown');
           return;
         }
-        // Libère l'appareil Canon piloté en USB pour les photos : la vidéo passe par la caméra sélectionnée.
-        if (settings?.capture_source === 'canon') await window.api.canon.disconnect();
+        if (canonHdmi) {
+          // Appareil en mode vidéo par USB : sa sortie HDMI (Cam Link) devient propre.
+          // Sans USB, on enregistre quand même la Cam Link plutôt que d'afficher une erreur à l'invité.
+          const err = await switchCanonToMovieForHdmi();
+          if (err) console.warn('[video] bascule en mode vidéo par USB impossible :', err);
+          if (cancelled) return;
+        } else if (settings?.capture_source === 'canon') {
+          // Libère l'appareil Canon piloté en USB pour les photos : la vidéo passe par la caméra sélectionnée.
+          await window.api.canon.disconnect();
+        }
         const stream = await navigator.mediaDevices.getUserMedia({
           video: buildVideoTrackConstraints(resolution, settings?.camera_device_id),
           audio: settings?.microphone_device_id
@@ -180,7 +190,7 @@ export function VideoInterviewScreen() {
         streamRef.current = null;
       }
       // Annule un enregistrement en cours et remet l'appareil en mode photo.
-      if (canonVideo) releaseCanonMovie(canonRecordingRef.current);
+      if (canonVideo || canonHdmi) releaseCanonMovie(canonRecordingRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

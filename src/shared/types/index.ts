@@ -188,8 +188,10 @@ export interface AppSettings {
   // Mode Canon : aperçu tiré de la caméra vidéo sélectionnée (Cam Link HDMI) ou du LiveView USB
   canon_preview: 'video' | 'usb';
   // Vidéos : 'webcam' = enregistrées par l'app depuis la caméra sélectionnée (Cam Link) ;
-  // 'canon' = enregistrées par l'appareil Canon, aperçu par le LiveView USB, bascule photo/vidéo auto
-  video_source: 'webcam' | 'canon';
+  // 'canon_hdmi' = idem, mais l'app bascule d'abord l'appareil Canon en mode vidéo par USB
+  //   (sortie HDMI propre), puis le remet en photo ;
+  // 'canon' = enregistrées par l'appareil Canon, aperçu par le LiveView USB, rapatriées ensuite
+  video_source: 'webcam' | 'canon_hdmi' | 'canon';
   // VideoBooth
   video_enabled: boolean;
   capture_mode: 'photo' | 'video' | 'both';

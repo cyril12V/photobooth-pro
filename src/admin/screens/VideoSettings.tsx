@@ -13,7 +13,7 @@ import { useAppStore } from '@shared/store';
 import { AdminCard, AdminPageHeader, AdminToggle } from '../components/AdminUI';
 import { Button } from '@shared/components/Button';
 import { CanonLiveView } from '@shared/components/CanonLiveView';
-import { finishCanonMovie, prepareCanonMovie, releaseCanonMovie, startCanonMovie } from '@shared/lib/canonMovie';
+import { finishCanonMovie, prepareCanonMovie, releaseCanonMovie, startCanonMovie, switchCanonToMovieForHdmi } from '@shared/lib/canonMovie';
 import type { AppSettings } from '@shared/types';
 
 type CaptureMode = 'photo' | 'video' | 'both';
@@ -88,14 +88,19 @@ function MicLevel({ deviceId }: { deviceId: string }) {
 
 const VIDEO_SOURCES: Array<{ id: AppSettings['video_source']; label: string; description: string }> = [
   {
+    id: 'canon_hdmi',
+    label: 'Appareil Canon + Cam Link (recommandé)',
+    description: "Bascule auto en mode vidéo par USB, l'app enregistre la sortie HDMI propre : fluide et sans attente.",
+  },
+  {
     id: 'webcam',
-    label: 'Caméra sélectionnée (Cam Link)',
-    description: "L'app enregistre le flux de la caméra choisie dans Caméra. L'appareil doit être en mode vidéo avec une sortie HDMI propre.",
+    label: 'Caméra sélectionnée seule',
+    description: "L'app enregistre la caméra choisie dans Caméra. Un appareil branché en HDMI doit déjà être en mode vidéo.",
   },
   {
     id: 'canon',
-    label: 'Appareil Canon (USB)',
-    description: "L'appareil enregistre lui-même (jusqu'en 4K), aperçu propre par l'USB, bascule photo/vidéo automatique.",
+    label: 'Appareil Canon seul (USB)',
+    description: "L'appareil enregistre lui-même (jusqu'en 4K) puis la vidéo est rapatriée : attente après chaque vidéo.",
   },
 ];
 
@@ -189,7 +194,18 @@ type RecordingTestResult =
  * encodage) et mesure la fluidité de l'aperçu : si l'encodage est trop lourd
  * pour ce PC, l'image ralentit pendant l'enregistrement.
  */
-function RecordingTest({ resolution, cameraId, micId }: { resolution: CaptureResolution; cameraId: string; micId: string }) {
+function RecordingTest({
+  resolution,
+  cameraId,
+  micId,
+  canonSwitch,
+}: {
+  resolution: CaptureResolution;
+  cameraId: string;
+  micId: string;
+  /** Source « Appareil Canon + Cam Link » : bascule l'appareil en vidéo avant, en photo après. */
+  canonSwitch: boolean;
+}) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<RecordingTestResult | null>(null);
@@ -199,6 +215,10 @@ function RecordingTest({ resolution, cameraId, micId }: { resolution: CaptureRes
     setResult(null);
     let stream: MediaStream | null = null;
     try {
+      if (canonSwitch) {
+        const err = await switchCanonToMovieForHdmi();
+        if (err) throw new Error(err);
+      }
       stream = await navigator.mediaDevices.getUserMedia({
         video: buildVideoTrackConstraints(resolution, cameraId),
         audio: micId ? { deviceId: { exact: micId } } : true,
@@ -244,11 +264,12 @@ function RecordingTest({ resolution, cameraId, micId }: { resolution: CaptureRes
     } finally {
       stream?.getTracks().forEach((t) => t.stop());
       if (videoRef.current) videoRef.current.srcObject = null;
+      if (canonSwitch) await releaseCanonMovie(false);
       setRunning(false);
     }
   };
 
-  const smooth = result?.ok && result.during >= Math.min(25, result.before - 3);
+  const smooth = result?.ok && result.before > 0 && result.during >= Math.min(25, result.before - 3);
 
   return (
     <div className="mt-4">
@@ -256,15 +277,23 @@ function RecordingTest({ resolution, cameraId, micId }: { resolution: CaptureRes
         <Button variant="secondary" size="md" onClick={run} disabled={running}>
           {running ? 'Test en cours (8 s)…' : "Tester l'enregistrement"}
         </Button>
-        <video ref={videoRef} muted playsInline className="h-16 rounded" style={{ backgroundColor: '#1A1A1A', display: running ? 'block' : 'none' }} />
+        {!canonSwitch && (
+          <video ref={videoRef} muted playsInline className="h-16 rounded" style={{ backgroundColor: '#1A1A1A', display: running ? 'block' : 'none' }} />
+        )}
       </div>
+      {/* Avec l'appareil Canon : grand aperçu pour vérifier que l'image HDMI est propre (sans les réglages). */}
+      {canonSwitch && (
+        <video ref={videoRef} muted playsInline className="mt-3 w-full max-h-64 rounded object-contain" style={{ backgroundColor: '#1A1A1A', display: running ? 'block' : 'none' }} />
+      )}
       {result &&
         (result.ok ? (
           <p className="text-xs mt-2" style={{ color: smooth ? '#2F6B3A' : '#9B2C2C', fontWeight: 600 }}>
             Caméra {result.size} : {result.before} i/s avant, {result.during} i/s pendant l'enregistrement (PC : {result.threads} threads).{' '}
-            {smooth
-              ? 'Fluide : ce PC tient cette résolution.'
-              : "Trop lourd pour ce PC : l'image saccade pendant les vidéos. Choisis une résolution plus basse (1080p) et refais le test."}
+            {result.before === 0
+              ? "Aucune image reçue : vérifie la Cam Link, le câble HDMI et que la caméra sélectionnée dans Caméra est bien la Cam Link."
+              : smooth
+                ? 'Fluide : ce PC tient cette résolution.'
+                : "Trop lourd pour ce PC : l'image saccade pendant les vidéos. Choisis une résolution plus basse (1080p) et refais le test."}
           </p>
         ) : (
           <p className="text-xs mt-2" style={{ color: '#9B2C2C' }}>
@@ -428,7 +457,7 @@ export function VideoSettings() {
         </AdminCard>
 
         <AdminCard title="Source vidéo">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             {VIDEO_SOURCES.map((s) => (
               <button
                 key={s.id}
@@ -461,6 +490,15 @@ export function VideoSettings() {
               </p>
               <CanonVideoTest />
             </>
+          )}
+          {videoSource === 'canon_hdmi' && (
+            <p className="text-neutral-500 text-xs mt-3">
+              Branche l'appareil en USB-C (pour la bascule) et en HDMI sur la Cam Link, choisie dans Caméra › Sélection
+              caméra. Sa molette reste sur P, Av ou M : l'app le passe en mode vidéo pour chaque vidéo puis le remet en
+              photo. Une seule fois sur l'appareil, en mode vidéo : règle l'affichage HDMI pour qu'il sorte sans les
+              informations (touche INFO). Pour le son de l'appareil, choisis l'entrée audio de la Cam Link comme micro.
+              Vérifie le tout avec « Tester l'enregistrement » dans Qualité.
+            </p>
           )}
         </AdminCard>
 
@@ -549,8 +587,8 @@ export function VideoSettings() {
               <p className="text-neutral-400 text-xs mt-1">
                 La 4K est exigeante : ta caméra doit fournir un vrai flux 4K (Canon R6 Mark II en mode Webcam Utility, Sony Imaging Edge, GoPro, etc.) et la machine doit pouvoir l'encoder en temps réel (processeur 4 cœurs / 8 threads minimum). En cas de lag ou de fichier cassé, retombe en 1080p.
               </p>
-              {videoSource === 'webcam' && (
-                <RecordingTest resolution={captureResolution} cameraId={settings?.camera_device_id ?? ''} micId={micId} />
+              {videoSource !== 'canon' && (
+                <RecordingTest resolution={captureResolution} cameraId={settings?.camera_device_id ?? ''} micId={micId} canonSwitch={videoSource === 'canon_hdmi'} />
               )}
             </div>
 

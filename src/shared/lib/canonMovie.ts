@@ -38,6 +38,23 @@ export async function finishCanonMovie(onProgress: (percent: number) => void): P
   }
 }
 
+/**
+ * Source « Appareil Canon + Cam Link » : on passe l'appareil en mode vidéo par USB
+ * pour que sa sortie HDMI devienne propre (en mode photo elle montre les réglages),
+ * puis l'app enregistre la Cam Link comme d'habitude : fluide et sans attente.
+ * L'appareil n'enregistre pas lui-même (le R50 ne garde pas un HDMI propre pendant
+ * un enregistrement sur carte). À la sortie : releaseCanonMovie(false).
+ */
+export async function switchCanonToMovieForHdmi(): Promise<string | null> {
+  const conn = await window.api.canon.connect();
+  if (!conn.ok) return conn.error;
+  const movie = await window.api.canon.movieMode(true);
+  if (!movie.ok) return movie.error;
+  // La sortie HDMI se resynchronise au changement de mode : on laisse la Cam Link la retrouver.
+  await new Promise((r) => setTimeout(r, 1500));
+  return null;
+}
+
 /** Sortie de l'écran vidéo : annule un enregistrement en cours et remet l'appareil en mode photo. */
 export async function releaseCanonMovie(recording: boolean) {
   if (recording) await window.api.canon.movieStop(false);
