@@ -76,6 +76,9 @@ class CanonService {
       case 'frame':
         if (this.frameTarget && !this.frameTarget.isDestroyed()) this.frameTarget.send('canon:frame', msg.data);
         return;
+      case 'progress':
+        for (const wc of this.stateListeners) if (!wc.isDestroyed()) wc.send('canon:progress', msg.percent);
+        return;
       case 'log':
         this.log(msg.line);
         return;

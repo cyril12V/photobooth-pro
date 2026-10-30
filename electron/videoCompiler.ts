@@ -16,7 +16,7 @@ function resolveFfmpegPath(): string {
   return raw.replace('app.asar', 'app.asar.unpacked');
 }
 
-const FFMPEG_BIN = resolveFfmpegPath();
+export const FFMPEG_BIN = resolveFfmpegPath();
 ffmpeg.setFfmpegPath(FFMPEG_BIN);
 // On utilise ffmpeg pour le probe également (binaire compatible)
 ffmpeg.setFfprobePath(FFMPEG_BIN);

@@ -83,6 +83,13 @@ interface AppState {
     durationMs: number;
     interviewLog: InterviewLogEntry[];
   }) => void;
+  /** Vidéo enregistrée par l'appareil Canon, déjà rapatriée sur le disque. */
+  setCameraVideoCapture: (data: {
+    filepath: string;
+    url: string;
+    durationMs: number;
+    interviewLog: InterviewLogEntry[];
+  }) => void;
   setVideoSaved: (data: { filepath: string; shareUrl: string }) => void;
   clearVideo: () => void;
   setAdminMode: (v: boolean) => void;
@@ -230,6 +237,44 @@ export const useAppStore = create<AppState>((set, get) => ({
       const msg = e instanceof Error ? e.message : String(e);
       if (get().currentVideoSavePromise === savePromise) {
         set({ currentVideoSaveError: msg });
+      }
+    });
+    set({ currentVideoSavePromise: savePromise });
+  },
+  setCameraVideoCapture: ({ filepath, url, durationMs, interviewLog }) => {
+    const prev = get().currentVideoBlobUrl;
+    if (prev?.startsWith('blob:')) {
+      try {
+        URL.revokeObjectURL(prev);
+      } catch {}
+    }
+    set({
+      currentVideoBlob: null,
+      currentVideoMime: 'video/mp4',
+      currentVideoBlobUrl: url,
+      currentVideoFilepath: null,
+      currentVideoShareUrl: null,
+      currentVideoDurationMs: durationMs,
+      currentInterviewLog: interviewLog,
+      currentVideoSavePromise: null,
+      currentVideoSaveError: null,
+    });
+
+    const ev = get().event;
+    if (!ev) return;
+    const mode = get().videoMode ?? 'free_message';
+    // Le fichier est déjà sur le disque : le process principal le range dans
+    // l'évènement, prépare le lien de partage (copie 1080p si 4K) et l'envoie au cloud.
+    const savePromise: Promise<VideoSaveResult> = window.api.video.saveFile({
+      sourcePath: filepath,
+      eventId: ev.id,
+      mode,
+      durationMs,
+      interviewLog: mode === 'interview' ? { questions: interviewLog } : undefined,
+    });
+    savePromise.catch((e) => {
+      if (get().currentVideoSavePromise === savePromise) {
+        set({ currentVideoSaveError: e instanceof Error ? e.message : String(e) });
       }
     });
     set({ currentVideoSavePromise: savePromise });

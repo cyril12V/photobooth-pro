@@ -6,11 +6,12 @@ import fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { autoUpdater } from 'electron-updater';
 import { canonService } from './canon/service';
-import type { CanonCaptureResult, CanonStatus } from './canon/protocol';
+import type { CanonCaptureResult, CanonMovieResult, CanonStatus } from './canon/protocol';
 import { initDatabase, db } from './database';
 import { handlePrint, listPrinters } from './printer';
 import { shareServer } from './shareServer';
 import {
+  FFMPEG_BIN,
   compileEventVideos,
   type VideoCompilerEvent,
   type VideoCompilerSettings,
@@ -136,6 +137,128 @@ function windowsCanonCheck(): Promise<{
       }
     });
   });
+}
+
+type VideoInterviewLog = {
+  videoFile?: string;
+  eventName?: string;
+  recordedAt?: string;
+  totalDurationMs?: number;
+  questions: Array<{ index: number; text: string; startMs: number; endMs: number }>;
+};
+
+/** Hauteur en pixels d'une vidéo (lue dans la sortie de ffmpeg -i), ou null. */
+function videoHeight(file: string): Promise<number | null> {
+  return new Promise((resolve) => {
+    execFile(FFMPEG_BIN, ['-hide_banner', '-i', file], { windowsHide: true, timeout: 30_000 }, (_err, _out, stderr) => {
+      const m = String(stderr).match(/Video: .*?, (\d{2,5})x(\d{2,5})/);
+      resolve(m ? Number(m[2]) : null);
+    });
+  });
+}
+
+/**
+ * Une vidéo 4K de l'appareil (plusieurs centaines de Mo) est trop lourde à envoyer
+ * et à lire sur un téléphone : on partage une copie 1080p H.264 (dossier Partage).
+ * L'original reste intact pour l'album et la compilation.
+ */
+async function shareCopyFor(filepath: string): Promise<string> {
+  const height = await videoHeight(filepath);
+  if (!height || height <= 1080) return filepath;
+  const out = path.join(path.dirname(filepath), 'Partage', `${path.basename(filepath, path.extname(filepath))}_1080p.mp4`);
+  await fs.mkdir(path.dirname(out), { recursive: true });
+  const args = ['-y', '-i', filepath, '-vf', 'scale=-2:1080', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-b:a', '128k', '-movflags', '+faststart', out];
+  const ok = await new Promise<boolean>((resolve) => {
+    execFile(FFMPEG_BIN, args, { windowsHide: true, timeout: 10 * 60_000 }, (err) => resolve(!err));
+  });
+  console.log(`[video] copie de partage 1080p ${ok ? 'prête' : 'impossible, original partagé'} : ${path.basename(out)}`);
+  return ok ? out : filepath;
+}
+
+/** Journal d'interview, lien de partage (cloud ou réseau local) et ligne en base d'une vidéo déjà sur le disque. */
+async function registerVideo(v: {
+  event: any;
+  mode: 'interview' | 'free_message';
+  durationMs: number;
+  interviewLog?: VideoInterviewLog;
+  cloudShareUrl?: string | null;
+  skipCloudUpload?: boolean;
+  dir: string;
+  filepath: string;
+  filename: string;
+  ts: string;
+  safeName: string;
+}) {
+  const { event, mode, durationMs, interviewLog, dir, filepath, filename, ts, safeName } = v;
+  let interview_log_path: string | null = null;
+  if (mode === 'interview' && interviewLog && interviewLog.questions.length > 0) {
+    const baseName = `${ts}_${safeName}_interview`;
+    interview_log_path = path.join(dir, `${baseName}.json`);
+    const payload = {
+      videoFile: filename,
+      eventName: event.name,
+      recordedAt: new Date().toISOString(),
+      totalDurationMs: durationMs,
+      questions: interviewLog.questions,
+    };
+    await fs.writeFile(interview_log_path, JSON.stringify(payload, null, 2), 'utf8');
+
+    // CSV sibling pour ouverture facile dans un logiciel de montage
+    const csvPath = path.join(dir, `${baseName}.csv`);
+    const csvLines = ['index,start_ms,end_ms,start_hms,end_hms,question'];
+    for (const q of interviewLog.questions) {
+      csvLines.push(
+        [
+          q.index,
+          q.startMs,
+          q.endMs,
+          msToHms(q.startMs),
+          msToHms(q.endMs),
+          `"${q.text.replace(/"/g, '""')}"`,
+        ].join(','),
+      );
+    }
+    await fs.writeFile(csvPath, csvLines.join('\n'), 'utf8');
+  }
+
+  const settings = getSettings();
+  let finalCloudUrl: string | null;
+  let finalShareUrl: string;
+  // Les vidéos de l'appareil (.mp4) peuvent être en 4K : on partage une copie allégée.
+  const shareSource = /\.(mp4|mov)$/i.test(filepath) ? await shareCopyFor(filepath) : filepath;
+
+  if (v.skipCloudUpload) {
+    const localShareUrl = await registerShareUrl(shareSource);
+    finalCloudUrl = v.cloudShareUrl ?? null;
+    finalShareUrl = finalCloudUrl ?? localShareUrl;
+  } else {
+    const r = await resolveShareUrl(shareSource, event, 'video', settings);
+    finalCloudUrl = r.cloudShareUrl;
+    finalShareUrl = r.finalShareUrl;
+  }
+
+  const r = db
+    .prepare(
+      `INSERT INTO videos (event_id, filepath, mode, duration_ms, interview_log_path, qr_code, cloud_url, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      event.id,
+      filepath,
+      mode,
+      durationMs,
+      interview_log_path,
+      finalShareUrl,
+      finalCloudUrl,
+      new Date().toISOString(),
+    );
+
+  return {
+    id: r.lastInsertRowid,
+    filepath,
+    share_url: finalShareUrl,
+    interview_log_path,
+  };
 }
 
 /** Les erreurs Canon arrivent au renderer comme valeur, pas comme exception IPC. */
@@ -306,7 +429,7 @@ async function testCloudServer(baseUrl: string, apiKey: string) {
     throw new Error("URL VPS manquante");
   }
   if (!apiKey.trim()) {
-    throw new Error("ClÃ© API VPS manquante");
+    throw new Error("Clé API VPS manquante");
   }
   const response = await fetch(joinBaseUrl(baseUrl, '/api/health'), {
     method: 'GET',
@@ -359,10 +482,10 @@ async function uploadFileToCloud(
     const response = await fetch(joinBaseUrl(cloud.baseUrl, '/api/upload'), requestInit);
     const payload = await parseJsonSafe(response);
     if (!response.ok) {
-      throw new Error(payload?.error ?? `Upload VPS refusÃ© (${response.status})`);
+      throw new Error(payload?.error ?? `Upload VPS refusé (${response.status})`);
     }
     if (!payload?.shareUrl) {
-      throw new Error("Le VPS n'a pas renvoyÃ© d'URL de partage.");
+      throw new Error("Le VPS n'a pas renvoyé d'URL de partage.");
     }
     return String(payload.shareUrl);
   } finally {
@@ -383,7 +506,7 @@ async function resolveShareUrl(
     try {
       cloudShareUrl = await uploadFileToCloud(filepath, event, kind, settings);
     } catch (e) {
-      console.error('[Cloud] upload Ã©chouÃ©, fallback local:', e);
+      console.error('[Cloud] upload échoué, fallback local:', e);
     }
   }
 
@@ -591,73 +714,55 @@ function registerIpcHandlers() {
         `[video:save] ${path.basename(filepath)} — ${(stat.size / 1024).toFixed(0)} KB (mode=${mode}, durationMs=${durationMs})`,
       );
 
-      let interview_log_path: string | null = null;
-      if (mode === 'interview' && interviewLog && interviewLog.questions.length > 0) {
-        const baseName = `${ts}_${safeName}_interview`;
-        interview_log_path = path.join(dir, `${baseName}.json`);
-        const payload = {
-          videoFile: filename,
-          eventName: event.name,
-          recordedAt: new Date().toISOString(),
-          totalDurationMs: durationMs,
-          questions: interviewLog.questions,
-        };
-        await fs.writeFile(interview_log_path, JSON.stringify(payload, null, 2), 'utf8');
-
-        // CSV sibling pour ouverture facile dans un logiciel de montage
-        const csvPath = path.join(dir, `${baseName}.csv`);
-        const csvLines = ['index,start_ms,end_ms,start_hms,end_hms,question'];
-        for (const q of interviewLog.questions) {
-          csvLines.push(
-            [
-              q.index,
-              q.startMs,
-              q.endMs,
-              msToHms(q.startMs),
-              msToHms(q.endMs),
-              `"${q.text.replace(/"/g, '""')}"`,
-            ].join(','),
-          );
-        }
-        await fs.writeFile(csvPath, csvLines.join('\n'), 'utf8');
-      }
-
-      const settings = getSettings();
-      let finalCloudUrl: string | null;
-      let finalShareUrl: string;
-
-      if (skipCloudUpload) {
-        const localShareUrl = await registerShareUrl(filepath);
-        finalCloudUrl = cloudShareUrl ?? null;
-        finalShareUrl = finalCloudUrl ?? localShareUrl;
-      } else {
-        const r = await resolveShareUrl(filepath, event, 'video', settings);
-        finalCloudUrl = r.cloudShareUrl;
-        finalShareUrl = r.finalShareUrl;
-      }
-
-      const r = db
-        .prepare(
-          `INSERT INTO videos (event_id, filepath, mode, duration_ms, interview_log_path, qr_code, cloud_url, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
-          eventId,
-          filepath,
-          mode,
-          durationMs,
-          interview_log_path,
-          finalShareUrl,
-          finalCloudUrl,
-          new Date().toISOString(),
-        );
-
-      return {
-        id: r.lastInsertRowid,
+      return registerVideo({
+        event,
+        mode,
+        durationMs,
+        interviewLog,
+        cloudShareUrl,
+        skipCloudUpload,
+        dir,
         filepath,
-        share_url: finalShareUrl,
-        interview_log_path,
-      };
+        filename,
+        ts,
+        safeName,
+      });
+    },
+  );
+
+  // Vidéo enregistrée par l'appareil Canon : déjà sur le disque (rapatriée en USB),
+  // on la range dans l'évènement au lieu de la renvoyer en mémoire depuis l'écran.
+  ipcMain.handle(
+    'video:saveFile',
+    async (
+      _e,
+      {
+        sourcePath,
+        eventId,
+        mode,
+        durationMs,
+        interviewLog,
+      }: {
+        sourcePath: string;
+        eventId: number;
+        mode: 'interview' | 'free_message';
+        durationMs: number;
+        interviewLog?: VideoInterviewLog;
+      },
+    ) => {
+      const event: any = db.prepare('SELECT * FROM events WHERE id = ?').get(eventId);
+      if (!event) throw new Error('Aucun évènement actif');
+      const safeName = event.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const dir = path.join(await ensureEventFolder(event), mode === 'interview' ? 'Interview' : 'Messages_libres');
+      const ts = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `${ts}_${safeName}${path.extname(sourcePath).toLowerCase() || '.mp4'}`;
+      const filepath = path.join(dir, filename);
+      // Copie (pas de déplacement) : l'écran d'aperçu lit encore le fichier temporaire,
+      // supprimé au début de la vidéo suivante.
+      await fs.copyFile(sourcePath, filepath);
+      const stat = await fs.stat(filepath);
+      console.log(`[video:saveFile] ${filename} — ${(stat.size / 1e6).toFixed(1)} Mo (mode=${mode})`);
+      return registerVideo({ event, mode, durationMs, interviewLog, dir, filepath, filename, ts, safeName });
     },
   );
 
@@ -673,6 +778,9 @@ function registerIpcHandlers() {
       try {
         await fs.unlink(v.filepath);
       } catch {}
+      // Copie de partage 1080p d'une vidéo 4K de l'appareil (voir shareCopyFor).
+      const shareCopy = path.join(path.dirname(v.filepath), 'Partage', `${path.basename(v.filepath, path.extname(v.filepath))}_1080p.mp4`);
+      await fs.unlink(shareCopy).catch(() => {});
       if (v.interview_log_path) {
         try {
           await fs.unlink(v.interview_log_path);
@@ -844,6 +952,29 @@ function registerIpcHandlers() {
       })(),
     ),
   );
+  // Vidéo enregistrée par l'appareil (aperçu par le LiveView USB, sans la Cam Link).
+  ipcMain.handle('canon:movieMode', (e, on: boolean) => {
+    canonService.watchState(e.sender);
+    return canonCall(canonService.request<CanonStatus>({ cmd: 'movieMode', on }));
+  });
+  ipcMain.handle('canon:movieStart', () => canonCall(canonService.request<CanonStatus>({ cmd: 'movieStart' })));
+  ipcMain.handle('canon:movieStop', async (e, keep: boolean) => {
+    canonService.watchState(e.sender);
+    const dir = path.join(app.getPath('temp'), 'photobooth-canon');
+    // Les vidéos précédentes sont déjà copiées dans leur évènement.
+    for (const f of await fs.readdir(dir).catch(() => [] as string[])) {
+      if (/\.(mp4|mov)$/i.test(f)) await fs.unlink(path.join(dir, f)).catch(() => {});
+    }
+    return canonCall(
+      canonService
+        .request<CanonMovieResult | null>(
+          { cmd: 'movieStop', dir, keep },
+          // Une vidéo 4K de plusieurs minutes peut peser plus d'1 Go en USB 2.0.
+          15 * 60_000,
+        )
+        .then((r) => (r ? { ...r, url: pathToFileURL(r.path).href } : null)),
+    );
+  });
   ipcMain.handle('canon:logs', () => canonService.recentLogs());
   ipcMain.handle('canon:windowsCheck', () => windowsCanonCheck());
 

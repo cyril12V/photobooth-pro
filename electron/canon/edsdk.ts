@@ -18,12 +18,18 @@ export const PropID = {
   ImageQuality: 0x00000100,
   Evf_OutputDevice: 0x00000500,
   Evf_Mode: 0x00000501,
+  Record: 0x00000510,
+  /** 1 quand l'appareil est en mode vidéo. */
+  FixedMovie: 0x01000422,
 } as const;
 
 export const CameraCommand = {
   TakePicture: 0x00000000,
   ExtendShutDownTimer: 0x00000001,
   PressShutterButton: 0x00000004,
+  /** Bascule photo → vidéo / vidéo → photo, comme le levier de l'appareil. */
+  MovieSelectSwON: 0x00000107,
+  MovieSelectSwOFF: 0x00000108,
   SetRemoteShootingMode: 0x0000010f,
 } as const;
 
@@ -39,6 +45,8 @@ export const StatusCommand = { UILock: 0, UIUnLock: 1 } as const;
 
 export const ObjectEvent = {
   All: 0x00000200,
+  /** Fichier écrit sur la carte (vidéos enregistrées par l'appareil). */
+  DirItemCreated: 0x00000204,
   DirItemRequestTransfer: 0x00000208,
 } as const;
 
@@ -51,7 +59,10 @@ export const StateEvent = {
 export const SaveTo = { Camera: 1, Host: 2, Both: 3 } as const;
 export const EvfOutputDevice = { TFT: 1, PC: 2 } as const;
 export const ImageQualityLargeFineJpeg = 0x0013ff0f;
+export const RecordStart = 4;
+export const RecordStop = 0;
 export const FileCreateAlways = 1;
+const ProgressOptionPeriodically = 2;
 export const AccessReadWrite = 2;
 
 export const Err = {
@@ -148,6 +159,9 @@ export const ObjectEventHandler = koffi.proto(
 export const StateEventHandler = koffi.proto(
   'uint32 __stdcall EdsStateEventHandler(uint32 inEvent, uint32 inEventData, void *inContext)',
 );
+const ProgressCallback = koffi.proto(
+  'uint32 __stdcall EdsProgressCallback(uint32 inPercent, void *inContext, void *outCancel)',
+);
 
 export interface DirectoryItem {
   size: number;
@@ -214,7 +228,17 @@ export function loadEdsdk(dllDir: string) {
       'uint32 __stdcall EdsSetCameraStateEventHandler(void *inCameraRef, uint32 inEvent, EdsStateEventHandler *inHandler, void *inContext)',
     ),
     EdsGetEvent: f('uint32 __stdcall EdsGetEvent()'),
+    EdsSetProgressCallback: f(
+      'uint32 __stdcall EdsSetProgressCallback(void *inRef, EdsProgressCallback *inProgressCallback, int inProgressOption, void *inContext)',
+    ),
   };
+
+  // Un seul rappel enregistré pour toute la vie du process ; il relaie vers le téléchargement en cours.
+  let onDownloadProgress: ((percent: number) => void) | null = null;
+  const progressCallback = koffi.register((percent: number) => {
+    onDownloadProgress?.(percent);
+    return Err.OK;
+  }, koffi.pointer(ProgressCallback));
 
   const check = (fn: string, code: number) => {
     if (code !== Err.OK) throw new EdsError(fn, code);
@@ -307,15 +331,20 @@ export function loadEdsdk(dllDir: string) {
       raw.EdsRelease(item);
     },
 
-    /** Télécharge un fichier de l'appareil vers `filePath` (bloquant). */
-    downloadToFile(item: Ref, size: number, filePath: string) {
+    /** Télécharge un fichier de l'appareil vers `filePath` (bloquant), avec progression en %. */
+    downloadToFile(item: Ref, size: number, filePath: string, onProgress?: (percent: number) => void) {
       const stream = outRef('EdsCreateFileStreamEx', (o) =>
         raw.EdsCreateFileStreamEx(filePath, FileCreateAlways, AccessReadWrite, o),
       );
       try {
+        if (onProgress) {
+          onDownloadProgress = onProgress;
+          raw.EdsSetProgressCallback(stream, progressCallback, ProgressOptionPeriodically, null);
+        }
         check('EdsDownload', raw.EdsDownload(item, size, stream));
         check('EdsDownloadComplete', raw.EdsDownloadComplete(item));
       } finally {
+        onDownloadProgress = null;
         raw.EdsRelease(stream);
       }
     },
@@ -341,6 +370,13 @@ export function loadEdsdk(dllDir: string) {
         if (evf) raw.EdsRelease(evf);
         raw.EdsRelease(stream);
       }
+    },
+
+    childAt: (ref: Ref, index: number) => outRef('EdsGetChildAtIndex', (o) => raw.EdsGetChildAtIndex(ref, index, o)),
+    childCount(ref: Ref): number {
+      const count = [0];
+      check('EdsGetChildCount', raw.EdsGetChildCount(ref, count));
+      return count[0];
     },
   };
 }

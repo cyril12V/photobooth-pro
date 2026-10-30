@@ -16,6 +16,8 @@ import {
   ObjectEvent,
   ObjectEventHandler,
   PropID,
+  RecordStart,
+  RecordStop,
   SaveTo,
   ShutterButton,
   StateEvent,
@@ -26,7 +28,13 @@ import {
   type Edsdk,
   type Ref,
 } from './edsdk';
-import type { CanonCaptureResult, CanonRequest, CanonStatus, CanonWorkerMessage } from './protocol';
+import type {
+  CanonCaptureResult,
+  CanonMovieResult,
+  CanonRequest,
+  CanonStatus,
+  CanonWorkerMessage,
+} from './protocol';
 
 const port = process.parentPort;
 const post = (msg: CanonWorkerMessage) => port.postMessage(msg);
@@ -48,6 +56,10 @@ let keepAlive: ReturnType<typeof setInterval> | null = null;
 let objectHandler: unknown = null;
 let stateHandler: unknown = null;
 const transferQueue: Ref[] = [];
+// Vidéo : l'appareil enregistre sur sa carte, on rapatrie le fichier ensuite.
+const createdQueue: Ref[] = [];
+let movieMode = false;
+let recording = false;
 
 function ensureSdk(): Edsdk {
   if (sdk) return sdk;
@@ -57,6 +69,7 @@ function ensureSdk(): Edsdk {
     s.initialize();
     objectHandler = koffi.register((event: number, ref: Ref) => {
       if (event === ObjectEvent.DirItemRequestTransfer) transferQueue.push(ref);
+      else if (event === ObjectEvent.DirItemCreated) createdQueue.push(ref);
       else s.release(ref);
       return Err.OK;
     }, koffi.pointer(ObjectEventHandler));
@@ -192,6 +205,9 @@ function dropCamera(lost: boolean) {
   keepAlive = null;
   if (camera && sdk) {
     if (!lost) {
+      // Ne jamais laisser l'appareil en mode vidéo (il ne prendrait plus de photos).
+      if (recording) sdk.setUInt32Raw(camera, PropID.Record, RecordStop);
+      if (movieMode) sdk.sendCommand(camera, CameraCommand.MovieSelectSwOFF);
       cancelPendingTransfers();
       const dev = sdk.tryGetUInt32(camera, PropID.Evf_OutputDevice).value;
       if (dev !== undefined) sdk.setUInt32Raw(camera, PropID.Evf_OutputDevice, dev & ~EvfOutputDevice.PC);
@@ -202,6 +218,9 @@ function dropCamera(lost: boolean) {
   }
   // Appareil perdu : ses demandes de transfert ne peuvent plus être annulées, juste libérées.
   while (transferQueue.length) sdk?.release(transferQueue.shift());
+  while (createdQueue.length) sdk?.release(createdQueue.shift());
+  movieMode = false;
+  recording = false;
   const wasConnected = !!camera;
   camera = null;
   if (wasConnected) post({ type: 'state', connected: false, model });
@@ -331,6 +350,8 @@ async function capture(dir: string): Promise<CanonCaptureResult> {
   try {
     fs.mkdirSync(dir, { recursive: true });
     cancelPendingTransfers();
+    // Après une vidéo, l'appareil peut être resté en mode vidéo : on le remet en photo.
+    if (movieMode) await setMovieMode(false);
     await prepareForPhotos(s, cam);
     const t0 = Date.now();
     let afFallback = false;
@@ -366,6 +387,161 @@ async function capture(dir: string): Promise<CanonCaptureResult> {
   }
 }
 
+const isMovie = (name: string) => /\.(mp4|mov)$/i.test(name);
+
+/**
+ * Bascule photo ↔ vidéo sans toucher à l'appareil (équivalent du levier photo/vidéo),
+ * comme LumaBooth : en vidéo l'appareil enregistre sur sa carte, en photo les images
+ * partent directement au PC. Toujours revenir en photo après une vidéo.
+ */
+async function setMovieMode(on: boolean): Promise<CanonStatus> {
+  const { s, cam } = requireCamera();
+  const fixedMovie = () => s.tryGetUInt32(cam, PropID.FixedMovie).value;
+  const canReadMode = fixedMovie() !== undefined;
+  if (on) {
+    if (fixedMovie() !== 1) {
+      const code = await retryBusy('Passage en mode vidéo', () => s.sendCommand(cam, CameraCommand.MovieSelectSwON), cam);
+      log(`Passage en mode vidéo → ${errorName(code)}`);
+      const switched = canReadMode
+        ? await waitFor(() => (fixedMovie() === 1 ? true : null), 4000)
+        : await sleep(1500).then(() => code === Err.OK);
+      assertStillConnected(cam);
+      if (!switched) {
+        throw new UserError(
+          `L'appareil ne passe pas en mode vidéo à distance (${errorName(code)}). Mets-le en mode vidéo à la main, ou choisis la Cam Link comme source vidéo.`,
+        );
+      }
+    }
+    movieMode = true;
+    // Les vidéos s'enregistrent sur la carte de l'appareil.
+    const saveTo = await retryBusy('SaveTo=Camera', () => s.setUInt32Raw(cam, PropID.SaveTo, SaveTo.Camera), cam);
+    if (saveTo !== Err.OK) log(`Enregistrement sur la carte → ${errorName(saveTo)}`);
+    return status();
+  }
+  if (recording) {
+    s.setUInt32Raw(cam, PropID.Record, RecordStop);
+    recording = false;
+  }
+  if (movieMode) {
+    const code = await retryBusy('Retour en mode photo', () => s.sendCommand(cam, CameraCommand.MovieSelectSwOFF), cam);
+    log(`Retour en mode photo → ${errorName(code)}`);
+    if (canReadMode) await waitFor(() => (fixedMovie() === 1 ? null : true), 4000);
+    movieMode = false;
+  }
+  try {
+    await prepareForPhotos(s, cam);
+  } catch (e) {
+    log(`Préparation photo : ${e instanceof Error ? e.message : String(e)}`);
+  }
+  return status();
+}
+
+async function movieStart(): Promise<CanonStatus> {
+  const { s, cam } = requireCamera();
+  if (capturing || recording) throw new UserError('Une prise de vue est déjà en cours.');
+  if (!movieMode) await setMovieMode(true);
+  while (createdQueue.length) s.release(createdQueue.shift());
+  cancelPendingTransfers();
+  const code = await retryBusy('Démarrage de la vidéo', () => s.setUInt32Raw(cam, PropID.Record, RecordStart), cam);
+  if (code !== Err.OK) {
+    throw new UserError(
+      `L'appareil refuse de démarrer la vidéo (${errorName(code)}). Vérifie la carte mémoire, la batterie et que l'appareil est en mode vidéo.`,
+    );
+  }
+  recording = true;
+  log("Enregistrement vidéo démarré sur l'appareil");
+  return status();
+}
+
+/** Parcourt la carte (DCIM/<dossier>/…) et renvoie la vidéo la plus récente. */
+function newestMovieOnCard(s: Edsdk, cam: Ref): Ref | null {
+  let best: { ref: Ref; dateTime: number; name: string } | null = null;
+  const walk = (folder: Ref, depth: number) => {
+    const count = s.childCount(folder);
+    for (let i = 0; i < count; i++) {
+      const child = s.childAt(folder, i);
+      const info = s.directoryItemInfo(child);
+      if (info.isFolder && depth < 3) {
+        walk(child, depth + 1);
+        s.release(child);
+      } else if (
+        !info.isFolder &&
+        isMovie(info.name) &&
+        (!best || info.dateTime > best.dateTime || (info.dateTime === best.dateTime && info.name > best.name))
+      ) {
+        if (best) s.release(best.ref);
+        best = { ref: child, dateTime: info.dateTime, name: info.name };
+      } else {
+        s.release(child);
+      }
+    }
+  };
+  const volumes = s.childCount(cam);
+  for (let v = 0; v < volumes; v++) {
+    const volume = s.childAt(cam, v);
+    try {
+      walk(volume, 0);
+    } finally {
+      s.release(volume);
+    }
+  }
+  return (best as { ref: Ref } | null)?.ref ?? null;
+}
+
+/**
+ * Arrête l'enregistrement. keep = true : rapatrie la vidéo de la carte vers `dir`
+ * (le fichier reste aussi sur la carte, en sauvegarde). keep = false : annulation.
+ */
+async function movieStop(dir: string, keep: boolean): Promise<CanonMovieResult | null> {
+  const { s, cam } = requireCamera();
+  if (!recording) throw new UserError("Aucune vidéo en cours d'enregistrement.");
+  const code = await retryBusy("Arrêt de la vidéo", () => s.setUInt32Raw(cam, PropID.Record, RecordStop), cam);
+  recording = false;
+  log(`Arrêt de la vidéo → ${errorName(code)}`);
+  if (!keep) return null;
+  capturing = true; // aperçu en pause pendant que l'appareil écrit puis envoie le fichier
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    const pickMovie = (queue: Ref[]) => {
+      while (queue.length) {
+        const ref = queue.shift();
+        const info = s.directoryItemInfo(ref);
+        if (!info.isFolder && isMovie(info.name)) return ref;
+        if (queue === transferQueue) s.cancelTransfer(ref);
+        else s.release(ref);
+      }
+      return null;
+    };
+    // L'appareil signale le fichier une fois la vidéo finalisée sur la carte.
+    let item = await waitFor(() => pickMovie(createdQueue) ?? pickMovie(transferQueue), 30_000);
+    assertStillConnected(cam);
+    if (!item) {
+      log('Aucun fichier signalé par l’appareil : recherche sur la carte');
+      item = newestMovieOnCard(s, cam);
+    }
+    if (!item) throw new UserError("La vidéo a été enregistrée par l'appareil mais reste introuvable sur la carte.");
+    const info = s.directoryItemInfo(item);
+    const file = path.join(dir, `${Date.now()}_${info.name}`);
+    const t0 = Date.now();
+    let lastPercent = -1;
+    try {
+      s.downloadToFile(item, info.size, file, (percent) => {
+        if (percent !== lastPercent) {
+          lastPercent = percent;
+          post({ type: 'progress', percent });
+        }
+      });
+    } finally {
+      s.release(item);
+    }
+    const downloadMs = Date.now() - t0;
+    log(`Vidéo ${info.name} : ${(info.size / 1e6).toFixed(1)} Mo rapatriés en ${(downloadMs / 1000).toFixed(1)} s`);
+    return { path: file, name: info.name, bytes: info.size, downloadMs };
+  } finally {
+    capturing = false;
+  }
+}
+
 async function handle(req: CanonRequest): Promise<unknown> {
   switch (req.cmd) {
     case 'status':
@@ -379,6 +555,12 @@ async function handle(req: CanonRequest): Promise<unknown> {
       return setLiveview(req.on);
     case 'capture':
       return capture(req.dir);
+    case 'movieMode':
+      return setMovieMode(req.on);
+    case 'movieStart':
+      return movieStart();
+    case 'movieStop':
+      return movieStop(req.dir, req.keep);
   }
 }
 

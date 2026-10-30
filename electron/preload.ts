@@ -40,6 +40,15 @@ contextBridge.exposeInMainWorld('api', {
       cloudShareUrl?: string | null;
       skipCloudUpload?: boolean;
     }) => ipcRenderer.invoke('video:save', payload),
+    saveFile: (payload: {
+      sourcePath: string;
+      eventId: number;
+      mode: 'interview' | 'free_message';
+      durationMs: number;
+      interviewLog?: {
+        questions: Array<{ index: number; text: string; startMs: number; endMs: number }>;
+      };
+    }) => ipcRenderer.invoke('video:saveFile', payload),
     list: (eventId: number) => ipcRenderer.invoke('video:list', eventId),
     delete: (id: number) => ipcRenderer.invoke('video:delete', id),
     openFolder: (eventId?: number) => ipcRenderer.invoke('video:openFolder', eventId),
@@ -104,6 +113,16 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on('canon:frame', listener);
       return () => {
         ipcRenderer.removeListener('canon:frame', listener);
+      };
+    },
+    movieMode: (on: boolean) => ipcRenderer.invoke('canon:movieMode', on),
+    movieStart: () => ipcRenderer.invoke('canon:movieStart'),
+    movieStop: (keep: boolean) => ipcRenderer.invoke('canon:movieStop', keep),
+    onProgress: (cb: (percent: number) => void) => {
+      const listener = (_e: Electron.IpcRendererEvent, percent: number) => cb(percent);
+      ipcRenderer.on('canon:progress', listener);
+      return () => {
+        ipcRenderer.removeListener('canon:progress', listener);
       };
     },
     onState: (cb: (state: { connected: boolean; model?: string }) => void) => {

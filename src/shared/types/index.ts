@@ -187,6 +187,9 @@ export interface AppSettings {
   capture_source: 'webcam' | 'canon';
   // Mode Canon : aperçu tiré de la caméra vidéo sélectionnée (Cam Link HDMI) ou du LiveView USB
   canon_preview: 'video' | 'usb';
+  // Vidéos : 'webcam' = enregistrées par l'app depuis la caméra sélectionnée (Cam Link) ;
+  // 'canon' = enregistrées par l'appareil Canon, aperçu par le LiveView USB, bascule photo/vidéo auto
+  video_source: 'webcam' | 'canon';
   // VideoBooth
   video_enabled: boolean;
   capture_mode: 'photo' | 'video' | 'both';
@@ -246,6 +249,18 @@ declare global {
           interviewLog?: { questions: InterviewLogEntry[] };
           cloudShareUrl?: string | null;
           skipCloudUpload?: boolean;
+        }) => Promise<{
+          id: number;
+          filepath: string;
+          share_url: string;
+          interview_log_path: string | null;
+        }>;
+        saveFile: (payload: {
+          sourcePath: string;
+          eventId: number;
+          mode: VideoMode;
+          durationMs: number;
+          interviewLog?: { questions: InterviewLogEntry[] };
         }) => Promise<{
           id: number;
           filepath: string;
@@ -314,6 +329,10 @@ declare global {
         logs: () => Promise<string[]>;
         windowsCheck: () => Promise<CanonWindowsCheck>;
         onFrame: (cb: (jpeg: Uint8Array) => void) => () => void;
+        movieMode: (on: boolean) => Promise<CanonResult<CanonStatus>>;
+        movieStart: () => Promise<CanonResult<CanonStatus>>;
+        movieStop: (keep: boolean) => Promise<CanonResult<CanonMovie | null>>;
+        onProgress: (cb: (percent: number) => void) => () => void;
         onState: (cb: (state: { connected: boolean; model?: string }) => void) => () => void;
       };
       app: {
@@ -340,6 +359,15 @@ export interface CanonStatus {
   model?: string;
   battery?: number;
   liveview: boolean;
+}
+
+/** Vidéo enregistrée par l'appareil et rapatriée sur le PC (fichier temporaire). */
+export interface CanonMovie {
+  path: string;
+  url: string;
+  name: string;
+  bytes: number;
+  downloadMs: number;
 }
 
 export interface CanonWindowsCheck {

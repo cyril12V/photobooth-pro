@@ -24,14 +24,15 @@ export function VideoPreviewScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Une vidéo de l'appareil Canon n'a pas de blob : elle est lue depuis son fichier.
   useEffect(() => {
-    if (!currentVideoBlob || !currentVideoBlobUrl) {
+    if (!currentVideoBlobUrl) {
       setScreen('video-home');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (!currentVideoBlobUrl || !currentVideoBlob) return null;
+  if (!currentVideoBlobUrl) return null;
 
   const validate = async () => {
     if (saving) return;

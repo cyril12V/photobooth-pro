@@ -12,6 +12,9 @@ import {
 import { useAppStore } from '@shared/store';
 import { AdminCard, AdminPageHeader, AdminToggle } from '../components/AdminUI';
 import { Button } from '@shared/components/Button';
+import { CanonLiveView } from '@shared/components/CanonLiveView';
+import { finishCanonMovie, prepareCanonMovie, releaseCanonMovie, startCanonMovie } from '@shared/lib/canonMovie';
+import type { AppSettings } from '@shared/types';
 
 type CaptureMode = 'photo' | 'video' | 'both';
 const CAPTURE_MODE_OPTIONS: Array<{ value: CaptureMode; label: string }> = [
@@ -79,6 +82,100 @@ function MicLevel({ deviceId }: { deviceId: string }) {
         {error ??
           "Parle près du micro : la barre doit bouger. Si elle reste vide, les vidéos seront sans son : choisis un autre micro (l'entrée audio de la Cam Link ne capte que le son HDMI de l'appareil)."}
       </p>
+    </div>
+  );
+}
+
+const VIDEO_SOURCES: Array<{ id: AppSettings['video_source']; label: string; description: string }> = [
+  {
+    id: 'webcam',
+    label: 'Caméra sélectionnée (Cam Link)',
+    description: "L'app enregistre le flux de la caméra choisie dans Caméra. L'appareil doit être en mode vidéo avec une sortie HDMI propre.",
+  },
+  {
+    id: 'canon',
+    label: 'Appareil Canon (USB)',
+    description: "L'appareil enregistre lui-même (jusqu'en 4K), aperçu propre par l'USB, bascule photo/vidéo automatique.",
+  },
+];
+
+type CanonVideoTestResult =
+  | { ok: true; size: string; seconds: number; mb: number; downloadS: number }
+  | { ok: false; error: string };
+
+/** Vidéo de 5 s par l'appareil : bascule en vidéo, enregistrement, rapatriement, retour en photo. */
+function CanonVideoTest() {
+  const [step, setStep] = useState<'idle' | 'preparing' | 'recording' | 'downloading'>('idle');
+  const [percent, setPercent] = useState<number | null>(null);
+  const [result, setResult] = useState<CanonVideoTestResult | null>(null);
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  const run = async () => {
+    setResult(null);
+    setPercent(null);
+    setStep('preparing');
+    let recording = false;
+    try {
+      const prepareError = await prepareCanonMovie();
+      if (prepareError) throw new Error(prepareError);
+      await sleep(1000);
+      const startError = await startCanonMovie();
+      if (startError) throw new Error(startError);
+      recording = true;
+      setStep('recording');
+      await sleep(5000);
+      recording = false;
+      setStep('downloading');
+      const movie = await finishCanonMovie(setPercent);
+      if (typeof movie === 'string') throw new Error(movie);
+      const video = document.createElement('video');
+      video.src = movie.url;
+      await new Promise<void>((resolve, reject) => {
+        video.onloadedmetadata = () => resolve();
+        video.onerror = () => reject(new Error("La vidéo a été rapatriée mais l'app ne sait pas la lire."));
+      });
+      setResult({
+        ok: true,
+        size: `${video.videoWidth}×${video.videoHeight}`,
+        seconds: Math.round(video.duration * 10) / 10,
+        mb: movie.bytes / 1e6,
+        downloadS: movie.downloadMs / 1000,
+      });
+    } catch (e) {
+      setResult({ ok: false, error: e instanceof Error ? e.message : String(e) });
+    } finally {
+      await releaseCanonMovie(recording);
+      setStep('idle');
+    }
+  };
+
+  const label = {
+    idle: "Tester la vidéo par l'appareil (5 s)",
+    preparing: 'Passage en mode vidéo…',
+    recording: 'Enregistrement (5 s)…',
+    downloading: `Rapatriement de la vidéo${percent !== null ? ` : ${percent} %` : '…'}`,
+  }[step];
+
+  return (
+    <div className="mt-4">
+      <Button variant="secondary" size="md" onClick={run} disabled={step !== 'idle'}>
+        {label}
+      </Button>
+      {(step === 'preparing' || step === 'recording') && (
+        <CanonLiveView className="mt-3 w-full max-h-64 object-contain" style={{ backgroundColor: '#1A1A1A', borderRadius: '4px' }} />
+      )}
+      {result &&
+        (result.ok ? (
+          <p className="text-xs mt-2" style={{ color: '#2F6B3A', fontWeight: 600 }}>
+            OK : vidéo {result.size}, {result.seconds} s, {result.mb.toFixed(1)} Mo, rapatriée en {result.downloadS.toFixed(1)} s.
+            Pour un message de 30 s, compte environ {Math.round((result.downloadS * 30) / Math.max(1, result.seconds))} s
+            d'attente après l'enregistrement. L'appareil est revenu en mode photo.
+          </p>
+        ) : (
+          <p className="text-xs mt-2" style={{ color: '#9B2C2C', fontWeight: 600 }}>
+            {result.error}
+          </p>
+        ))}
     </div>
   );
 }
@@ -191,6 +288,7 @@ export function VideoSettings() {
   );
   const [micDevices, setMicDevices] = useState<MediaDeviceInfo[]>([]);
   const [micId, setMicId] = useState(settings?.microphone_device_id ?? '');
+  const [videoSource, setVideoSource] = useState<AppSettings['video_source']>(settings?.video_source ?? 'webcam');
   const [captureResolution, setCaptureResolution] = useState<CaptureResolution>(
     settings?.video_capture_resolution ?? '1080p',
   );
@@ -241,6 +339,7 @@ export function VideoSettings() {
 
   const save = async () => {
     await window.api.settings.set('capture_mode', captureMode);
+    await window.api.settings.set('video_source', videoSource);
     await window.api.settings.set('video_enabled', captureMode !== 'photo');
     await window.api.settings.set('microphone_device_id', micId);
     await window.api.settings.set('video_capture_resolution', captureResolution);
@@ -328,6 +427,43 @@ export function VideoSettings() {
           </p>
         </AdminCard>
 
+        <AdminCard title="Source vidéo">
+          <div className="grid grid-cols-2 gap-3">
+            {VIDEO_SOURCES.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => setVideoSource(s.id)}
+                className="p-4 text-left transition-colors"
+                style={{
+                  backgroundColor: videoSource === s.id ? '#1A1A1A' : '#F4ECDD',
+                  color: videoSource === s.id ? '#FAF6EE' : '#1A1A1A',
+                  border: '1px solid rgba(212, 184, 150, 0.3)',
+                  borderRadius: '4px',
+                  fontFamily: 'Inter, sans-serif',
+                  cursor: 'pointer',
+                }}
+              >
+                <span className="block text-sm font-medium">{s.label}</span>
+                <span className="block mt-1" style={{ fontSize: '0.75rem', opacity: 0.75 }}>
+                  {s.description}
+                </span>
+              </button>
+            ))}
+          </div>
+          {videoSource === 'canon' && (
+            <>
+              <p className="text-neutral-500 text-xs mt-3">
+                L'appareil passe tout seul en mode vidéo puis revient en photo : sa molette reste sur P, Av ou M,
+                et la Cam Link n'est plus nécessaire. La qualité (4K ou Full HD) se règle dans le menu vidéo de
+                l'appareil, en mode standard (pas HDR) : la 4K est plus belle mais plus longue à rapatrier en USB.
+                Le son vient de l'appareil
+                (micro intégré ou micro branché dessus). Les vidéos restent aussi sur sa carte, en sauvegarde.
+              </p>
+              <CanonVideoTest />
+            </>
+          )}
+        </AdminCard>
+
         <AdminCard title="Microphone">
           {micDevices.length === 0 ? (
             <p className="text-neutral-500 text-sm">
@@ -374,7 +510,13 @@ export function VideoSettings() {
               </button>
             </div>
           )}
-          <MicLevel deviceId={micId} />
+          {videoSource === 'canon' ? (
+            <p className="text-neutral-400 text-xs mt-3">
+              Source vidéo « Appareil Canon » : le son est enregistré par l'appareil, ce micro n'est pas utilisé.
+            </p>
+          ) : (
+            <MicLevel deviceId={micId} />
+          )}
         </AdminCard>
 
         <AdminCard title="Qualité">
@@ -407,7 +549,9 @@ export function VideoSettings() {
               <p className="text-neutral-400 text-xs mt-1">
                 La 4K est exigeante : ta caméra doit fournir un vrai flux 4K (Canon R6 Mark II en mode Webcam Utility, Sony Imaging Edge, GoPro, etc.) et la machine doit pouvoir l'encoder en temps réel (processeur 4 cœurs / 8 threads minimum). En cas de lag ou de fichier cassé, retombe en 1080p.
               </p>
-              <RecordingTest resolution={captureResolution} cameraId={settings?.camera_device_id ?? ''} micId={micId} />
+              {videoSource === 'webcam' && (
+                <RecordingTest resolution={captureResolution} cameraId={settings?.camera_device_id ?? ''} micId={micId} />
+              )}
             </div>
 
             <div>

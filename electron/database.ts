@@ -148,6 +148,7 @@ export async function initDatabase() {
     photo_resolution: legacyVideoResolution,
     capture_source: 'webcam',
     canon_preview: 'video',
+    video_source: 'webcam',
     // ─── VideoBooth ─────────────────────────────────────────────────────────
     video_enabled: true,
     capture_mode: legacyCaptureMode,

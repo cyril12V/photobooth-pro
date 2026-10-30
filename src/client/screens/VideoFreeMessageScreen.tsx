@@ -3,7 +3,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { MdArrowBack, MdErrorOutline, MdMic, MdStop } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
+import { CanonLiveView } from '@shared/components/CanonLiveView';
 import { sounds } from '@shared/lib/sounds';
+import { finishCanonMovie, prepareCanonMovie, releaseCanonMovie, startCanonMovie } from '@shared/lib/canonMovie';
 import {
   VIDEO_BITRATE_MAP,
   VIDEO_RECORDING_SLICE_MS,
@@ -17,7 +19,11 @@ import {
 type Phase = 'preparing' | 'countdown' | 'recording' | 'finishing' | 'error';
 
 export function VideoFreeMessageScreen() {
-  const { settings, setScreen, setVideoCapture } = useAppStore();
+  const { settings, setScreen, setVideoCapture, setCameraVideoCapture } = useAppStore();
+  // Appareil Canon en USB : il enregistre lui-même, l'aperçu vient de son LiveView.
+  const canonVideo = settings?.video_source === 'canon';
+  const canonRecordingRef = useRef(false);
+  const [downloadPercent, setDownloadPercent] = useState<number | null>(null);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -41,6 +47,18 @@ export function VideoFreeMessageScreen() {
     let cancelled = false;
     (async () => {
       try {
+        if (canonVideo) {
+          const err = await prepareCanonMovie();
+          if (cancelled) return;
+          if (err) {
+            setError(err);
+            setPhase('error');
+            return;
+          }
+          setCountdown(initialCountdown);
+          setPhase('countdown');
+          return;
+        }
         // Libère l'appareil Canon piloté en USB pour les photos : la vidéo passe par la caméra sélectionnée.
         if (settings?.capture_source === 'canon') await window.api.canon.disconnect();
         const stream = await navigator.mediaDevices.getUserMedia({
@@ -102,41 +120,55 @@ export function VideoFreeMessageScreen() {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
       }
+      // Annule un enregistrement en cours et remet l'appareil en mode photo.
+      if (canonVideo) releaseCanonMovie(canonRecordingRef.current);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const startRecording = () => {
-    if (!streamRef.current) return;
-    const mime = pickRecorderMimeType();
-    const videoBitsPerSecond = VIDEO_BITRATE_MAP[resolution];
+  const startRecording = async () => {
+    if (canonVideo) {
+      const err = await startCanonMovie();
+      if (err) {
+        setError(err);
+        setPhase('error');
+        return;
+      }
+      canonRecordingRef.current = true;
+      t0Ref.current = performance.now();
+    } else {
+      if (!streamRef.current) return;
+      const mime = pickRecorderMimeType();
+      const videoBitsPerSecond = VIDEO_BITRATE_MAP[resolution];
 
-    let recorder: MediaRecorder;
-    try {
-      recorder = new MediaRecorder(streamRef.current, {
-        mimeType: mime,
-        videoBitsPerSecond,
-        audioBitsPerSecond: 128_000,
-      });
-    } catch (e) {
-      console.error(e);
-      setError("Le navigateur ne supporte pas l'enregistrement vidéo.");
-      setPhase('error');
-      return;
+      let recorder: MediaRecorder;
+      try {
+        recorder = new MediaRecorder(streamRef.current, {
+          mimeType: mime,
+          videoBitsPerSecond,
+          audioBitsPerSecond: 128_000,
+        });
+      } catch (e) {
+        console.error(e);
+        setError("Le navigateur ne supporte pas l'enregistrement vidéo.");
+        setPhase('error');
+        return;
+      }
+
+      chunksRef.current = [];
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunksRef.current.push(e.data);
+      };
+      recorder.onstop = () => finalize(mime);
+      recorder.onerror = () => {
+        setError("Erreur d'enregistrement.");
+        setPhase('error');
+      };
+
+      recorderRef.current = recorder;
+      t0Ref.current = performance.now();
+      recorder.start(VIDEO_RECORDING_SLICE_MS);
     }
-
-    chunksRef.current = [];
-    recorder.ondataavailable = (e) => {
-      if (e.data.size > 0) chunksRef.current.push(e.data);
-    };
-    recorder.onstop = () => finalize(mime);
-    recorder.onerror = () => {
-      setError("Erreur d'enregistrement.");
-      setPhase('error');
-    };
-
-    recorderRef.current = recorder;
-    t0Ref.current = performance.now();
-    recorder.start(VIDEO_RECORDING_SLICE_MS);
 
     tickerRef.current = window.setInterval(() => {
       const e = (performance.now() - t0Ref.current) / 1000;
@@ -155,6 +187,10 @@ export function VideoFreeMessageScreen() {
       tickerRef.current = null;
     }
     setPhase('finishing');
+    if (canonVideo) {
+      finishCanonRecording();
+      return;
+    }
     if (recorderRef.current && recorderRef.current.state !== 'inactive') {
       try {
         recorderRef.current.stop();
@@ -162,6 +198,22 @@ export function VideoFreeMessageScreen() {
         console.error(e);
       }
     }
+  };
+
+  /** L'appareil arrête l'enregistrement puis la vidéo est rapatriée en USB. */
+  const finishCanonRecording = async () => {
+    if (!canonRecordingRef.current) return;
+    canonRecordingRef.current = false;
+    const durationMs = Math.round(performance.now() - t0Ref.current);
+    if (soundsOn) sounds.recordingEnd();
+    const movie = await finishCanonMovie(setDownloadPercent);
+    if (typeof movie === 'string') {
+      setError(movie);
+      setPhase('error');
+      return;
+    }
+    setCameraVideoCapture({ filepath: movie.path, url: movie.url, durationMs, interviewLog: [] });
+    setScreen('video-preview');
   };
 
   const finalize = (mime: string) => {
@@ -245,14 +297,18 @@ export function VideoFreeMessageScreen() {
         Message libre
       </div>
 
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        className="w-full h-full object-cover"
-        style={{ transform: 'scaleX(-1)' }}
-      />
+      {canonVideo ? (
+        <CanonLiveView className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
+      ) : (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="w-full h-full object-cover"
+          style={{ transform: 'scaleX(-1)' }}
+        />
+      )}
 
       {phase === 'recording' && (
         <motion.div
@@ -391,7 +447,7 @@ export function VideoFreeMessageScreen() {
               letterSpacing: '-0.02em',
             }}
           >
-            Sauvegarde en cours...
+            {downloadPercent === null ? 'Sauvegarde en cours...' : `Récupération de la vidéo : ${downloadPercent} %`}
           </p>
         </div>
       )}
