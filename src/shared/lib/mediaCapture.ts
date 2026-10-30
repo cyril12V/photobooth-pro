@@ -56,6 +56,59 @@ export function buildVideoTrackConstraints(
   };
 }
 
+type DeviceLike = Pick<MediaDeviceInfo, 'kind' | 'deviceId' | 'groupId' | 'label'>;
+
+/**
+ * Entrée son du même appareil que la caméra : avec une Cam Link, le son HDMI de l'appareil
+ * photo (son micro intégré ou le micro branché dessus). Même groupe que la caméra pour
+ * Chromium, ou à défaut un nom qui contient celui de la caméra
+ * (« Digital Audio Interface (Cam Link 4K) » pour « Cam Link 4K (0fd9:0066) »).
+ */
+export function pickCameraAudioInput<T extends DeviceLike>(devices: T[], cameraId?: string): T | null {
+  const camera = devices.find((d) => d.kind === 'videoinput' && (!cameraId || d.deviceId === cameraId));
+  if (!camera) return null;
+  // « default » et « communications » sont des alias Windows d'un autre micro.
+  const mics = devices.filter((d) => d.kind === 'audioinput' && d.deviceId !== 'default' && d.deviceId !== 'communications');
+  const name = camera.label.replace(/\s*\([0-9a-f]{4}:[0-9a-f]{4}\)\s*$/i, '').trim().toLowerCase();
+  return (
+    (camera.groupId ? mics.find((m) => m.groupId === camera.groupId) : undefined) ??
+    (name.length >= 3 ? mics.find((m) => m.label.toLowerCase().includes(name)) : undefined) ??
+    null
+  );
+}
+
+export interface MicrophoneChoice {
+  audio: MediaTrackConstraints | true;
+  /** Micro réellement utilisé, pour l'admin et le rapport. */
+  label: string;
+  /** Son de l'appareil branché comme caméra. */
+  fromCamera: boolean;
+}
+
+/**
+ * Micro des vidéos. micId vide = automatique : le son de la caméra choisie quand elle en a
+ * un, sinon le micro par défaut de Windows.
+ */
+export async function resolveMicrophone(micId: string | undefined, cameraId: string | undefined): Promise<MicrophoneChoice> {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  const cameraAudio = pickCameraAudioInput(devices, cameraId);
+  const id = micId || cameraAudio?.deviceId;
+  if (!id) {
+    const fallback = devices.find((d) => d.kind === 'audioinput' && d.deviceId === 'default');
+    return { audio: true, label: fallback?.label || 'Micro par défaut de Windows', fromCamera: false };
+  }
+  const label = devices.find((d) => d.kind === 'audioinput' && d.deviceId === id)?.label || id;
+  if (id === cameraAudio?.deviceId) {
+    // Son déjà réglé par l'appareil : pas d'anti-écho, de réduction de bruit ni de gain auto qui le dégradent.
+    return {
+      audio: { deviceId: { exact: id }, echoCancellation: false, noiseSuppression: false, autoGainControl: false },
+      label,
+      fromCamera: true,
+    };
+  }
+  return { audio: { deviceId: { exact: id } }, label, fromCamera: false };
+}
+
 export function applyRealtimeCaptureHints(stream: MediaStream) {
   stream.getVideoTracks().forEach((track) => {
     try {

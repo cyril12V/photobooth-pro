@@ -48,7 +48,7 @@ export function warmUpGpuProbe(width: number, height: number, bitrate: number) {
 
 type WorkerMessage =
   | { type: 'ready' }
-  | { type: 'done'; buffer: ArrayBuffer; fps: number; dropped: number }
+  | { type: 'done'; buffer: ArrayBuffer; fps: number; dropped: number; audio: boolean }
   | { type: 'error'; error: string };
 
 export class GpuRecorder {
@@ -56,8 +56,8 @@ export class GpuRecorder {
   private clones: MediaStreamTrack[] = [];
   private readonly ready: Promise<void>;
   private readonly result: Promise<Blob>;
-  /** Après stop() : images par seconde réellement enregistrées et images sautées. */
-  stats: { fps: number; dropped: number } | null = null;
+  /** Après stop() : images par seconde réellement enregistrées, images sautées, présence du son. */
+  stats: { fps: number; dropped: number; audio: boolean } | null = null;
 
   /**
    * Encodeur de la carte graphique démarré et prêt pour ce flux (à appeler pendant que
@@ -100,21 +100,14 @@ export class GpuRecorder {
     this.worker.onmessage = (e: MessageEvent<WorkerMessage>) => {
       if (e.data.type === 'ready') readyOk();
       else if (e.data.type === 'done') {
-        this.stats = { fps: e.data.fps, dropped: e.data.dropped };
+        this.stats = { fps: e.data.fps, dropped: e.data.dropped, audio: e.data.audio };
         done(new Blob([e.data.buffer], { type: GPU_RECORDER_MIME }));
       } else fail(e.data.error);
     };
     this.worker.onerror = (e) => fail(e.message);
 
     const v = stream.getVideoTracks()[0].getSettings();
-    const a = stream.getAudioTracks()[0]?.getSettings();
-    this.worker.postMessage({
-      cmd: 'init',
-      width: v.width,
-      height: v.height,
-      bitrate,
-      audio: a ? { sampleRate: a.sampleRate ?? 48000, channels: a.channelCount ?? 1 } : null,
-    });
+    this.worker.postMessage({ cmd: 'init', width: v.width, height: v.height, bitrate });
   }
 
   start() {

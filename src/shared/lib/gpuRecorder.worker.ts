@@ -10,8 +10,6 @@ interface InitMessage {
   width: number;
   height: number;
   bitrate: number;
-  /** null : pas de micro. */
-  audio: { sampleRate: number; channels: number } | null;
 }
 
 interface StartMessage {
@@ -25,14 +23,21 @@ const ctx = self as unknown as {
   onmessage: ((e: MessageEvent<InitMessage | StartMessage | { cmd: 'stop' }>) => void) | null;
 };
 
+let size = { width: 0, height: 0 };
+let videoEncoder: VideoEncoder | null = null;
+/** Destination des images encodées : jetées pendant la mise en route, puis le MP4. */
+let onVideoChunk: (chunk: EncodedVideoChunk, meta?: EncodedVideoChunkMetadata) => void = () => {};
+let warmMeta: EncodedVideoChunkMetadata | undefined;
 let stopping = false;
 let session: {
   muxer: Muxer<ArrayBufferTarget>;
-  videoEncoder: VideoEncoder;
   audioEncoder: AudioEncoder | null;
   pumps: Promise<void>[];
   stats: { encoded: number; dropped: number; firstUs: number; lastUs: number };
+  /** Donne au MP4 ce qui attend encore son calage (fin d'enregistrement). */
+  flush: () => void;
 } | null = null;
+let started: Promise<void> = Promise.resolve();
 
 const fail = (error: unknown) => ctx.postMessage({ type: 'error', error: String(error) });
 
@@ -46,37 +51,18 @@ async function pump<T>(reader: ReadableStreamDefaultReader<T>, onItem: (item: T)
 }
 
 /**
- * Ouvre les encodeurs avant l'enregistrement : la carte graphique met ~1 s à démarrer
- * son encodeur, ce qui ferait sauter la 1re seconde de la vidéo et saccader l'aperçu.
+ * Ouvre l'encodeur vidéo avant l'enregistrement : la carte graphique met ~1 s à le démarrer,
+ * ce qui ferait sauter la 1re seconde de la vidéo et saccader l'aperçu.
  */
 async function init(msg: InitMessage) {
-  const muxer = new Muxer({
-    target: new ArrayBufferTarget(),
-    video: { codec: 'avc', width: msg.width, height: msg.height },
-    audio: msg.audio ? { codec: 'opus', numberOfChannels: msg.audio.channels, sampleRate: msg.audio.sampleRate } : undefined,
-    fastStart: 'in-memory',
-    // Images et son sont datés par la même horloge : un décalage commun garde la synchro des lèvres.
-    firstTimestampBehavior: 'cross-track-offset',
-  });
-
+  size = { width: msg.width, height: msg.height };
   // Pendant la mise en route, la sortie est jetée ; on garde seulement sa description
   // du flux (SPS/PPS), au cas où la 1re vraie image ne la renverrait pas.
-  let warming = true;
-  let warmMeta: EncodedVideoChunkMetadata | undefined;
-  let firstChunk = true;
-  const videoEncoder = new VideoEncoder({
-    output: (chunk, meta) => {
-      if (warming) {
-        if (meta?.decoderConfig) warmMeta = meta;
-        return;
-      }
-      if (firstChunk && !meta?.decoderConfig) meta = warmMeta;
-      firstChunk = false;
-      muxer.addVideoChunk(chunk, meta);
-    },
-    error: fail,
-  });
-  videoEncoder.configure({
+  onVideoChunk = (_chunk, meta) => {
+    if (meta?.decoderConfig) warmMeta = meta;
+  };
+  const encoder = new VideoEncoder({ output: (chunk, meta) => onVideoChunk(chunk, meta), error: fail });
+  encoder.configure({
     codec: 'avc1.640033', // H.264 High 5.1 : jusqu'à la 4K30
     width: msg.width,
     height: msg.height,
@@ -92,28 +78,60 @@ async function init(msg: InitMessage) {
     codedHeight: msg.height,
     timestamp: 0,
   });
-  videoEncoder.encode(black, { keyFrame: true });
+  encoder.encode(black, { keyFrame: true });
   black.close();
-  await videoEncoder.flush();
-  warming = false;
-
-  let audioEncoder: AudioEncoder | null = null;
-  if (msg.audio) {
-    audioEncoder = new AudioEncoder({ output: (chunk, meta) => muxer.addAudioChunk(chunk, meta), error: fail });
-    audioEncoder.configure({ codec: 'opus', sampleRate: msg.audio.sampleRate, numberOfChannels: msg.audio.channels, bitrate: 128_000 });
-  }
-  session = { muxer, videoEncoder, audioEncoder, pumps: [], stats: { encoded: 0, dropped: 0, firstUs: 0, lastUs: 0 } };
+  await encoder.flush();
+  videoEncoder = encoder;
   ctx.postMessage({ type: 'ready' });
 }
 
-function start(msg: StartMessage) {
-  if (!session) return fail('Encodeur non prêt');
-  const { videoEncoder, audioEncoder, stats } = session;
-  session.pumps.push(
+/** 1er morceau de son, ou rien si le micro se tait plus d'une seconde (micro muet ou débranché). */
+async function firstAudio(reader: ReadableStreamDefaultReader<AudioData>): Promise<AudioData | null> {
+  const timeout = new Promise<null>((r) => setTimeout(() => r(null), 1000));
+  const first = await Promise.race([reader.read().then((r) => r.value ?? null), timeout]);
+  return first;
+}
+
+async function start(msg: StartMessage) {
+  const encoder = videoEncoder;
+  if (!encoder) return fail('Encodeur non prêt');
+
+  // Images et son sont datés par la même horloge : le MP4 cale les deux pistes sur le plus
+  // ancien des deux premiers morceaux (synchro des lèvres). Il ne reçoit donc rien avant
+  // d'avoir le 1er morceau de chaque piste, et le plus ancien passe en premier.
+  const waitingVideo: Array<[EncodedVideoChunk, EncodedVideoChunkMetadata | undefined]> = [];
+  const waitingAudio: Array<[EncodedAudioChunk, EncodedAudioChunkMetadata | undefined]> = [];
+  let muxer: Muxer<ArrayBufferTarget> | null = null;
+  let withAudio = false;
+  let aligned = false;
+  const release = (force = false) => {
+    if (aligned || !muxer) return;
+    if (!force && (!waitingVideo.length || (withAudio && !waitingAudio.length))) return;
+    const m = muxer;
+    const audioFirst = waitingAudio.length && waitingVideo.length && waitingAudio[0][0].timestamp < waitingVideo[0][0].timestamp;
+    if (audioFirst) m.addAudioChunk(...waitingAudio.shift()!);
+    for (const c of waitingVideo.splice(0)) m.addVideoChunk(...c);
+    for (const c of waitingAudio.splice(0)) m.addAudioChunk(...c);
+    aligned = true;
+  };
+  let firstChunk = true;
+  onVideoChunk = (chunk, meta) => {
+    if (firstChunk && !meta?.decoderConfig) meta = warmMeta;
+    firstChunk = false;
+    if (aligned) muxer!.addVideoChunk(chunk, meta);
+    else {
+      waitingVideo.push([chunk, meta]);
+      release();
+    }
+  };
+
+  const stats = { encoded: 0, dropped: 0, firstUs: 0, lastUs: 0 };
+  // La vidéo part tout de suite ; le son la rejoint dès son 1er morceau.
+  const pumps = [
     pump(msg.video.getReader(), (frame) => {
       // Encodeur en retard : on saute l'image plutôt que de prendre du retard sur le direct.
-      if (videoEncoder.encodeQueueSize <= 4) {
-        videoEncoder.encode(frame, { keyFrame: stats.encoded % 60 === 0 });
+      if (encoder.encodeQueueSize <= 4) {
+        encoder.encode(frame, { keyFrame: stats.encoded % 60 === 0 });
         if (stats.encoded === 0) stats.firstUs = frame.timestamp;
         stats.lastUs = frame.timestamp;
         stats.encoded++;
@@ -122,35 +140,73 @@ function start(msg: StartMessage) {
       }
       frame.close();
     }),
-  );
-  if (msg.audio && audioEncoder) {
-    session.pumps.push(
-      pump(msg.audio.getReader(), (data) => {
-        audioEncoder.encode(data);
+  ];
+
+  const audioReader = msg.audio?.getReader() ?? null;
+  // Le son est réglé sur ce que le micro envoie vraiment (Cam Link : 48 kHz stéréo),
+  // pas sur ce qu'il annonce : un écart ferait échouer l'encodage.
+  const first = audioReader ? await firstAudio(audioReader) : null;
+  if (audioReader && !first) {
+    console.warn('[gpuRecorder] aucun son reçu : vidéo sans piste son');
+    audioReader.cancel().catch(() => {});
+  }
+  withAudio = !!first;
+  const m = new Muxer({
+    target: new ArrayBufferTarget(),
+    video: { codec: 'avc', width: size.width, height: size.height },
+    audio: first ? { codec: 'opus', numberOfChannels: first.numberOfChannels, sampleRate: first.sampleRate } : undefined,
+    fastStart: 'in-memory',
+    firstTimestampBehavior: 'cross-track-offset',
+  });
+  muxer = m;
+
+  let audioEncoder: AudioEncoder | null = null;
+  if (first && audioReader) {
+    const enc = new AudioEncoder({
+      output: (chunk, meta) => {
+        if (aligned) m.addAudioChunk(chunk, meta);
+        else {
+          waitingAudio.push([chunk, meta]);
+          release();
+        }
+      },
+      error: fail,
+    });
+    enc.configure({ codec: 'opus', sampleRate: first.sampleRate, numberOfChannels: first.numberOfChannels, bitrate: 128_000 });
+    enc.encode(first);
+    first.close();
+    pumps.push(
+      pump(audioReader, (data) => {
+        enc.encode(data);
         data.close();
       }),
     );
+    audioEncoder = enc;
   }
+  release();
+  session = { muxer: m, audioEncoder, pumps, stats, flush: () => release(true) };
 }
 
 async function stop() {
-  if (!session) return fail('Enregistrement non démarré');
+  await started;
+  if (!session || !videoEncoder) return fail('Enregistrement non démarré');
   stopping = true;
-  const { muxer, videoEncoder, audioEncoder, pumps, stats } = session;
+  const { muxer, audioEncoder, pumps, stats, flush } = session;
   await Promise.all(pumps);
   await videoEncoder.flush();
   await audioEncoder?.flush();
+  flush();
   muxer.finalize();
   const buffer = muxer.target.buffer;
   const seconds = (stats.lastUs - stats.firstUs) / 1e6;
   const fps = seconds > 0 ? Math.round((stats.encoded - 1) / seconds) : 0;
-  ctx.postMessage({ type: 'done', buffer, fps, dropped: stats.dropped }, [buffer]);
+  ctx.postMessage({ type: 'done', buffer, fps, dropped: stats.dropped, audio: !!audioEncoder }, [buffer]);
 }
 
 ctx.onmessage = (e) => {
   try {
     if (e.data.cmd === 'init') init(e.data).catch(fail);
-    else if (e.data.cmd === 'start') start(e.data);
+    else if (e.data.cmd === 'start') started = start(e.data).catch(fail);
     else stop().catch(fail);
   } catch (err) {
     fail(err);

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { MdCameraAlt, MdContentCopy, MdLink, MdLinkOff, MdRefresh, MdVisibility } from 'react-icons/md';
 import { Button } from '@shared/components/Button';
 import { CanonLiveView } from '@shared/components/CanonLiveView';
+import { resolveMicrophone } from '@shared/lib/mediaCapture';
 import type { CanonCapture, CanonResult, CanonStatus, CanonWindowsCheck } from '@shared/types';
 import { AdminCard } from '../components/AdminUI';
 
@@ -183,11 +184,22 @@ export function CanonCameraPanel({ videoDeviceId }: { videoDeviceId: string }) {
 
   const copyReport = async () => {
     const version = await window.api.app.version();
+    const settings = await window.api.settings.get();
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    const mic = await resolveMicrophone(settings.microphone_device_id, settings.camera_device_id);
     const report = {
       app: `PhotoBooth Pro ${version}`,
       date: new Date().toISOString(),
       status: status ?? statusError,
       videoDevice: videoDeviceId || null,
+      // Son des vidéos : micro réellement utilisé et entrées son vues par l'app.
+      audio: {
+        setting: settings.microphone_device_id ? 'choisi' : 'automatique',
+        used: mic.label,
+        fromCamera: mic.fromCamera,
+        cameras: devices.filter((d) => d.kind === 'videoinput').map((d) => d.label),
+        inputs: devices.filter((d) => d.kind === 'audioinput').map((d) => d.label),
+      },
       windows: winCheck ?? (await window.api.canon.windowsCheck()),
       photoTest,
       logs: await window.api.canon.logs(),

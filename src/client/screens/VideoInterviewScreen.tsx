@@ -11,6 +11,7 @@ import {
   VIDEO_RECORDING_SLICE_MS,
   applyPreviewElementSize,
   applyRealtimeCaptureHints,
+  resolveMicrophone,
   buildVideoTrackConstraints,
   pickRecorderMimeType,
   type CaptureResolution,
@@ -106,11 +107,11 @@ export function VideoInterviewScreen() {
           // Libère l'appareil Canon piloté en USB pour les photos : la vidéo passe par la caméra sélectionnée.
           await window.api.canon.disconnect();
         }
+        // Par défaut, le son de la caméra (Cam Link : micro de l'appareil ou micro branché dessus).
+        const mic = await resolveMicrophone(settings?.microphone_device_id, settings?.camera_device_id);
         const stream = await navigator.mediaDevices.getUserMedia({
           video: buildVideoTrackConstraints(resolution, settings?.camera_device_id),
-          audio: settings?.microphone_device_id
-            ? { deviceId: { exact: settings.microphone_device_id } }
-            : true,
+          audio: mic.audio,
         });
         if (cancelled) {
           stream.getTracks().forEach((t) => t.stop());

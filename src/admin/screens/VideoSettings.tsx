@@ -7,7 +7,9 @@ import {
   VIDEO_RECORDING_SLICE_MS,
   buildVideoTrackConstraints,
   pickRecorderMimeType,
+  resolveMicrophone,
   type CaptureResolution,
+  type MicrophoneChoice,
 } from '@shared/lib/mediaCapture';
 import { useAppStore } from '@shared/store';
 import { AdminCard, AdminPageHeader, AdminToggle } from '../components/AdminUI';
@@ -25,12 +27,13 @@ const CAPTURE_MODE_OPTIONS: Array<{ value: CaptureMode; label: string }> = [
 ];
 
 /**
- * Niveau sonore en direct du micro choisi : si la barre ne bouge pas quand on
- * parle, ce micro n'enregistre rien (ex. l'entrée audio HDMI de la Cam Link).
+ * Niveau sonore en direct du micro des vidéos (choix automatique compris) : si la barre
+ * ne bouge pas quand on parle, ce micro n'enregistre rien.
  */
-function MicLevel({ deviceId }: { deviceId: string }) {
+function MicLevel({ micId, cameraId }: { micId: string; cameraId: string }) {
   const [level, setLevel] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [mic, setMic] = useState<MicrophoneChoice | null>(null);
 
   useEffect(() => {
     let stopped = false;
@@ -40,9 +43,10 @@ function MicLevel({ deviceId }: { deviceId: string }) {
     setError(null);
     (async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: deviceId ? { deviceId: { exact: deviceId } } : true,
-        });
+        const choice = await resolveMicrophone(micId, cameraId);
+        if (stopped) return;
+        setMic(choice);
+        stream = await navigator.mediaDevices.getUserMedia({ audio: choice.audio });
         if (stopped) return;
         ctx = new AudioContext();
         await ctx.resume();
@@ -68,11 +72,13 @@ function MicLevel({ deviceId }: { deviceId: string }) {
       stream?.getTracks().forEach((t) => t.stop());
       ctx?.close();
     };
-  }, [deviceId]);
+  }, [micId, cameraId]);
 
   return (
     <div className="mt-4">
-      <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-2">Niveau du micro</p>
+      <p className="text-neutral-600 text-xs font-medium uppercase tracking-wider mb-2">
+        Niveau du micro{mic ? ` : ${mic.label}${mic.fromCamera ? ' (son de la caméra)' : ''}` : ''}
+      </p>
       <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#E8DFD0' }}>
         <div
           className="h-full"
@@ -81,7 +87,9 @@ function MicLevel({ deviceId }: { deviceId: string }) {
       </div>
       <p className="text-neutral-400 text-xs mt-2">
         {error ??
-          "Parle près du micro : la barre doit bouger. Si elle reste vide, les vidéos seront sans son : choisis un autre micro (l'entrée audio de la Cam Link ne capte que le son HDMI de l'appareil)."}
+          (mic?.fromCamera
+            ? "Son HDMI de l'appareil par la Cam Link : il n'arrive que quand l'appareil est en mode vidéo. Vérifie-le avec « Tester l'enregistrement » (dans Qualité), qui le bascule."
+            : 'Parle près du micro : la barre doit bouger. Si elle reste vide, les vidéos seront sans son : choisis un autre micro.')}
       </p>
     </div>
   );
@@ -187,8 +195,41 @@ function CanonVideoTest() {
 }
 
 type RecordingTestResult =
-  | { ok: true; size: string; before: number; during: number; threads: number; gpu: { fps: number } | null }
+  | {
+      ok: true;
+      size: string;
+      before: number;
+      during: number;
+      threads: number;
+      gpu: { fps: number } | null;
+      /** Niveau crête du son pendant l'enregistrement (0 à 1), null sans micro. */
+      sound: { label: string; peak: number } | null;
+    }
   | { ok: false; error: string };
+
+/** Niveau crête (0 à 1) du son d'un flux, mesuré en continu jusqu'à close(). */
+function audioPeakMeter(stream: MediaStream) {
+  if (!stream.getAudioTracks().length) return null;
+  const ctx = new AudioContext();
+  void ctx.resume();
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 2048;
+  ctx.createMediaStreamSource(stream).connect(analyser);
+  const samples = new Float32Array(analyser.fftSize);
+  let peak = 0;
+  const timer = window.setInterval(() => {
+    analyser.getFloatTimeDomainData(samples);
+    for (const v of samples) peak = Math.max(peak, Math.abs(v));
+  }, 40);
+  return {
+    reset: () => (peak = 0),
+    peak: () => peak,
+    close: () => {
+      window.clearInterval(timer);
+      void ctx.close();
+    },
+  };
+}
 
 /**
  * Filme 5 s comme pendant une vraie session (même caméra, même résolution, même
@@ -216,15 +257,18 @@ function RecordingTest({
     setResult(null);
     let stream: MediaStream | null = null;
     let gpuRecorder: GpuRecorder | null = null;
+    let meter: ReturnType<typeof audioPeakMeter> = null;
     try {
       if (canonSwitch) {
         const err = await switchCanonToMovieForHdmi();
         if (err) throw new Error(err);
       }
+      const mic = await resolveMicrophone(micId, cameraId);
       stream = await navigator.mediaDevices.getUserMedia({
         video: buildVideoTrackConstraints(resolution, cameraId),
-        audio: micId ? { deviceId: { exact: micId } } : true,
+        audio: mic.audio,
       });
+      meter = audioPeakMeter(stream);
       const video = videoRef.current!;
       video.srcObject = stream;
       await video.play();
@@ -243,6 +287,7 @@ function RecordingTest({
       const t0 = performance.now();
       await sleep(2000);
       const t1 = performance.now();
+      meter?.reset();
       let recorder: MediaRecorder | null = null;
       if (gpuRecorder) {
         gpuRecorder.start();
@@ -269,10 +314,15 @@ function RecordingTest({
         during: fps(t2, t3),
         threads: navigator.hardwareConcurrency,
         gpu: gpuRecorder ? { fps: gpuRecorder.stats?.fps ?? 0 } : null,
+        // Encodeur de la carte graphique : sans son reçu, la vidéo n'a pas de piste son.
+        sound: meter
+          ? { label: mic.label, peak: gpuRecorder && !gpuRecorder.stats?.audio ? 0 : meter.peak() }
+          : null,
       });
     } catch (e) {
       setResult({ ok: false, error: e instanceof Error ? e.message : String(e) });
     } finally {
+      meter?.close();
       gpuRecorder?.cancel();
       stream?.getTracks().forEach((t) => t.stop());
       if (videoRef.current) videoRef.current.srcObject = null;
@@ -284,12 +334,13 @@ function RecordingTest({
   const keepsUp = (fps: number) => result?.ok && result.before > 0 && fps >= Math.min(25, result.before - 3);
   // Avec la carte graphique, la vidéo enregistrée doit aussi être fluide (images sautées si elle ne suit pas).
   const smooth = result?.ok && keepsUp(result.during) && (!result.gpu || keepsUp(result.gpu.fps));
+  const soundOk = result?.ok && result.sound && result.sound.peak >= 0.01;
 
   return (
     <div className="mt-4">
       <div className="flex items-center gap-3">
         <Button variant="secondary" size="md" onClick={run} disabled={running}>
-          {running ? 'Test en cours (8 s)…' : "Tester l'enregistrement"}
+          {running ? 'Test en cours (8 s) : parle !' : "Tester l'enregistrement"}
         </Button>
         {!canonSwitch && (
           <video ref={videoRef} muted playsInline className="h-16 rounded" style={{ backgroundColor: '#1A1A1A', display: running ? 'block' : 'none' }} />
@@ -311,6 +362,13 @@ function RecordingTest({
               : smooth
                 ? 'Fluide : ce PC tient cette résolution.'
                 : "Trop lourd pour ce PC : l'image saccade pendant les vidéos. Choisis une résolution plus basse (1080p) et refais le test."}
+            <span className="block mt-1" style={{ color: soundOk ? '#2F6B3A' : '#9B2C2C' }}>
+              {!result.sound
+                ? 'Son : aucun micro, les vidéos seront muettes.'
+                : soundOk
+                  ? `Son : reçu de « ${result.sound.label} » (niveau max ${Math.round(result.sound.peak * 100)} %).`
+                  : `Son : rien reçu de « ${result.sound.label} ». Parle pendant le test. Avec la Cam Link, le son vient de l'appareil : vérifie que l'enregistrement du son est activé dans son menu vidéo (pas « Désactivé »).`}
+            </span>
           </p>
         ) : (
           <p className="text-xs mt-2" style={{ color: '#9B2C2C' }}>
@@ -513,7 +571,7 @@ export function VideoSettings() {
               Branche l'appareil en USB-C (pour la bascule) et en HDMI sur la Cam Link, choisie dans Caméra › Sélection
               caméra. Sa molette reste sur P, Av ou M : l'app le passe en mode vidéo pour chaque vidéo puis le remet en
               photo. Une seule fois sur l'appareil, en mode vidéo : règle l'affichage HDMI pour qu'il sorte sans les
-              informations (touche INFO). Pour le son de l'appareil, choisis l'entrée audio de la Cam Link comme micro.
+              informations (touche INFO). Le son vient de l'appareil (son micro ou celui branché dessus) par la Cam Link : Microphone › Automatique.
               Vérifie le tout avec « Tester l'enregistrement » dans Qualité.
             </p>
           )}
@@ -526,6 +584,24 @@ export function VideoSettings() {
             </p>
           ) : (
             <div className="space-y-2">
+              <button
+                onClick={() => setMicId('')}
+                className={`w-full flex items-center gap-3 p-3.5 rounded-xl text-left transition-colors
+                  ${
+                    !micId
+                      ? 'bg-neutral-900 text-white border border-neutral-900'
+                      : 'bg-neutral-50 border border-neutral-200 hover:bg-neutral-100 text-neutral-700'
+                  }`}
+              >
+                <MdMic size={18} style={{ color: !micId ? '#D4B896' : '#6B5D4F' }} />
+                <span className="flex-1 text-sm font-medium">
+                  Automatique : son de la caméra (recommandé)
+                  <span className="block text-xs font-normal opacity-75">
+                    Avec la Cam Link : le micro de l'appareil ou celui branché dessus. Sinon, le micro par défaut de Windows.
+                  </span>
+                </span>
+                {!micId && <MdCheck size={16} style={{ color: '#D4B896' }} />}
+              </button>
               {micDevices.map((d) => (
                 <button
                   key={d.deviceId}
@@ -547,22 +623,6 @@ export function VideoSettings() {
                   {micId === d.deviceId && <MdCheck size={16} style={{ color: '#D4B896' }} />}
                 </button>
               ))}
-              <button
-                onClick={() => setMicId('')}
-                className={`w-full flex items-center gap-3 p-3.5 rounded-xl text-left transition-colors
-                  ${
-                    !micId
-                      ? 'bg-neutral-900 text-white border border-neutral-900'
-                      : 'bg-neutral-50 border border-neutral-200 hover:bg-neutral-100 text-neutral-700'
-                  }`}
-              >
-                <MdMic
-                  size={18}
-                  style={{ color: !micId ? '#D4B896' : '#6B5D4F' }}
-                />
-                <span className="flex-1 text-sm font-medium">Micro par défaut du système</span>
-                {!micId && <MdCheck size={16} style={{ color: '#D4B896' }} />}
-              </button>
             </div>
           )}
           {videoSource === 'canon' ? (
@@ -570,7 +630,7 @@ export function VideoSettings() {
               Source vidéo « Appareil Canon » : le son est enregistré par l'appareil, ce micro n'est pas utilisé.
             </p>
           ) : (
-            <MicLevel deviceId={micId} />
+            <MicLevel micId={micId} cameraId={settings?.camera_device_id ?? ''} />
           )}
         </AdminCard>
 
