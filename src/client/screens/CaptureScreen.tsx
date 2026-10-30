@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MdArrowBack } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { CanonLiveView } from '@shared/components/CanonLiveView';
@@ -11,7 +10,7 @@ import {
   type CaptureResolution,
 } from '@shared/lib/mediaCapture';
 import type { TemplateConfig } from '@shared/types';
-import { edgePrint } from '../components/ContactHeader';
+import { ContactBack, edgePrint } from '../components/ContactHeader';
 import '../../styles/contact-photo.css';
 
 export function CaptureScreen() {
@@ -310,28 +309,19 @@ export function CaptureScreen() {
 
   return (
     <Screen className="contact-darkroom overflow-hidden">
-      {/* Bord haut de la pellicule : perforations, nom des mariés, compteur. */}
-      <div className="darkroom-band darkroom-band--top">
-        <div className="contact-rebate contact-rebate--top" aria-hidden />
-        <button
-          onClick={() => setScreen('home')}
-          className="btn-editorial-ghost relative"
-          style={{ minHeight: 64 }}
-        >
-          <MdArrowBack size={20} />
-          <span>Annuler</span>
-        </button>
-        <span className="contact-edgeprint darkroom-band-center" aria-hidden>
-          {edgeName}
+      {/* En haut, sur l'image : « Annuler » en petit, nom des mariés et numéro d'image, compteur. */}
+      <ContactBack onBack={() => setScreen('home')} label="Annuler" />
+      <p className="darkroom-edge contact-edgeprint" aria-hidden>
+        <span>{edgeName}</span>
+        <span>▸{frameNumber}</span>
+      </p>
+      {totalSlots > 1 && (
+        <span className="darkroom-counter">
+          Photo {frameNumber} sur {totalSlots}
         </span>
-        {totalSlots > 1 && (
-          <span className="darkroom-status relative ml-auto">
-            Photo {frameNumber} sur {totalSlots}
-          </span>
-        )}
-      </div>
+      )}
 
-      {/* Le négatif : aperçu inversé façon miroir */}
+      {/* L'aperçu plein écran, inversé façon miroir */}
       <div className="darkroom-gate">
         {usbPreview ? (
           <CanonLiveView
@@ -393,30 +383,21 @@ export function CaptureScreen() {
         )}
       </div>
 
-      {/* Bord bas : numéro d'image et consigne */}
-      <div className="darkroom-band darkroom-band--bottom">
-        <div className="contact-rebate contact-rebate--bottom" aria-hidden />
-        <span className="contact-edgeprint relative" aria-hidden>
-          ▸{frameNumber}
-        </span>
-        <AnimatePresence>
-          {status && (
-            <motion.span
-              key={status}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-              className="darkroom-status darkroom-band-center"
-            >
-              {status}
-            </motion.span>
-          )}
-        </AnimatePresence>
-        <span className="contact-edgeprint relative ml-auto" aria-hidden>
-          {frameNumber}A
-        </span>
-      </div>
+      {/* En bas, sur l'image : la consigne */}
+      <AnimatePresence>
+        {status && (
+          <motion.p
+            key={status}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="darkroom-status"
+          >
+            {status}
+          </motion.p>
+        )}
+      </AnimatePresence>
 
       {/* Erreur : retour sur le papier */}
       {error && (

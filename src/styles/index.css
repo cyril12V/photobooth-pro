@@ -696,3 +696,40 @@ textarea {
 .contact .editorial-rule-light {
   background: rgba(0, 0, 0, 0.15);
 }
+
+/* Retour : en haut à gauche, aligné sur la marge du papier. */
+.contact-back {
+  position: absolute;
+  z-index: 10;
+  top: calc(var(--mm) * 3);
+  left: var(--margin);
+}
+
+/* Sur l'image plein écran (prise de vue, enregistrement) : tout petit, dans le coin. */
+.contact .contact-darkroom .contact-back {
+  z-index: 40;
+  top: calc(var(--mm) * 2.4);
+  left: calc(var(--mm) * 3);
+  gap: 0.35rem;
+  min-height: 2.75rem;
+  padding: 0.35rem 0.85rem;
+  font-size: 1.05rem;
+  color: var(--paper);
+  background-color: rgba(0, 0, 0, 0.42);
+}
+
+/* Sur l'image plein écran : nom des mariés, numéro d'image (et timecode) imprimés
+   en haut, comme sur le bord du film. */
+.darkroom-edge {
+  position: absolute;
+  z-index: 30;
+  top: calc(var(--mm) * 3.4);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  color: rgba(232, 230, 225, 0.7);
+}
+
+.darkroom-edge span + span {
+  margin-left: 1.6em;
+}

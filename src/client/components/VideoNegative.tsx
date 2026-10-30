@@ -18,23 +18,18 @@ interface Props {
 }
 
 /**
- * Le direct de la caméra cadré comme un négatif dans le passe-vue : perforations,
- * nom des mariés et date sur le bord du haut, numéro d'image et timecode en bas.
+ * Le direct de la caméra en plein écran ; le nom des mariés, la date, le numéro
+ * d'image et le timecode sont imprimés en haut, comme sur le bord du film.
  */
 export function VideoNegative({ event, frame, timecode, children }: Props) {
   return (
     <div className="darkroom-negative">
-      <div className="contact-rebate contact-rebate--top" aria-hidden>
-        <span className="contact-edge" style={{ left: 'calc(var(--mm) * 8)' }}>
-          {edgePrint(event)}
-        </span>
-      </div>
       <div className="darkroom-window">{children}</div>
-      <div className="contact-rebate contact-rebate--bottom" aria-hidden>
-        <span className="contact-edge" style={{ left: 'calc(var(--mm) * 4)' }}>{`▸${frame}`}</span>
-        <span className="contact-edge" style={{ left: 'calc(var(--mm) * 23)' }}>{`${frame}A`}</span>
-        <span className="contact-edge" style={{ right: 'calc(var(--mm) * 4)' }}>{timecode}</span>
-      </div>
+      <p className="darkroom-edge contact-edgeprint" aria-hidden>
+        <span>{edgePrint(event)}</span>
+        <span>{`▸${frame}`}</span>
+        <span>{timecode}</span>
+      </p>
     </div>
   );
 }

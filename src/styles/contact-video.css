@@ -1,61 +1,81 @@
 /* ─── Chambre noire : enregistrement vidéo (interview, message libre) ───────────
-   Le direct de la caméra cadré comme un négatif dans le passe-vue, la légende à côté
-   (en paysage) ou dessous (en portrait). */
+   Le direct de la caméra occupe tout l'écran. Par-dessus : « Annuler » en petit en
+   haut à gauche, le témoin d'enregistrement en haut à droite, la légende en bas. */
 .darkroom {
   position: absolute;
   inset: 0;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: center;
-  align-content: center;
-  column-gap: calc(var(--mm) * 5);
-  padding: calc(var(--mm) * 9) var(--margin) calc(var(--mm) * 5);
 }
 
 .darkroom-negative {
-  position: relative;
-  padding: calc(var(--mm) * 5.5) 0;
-  background-color: var(--ink);
+  position: absolute;
+  inset: 0;
 }
 
 .darkroom-window {
-  position: relative;
+  position: absolute;
+  inset: 0;
   overflow: hidden;
-  width: min(56vw, 100vh);
-  aspect-ratio: 16 / 9;
   background: radial-gradient(ellipse 70% 80% at 45% 45%, #444240 0%, #1e1d1c 70%, #121212 100%);
 }
 
+/* Voiles haut et bas : le texte reste lisible sur n'importe quelle image. */
+.darkroom-negative::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.5),
+    transparent 16%,
+    transparent 52%,
+    rgba(0, 0, 0, 0.78)
+  );
+}
+
+/* La légende posée en bas de l'image : texte à gauche, boutons à droite. */
 .darkroom-caption {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  max-width: 36rem;
+  position: absolute;
+  z-index: 3;
+  left: var(--margin);
+  right: var(--margin);
+  bottom: calc(var(--mm) * 4.5);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: calc(var(--mm) * 4);
+  align-items: end;
+  text-shadow: 0 1px 18px rgba(0, 0, 0, 0.5);
+}
+
+.darkroom-caption > * {
+  grid-column: 1;
 }
 
 .darkroom-heading {
+  max-width: 28ch;
   font-style: italic;
   font-weight: 330;
-  font-size: clamp(2.2rem, 3.1vw, 4rem);
+  font-size: clamp(2.2rem, 3.4vw, 4.4rem);
   line-height: 1.06;
   letter-spacing: -0.01em;
 }
 
 .darkroom-caption .contact-edgeprint {
-  margin-bottom: calc(var(--mm) * 2);
-  color: rgba(232, 230, 225, 0.75);
+  margin-bottom: calc(var(--mm) * 1.6);
+  color: rgba(232, 230, 225, 0.8);
 }
 
 .darkroom-caption .contact-lede {
-  margin-top: calc(var(--mm) * 2.2);
+  margin-top: calc(var(--mm) * 1.6);
+  color: rgba(232, 230, 225, 0.85);
 }
 
 .darkroom-progress {
   width: 100%;
   max-width: 22rem;
   height: 2px;
-  margin-top: calc(var(--mm) * 1.4);
-  background-color: rgba(232, 230, 225, 0.22);
+  margin-top: calc(var(--mm) * 1.2);
+  background-color: rgba(232, 230, 225, 0.3);
   overflow: hidden;
 }
 
@@ -64,11 +84,15 @@
   background-color: var(--paper);
 }
 
-.darkroom-actions {
+.darkroom-caption > .darkroom-actions {
+  grid-column: 2;
+  grid-row: 1 / span 6;
+  align-self: end;
   display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  margin-top: calc(var(--mm) * 3.5);
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.75rem;
+  text-shadow: none;
 }
 
 .darkroom-actions button {
@@ -95,9 +119,9 @@
 .darkroom-rec {
   position: absolute;
   z-index: 10;
-  top: calc(var(--mm) * 3);
-  right: var(--margin);
-  height: 2.95rem;
+  top: calc(var(--mm) * 2.4);
+  right: calc(var(--mm) * 3);
+  height: 2.75rem;
   display: flex;
   align-items: center;
   gap: 0.7rem;
@@ -149,17 +173,16 @@
 }
 
 @media (orientation: portrait) {
-  .darkroom {
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: calc(var(--mm) * 5);
-  }
-
-  .darkroom-window {
-    width: calc(100vw - 2 * var(--margin));
-  }
-
   .darkroom-caption {
-    max-width: none;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .darkroom-caption > .darkroom-actions {
+    grid-column: 1;
+    grid-row: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    margin-top: calc(var(--mm) * 3);
   }
 
   .darkroom-heading {

@@ -1,79 +1,73 @@
 /* ─── Prise de vue : la chambre noire ────────────────────────────────────────
-   L'aperçu est le négatif posé dans le passe-vue : une bande perforée en haut et
-   en bas, le nom des mariés et le numéro d'image imprimés sur le bord. */
-.darkroom-band {
-  position: absolute;
-  left: 0;
-  right: 0;
-  z-index: 30;
-  height: calc(var(--mm) * 9);
-  display: flex;
-  align-items: center;
-  padding: 0 calc(var(--margin) * 0.5);
-}
-
-.darkroom-band--top {
-  top: 0;
-  padding-top: calc(var(--mm) * 2.9);
-}
-
-.darkroom-band--bottom {
-  bottom: 0;
-  padding-bottom: calc(var(--mm) * 2.9);
-}
-
-.darkroom-band .contact-edgeprint {
-  color: rgba(232, 230, 225, 0.75);
-}
-
-/* Texte centré dans la bande, indépendamment de ce qu'il y a à gauche et à droite. */
-.darkroom-band-center {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
-
-.darkroom-status {
-  font-style: italic;
-  font-weight: 350;
-  font-size: calc(var(--mm) * 2.6);
-  line-height: 1;
-}
-
+   L'aperçu occupe tout l'écran. Par-dessus : « Annuler » en petit en haut à gauche,
+   le nom des mariés imprimé en haut comme sur le bord du film, la consigne en bas. */
 .darkroom-gate {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(var(--mm) * 9);
-  bottom: calc(var(--mm) * 9);
+  inset: 0;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-/* Paysage : l'image entière de la caméra, comme la photo qui sera prise. */
+/* Voiles haut et bas : le texte reste lisible sur n'importe quelle image. */
+.darkroom-gate::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.45),
+    transparent 16%,
+    transparent 72%,
+    rgba(0, 0, 0, 0.6)
+  );
+}
+
 .darkroom-view {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+}
+
+.darkroom-counter {
+  position: absolute;
+  z-index: 30;
+  top: calc(var(--mm) * 2.4);
+  right: calc(var(--mm) * 3);
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  font-style: italic;
+  font-size: 1.05rem;
+}
+
+.darkroom-status {
+  position: absolute;
+  z-index: 30;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--mm) * 8);
+  text-align: center;
+  font-style: italic;
+  font-weight: 330;
+  font-size: clamp(2.2rem, 3.4vw, 4.4rem);
+  line-height: 1;
+  text-shadow: 0 1px 18px rgba(0, 0, 0, 0.5);
 }
 
 .darkroom-guide {
   position: relative;
-  height: 100%;
+  height: 86%;
   max-width: 100%;
   border: 1px solid rgba(232, 230, 225, 0.85);
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.55);
 }
 
-/* Portrait : l'écran est rempli, le cadre du modèle suit la largeur. */
+/* Portrait : le cadre du modèle suit la largeur. */
 @media (orientation: portrait) {
-  .darkroom-view {
-    object-fit: cover;
-  }
-
   .darkroom-guide {
     height: auto;
     width: 100%;
@@ -94,8 +88,8 @@
 .darkroom-pose {
   position: absolute;
   z-index: 30;
-  right: calc(var(--margin) * 0.5);
-  bottom: calc(var(--mm) * 3);
+  right: calc(var(--mm) * 3);
+  bottom: calc(var(--mm) * 4.5);
   width: calc(var(--mm) * 18);
   color: var(--ink);
 }

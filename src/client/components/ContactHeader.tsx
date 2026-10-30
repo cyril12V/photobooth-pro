@@ -1,13 +1,12 @@
 import { MdArrowBack } from 'react-icons/md';
 import type { PhotoboothEvent } from '@shared/types';
 
-/** Lien de retour en haut à gauche des pages papier, aligné sur la marge. */
+/** Lien de retour en haut à gauche : aligné sur la marge sur le papier, en petit sur l'image en chambre noire. */
 export function ContactBack({ onBack, label = 'Retour' }: { onBack: () => void; label?: string }) {
   return (
     <button
       onClick={onBack}
-      className="btn-editorial-ghost absolute z-10"
-      style={{ top: 'calc(var(--mm) * 3)', left: 'var(--margin)' }}
+      className="contact-back btn-editorial-ghost"
     >
       <MdArrowBack size={20} />
       <span>{label}</span>
