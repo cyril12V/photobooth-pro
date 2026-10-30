@@ -1,0 +1,209 @@
+/* ─── Prise de vue : la chambre noire ────────────────────────────────────────
+   L'aperçu est le négatif posé dans le passe-vue : une bande perforée en haut et
+   en bas, le nom des mariés et le numéro d'image imprimés sur le bord. */
+.darkroom-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  height: calc(var(--mm) * 9);
+  display: flex;
+  align-items: center;
+  padding: 0 calc(var(--margin) * 0.5);
+}
+
+.darkroom-band--top {
+  top: 0;
+  padding-top: calc(var(--mm) * 2.9);
+}
+
+.darkroom-band--bottom {
+  bottom: 0;
+  padding-bottom: calc(var(--mm) * 2.9);
+}
+
+.darkroom-band .contact-edgeprint {
+  color: rgba(232, 230, 225, 0.75);
+}
+
+/* Texte centré dans la bande, indépendamment de ce qu'il y a à gauche et à droite. */
+.darkroom-band-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.darkroom-status {
+  font-style: italic;
+  font-weight: 350;
+  font-size: calc(var(--mm) * 2.6);
+  line-height: 1;
+}
+
+.darkroom-gate {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--mm) * 9);
+  bottom: calc(var(--mm) * 9);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Paysage : l'image entière de la caméra, comme la photo qui sera prise. */
+.darkroom-view {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.darkroom-guide {
+  position: relative;
+  height: 100%;
+  max-width: 100%;
+  border: 1px solid rgba(232, 230, 225, 0.85);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+}
+
+/* Portrait : l'écran est rempli, le cadre du modèle suit la largeur. */
+@media (orientation: portrait) {
+  .darkroom-view {
+    object-fit: cover;
+  }
+
+  .darkroom-guide {
+    height: auto;
+    width: 100%;
+    max-height: 100%;
+  }
+}
+
+.darkroom-countdown {
+  font-style: italic;
+  font-weight: 300;
+  font-size: min(42vh, 24rem);
+  line-height: 1;
+  color: var(--paper);
+  text-shadow: 0 0 70px rgba(0, 0, 0, 0.45);
+}
+
+/* La pose à imiter : un tirage posé de travers sur le coin de l'image. */
+.darkroom-pose {
+  position: absolute;
+  z-index: 30;
+  right: calc(var(--margin) * 0.5);
+  bottom: calc(var(--mm) * 3);
+  width: calc(var(--mm) * 18);
+  color: var(--ink);
+}
+
+.darkroom-pose img {
+  width: 100%;
+  height: calc(var(--mm) * 15);
+  object-fit: contain;
+  background: #fff;
+}
+
+/* ─── Choix des poses : la planche-contact ───────────────────────────────────
+   Chaque colonne est une bande de pellicule verticale (images en hauteur, perforations
+   sur les côtés) ; les bandes sont posées côte à côte sur le papier. Mesures en
+   millimètres de pellicule réduits (--cs) pour en faire tenir plusieurs. */
+.posesheet {
+  --cs: calc(var(--mm) * 0.58);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, calc(var(--cs) * 35));
+  column-gap: calc(var(--cs) * 5);
+  row-gap: 0;
+  align-content: start;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.posesheet::-webkit-scrollbar {
+  display: none;
+}
+
+.posesheet-frame {
+  position: relative;
+  width: calc(var(--cs) * 35);
+  height: calc(var(--cs) * 38);
+  padding: calc(var(--cs) * 1) calc(var(--cs) * 5.5);
+  border: 0;
+  cursor: pointer;
+  background-color: var(--ink);
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 5.5 4.75'%3E%3Crect x='.7' y='.975' width='1.98' height='2.8' rx='.45' fill='%23e8e6e1'/%3E%3C/svg%3E"),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 5.5 4.75'%3E%3Crect x='2.82' y='.975' width='1.98' height='2.8' rx='.45' fill='%23e8e6e1'/%3E%3C/svg%3E");
+  background-size: calc(var(--cs) * 5.5) calc(var(--cs) * 4.75);
+  background-position: left top, right top;
+  background-repeat: repeat-y;
+}
+
+.posesheet-frame:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 4px;
+}
+
+.posesheet-image {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #f7f6f2;
+  padding: calc(var(--cs) * 1.5);
+}
+
+.posesheet-image img {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  object-fit: contain;
+}
+
+.posesheet-label {
+  margin-top: calc(var(--cs) * 1.2);
+  font-style: italic;
+  font-size: max(1.2rem, calc(var(--cs) * 2.4));
+  line-height: 1.1;
+  color: var(--ink);
+  text-align: center;
+}
+
+/* Pose retenue : encadrée d'un trait noir épais et numérotée dans l'ordre des photos. */
+.posesheet-frame[aria-pressed='true'] .posesheet-image {
+  box-shadow: inset 0 0 0 calc(var(--cs) * 0.9) var(--ink);
+}
+
+.posesheet-order {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: calc(var(--cs) * 5.5);
+  height: calc(var(--cs) * 5.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink);
+  color: var(--paper);
+  font-style: italic;
+  font-size: calc(var(--cs) * 3.2);
+  line-height: 1;
+}
+
+/* Numéro de l'image, imprimé sur le bord à côté de la perforation. */
+.posesheet-number {
+  position: absolute;
+  left: calc(var(--cs) * 4.1);
+  bottom: calc(var(--cs) * 2);
+  transform: translateX(-50%) rotate(180deg);
+  writing-mode: vertical-rl;
+  font-size: max(0.7rem, calc(var(--cs) * 1.5));
+  color: rgba(232, 230, 225, 0.8);
+}
+
+.posesheet-frame:active .posesheet-image {
+  filter: brightness(0.92);
+}

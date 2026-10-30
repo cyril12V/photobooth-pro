@@ -1,16 +1,16 @@
 import { motion } from 'framer-motion';
-import { MdCheck, MdReplay } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { composePhotoWithTemplate } from '@shared/lib/composer';
 import type { TemplateConfig } from '@shared/types';
 import { useEffect, useState } from 'react';
+import '../../styles/contact-print.css';
 
-const fadeUp = (delay: number) => ({
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0 },
-  transition: { delay, duration: 0.7, ease: [0.16, 1, 0.3, 1] as const },
-});
+/** « 3 / 2 » → 1,5 ; format par défaut 3:4 tant que la photo n'est pas chargée. */
+function ratioValue(ratio: string): number {
+  const [w, h] = ratio.split('/').map((n) => Number(n.trim()));
+  return w > 0 && h > 0 ? w / h : 3 / 4;
+}
 
 export function PreviewScreen() {
   const {
@@ -77,165 +77,65 @@ export function PreviewScreen() {
 
   const retake = () => setScreen('capture');
 
+  // Planche multi-clichés : 2 ou 4 sur deux colonnes, sinon trois. La largeur de la planche
+  // est bornée par la hauteur disponible (k = largeur / hauteur de la grille).
+  const columns = photos.length === 2 || photos.length === 4 ? 2 : 3;
+  const rows = Math.ceil(photos.length / columns);
+  const sheetShape = {
+    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+    '--cp-k': (ratioValue(ratio) * columns) / rows,
+    '--cp-rows': rows,
+  } as React.CSSProperties;
+
   return (
     <Screen className="overflow-hidden">
-      <div className="absolute inset-0" style={{ backgroundColor: '#F4ECDD' }} />
-
-      <div className="relative z-10 h-full flex flex-col" style={{ padding: '2.5rem 5rem' }}>
-        {/* Header */}
-        <motion.div
-          {...fadeUp(0.1)}
-          className="flex items-center justify-between pt-3 pb-3"
-          style={{ borderBottom: '1px solid #1A1A1A' }}
-        >
-          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            Aperçu
-          </span>
-          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            № 002
-          </span>
-        </motion.div>
-
-        {/* Corps */}
-        <div
-          className="flex-1 grid items-center"
-          style={{ gridTemplateColumns: '1fr 1fr', gap: '5rem', paddingTop: '3rem', paddingBottom: '3rem' }}
-        >
-          {/* COLONNE GAUCHE : photo(s) */}
-          <div className="flex items-center justify-center min-w-0">
-            {isMulti ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.97 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.3, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                className="grid gap-3"
-                style={{
-                  gridTemplateColumns: photos.length === 2 ? '1fr 1fr' : 'repeat(3, 1fr)',
-                  maxHeight: '60vh',
-                  width: '100%',
-                  maxWidth: '32rem',
-                }}
-              >
-                {photos.map((url, i) => (
-                  <div
-                    key={i}
-                    className="relative overflow-hidden"
-                    style={{
-                      borderRadius: '4px',
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
-                      aspectRatio: ratio,
-                    }}
-                  >
-                    <img
-                      src={url}
-                      alt={`Cliché ${i + 1}`}
-                      className="w-full h-full object-cover photo-warm"
-                    />
-                  </div>
-                ))}
-              </motion.div>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.97 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: 0.3, duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                className="relative max-w-full"
-              >
-                <div
-                  className="overflow-hidden"
-                  style={{
-                    borderRadius: '4px',
-                    boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
-                  }}
-                >
-                  {/* Photo entière, dans son vrai format (horizontal ou vertical). */}
-                  <img
-                    src={photos[0]}
-                    alt="Aperçu"
-                    className="block photo-warm"
-                    style={{ maxHeight: '60vh', maxWidth: '100%' }}
-                  />
+      <div className="contact-paper absolute inset-0">
+        <div className="cp-page">
+          {/* Le tirage se pose sur la table. */}
+          <div className="cp-stage">
+            <motion.div
+              initial={{ opacity: 0, y: 28, rotate: -3 }}
+              animate={{ opacity: 1, y: 0, rotate: -0.6 }}
+              transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+              className="contact-print"
+              style={{ maxWidth: '100%' }}
+            >
+              {isMulti ? (
+                <div className="cp-sheet" style={sheetShape}>
+                  {photos.map((url, i) => (
+                    <div key={i} className="min-w-0">
+                      <div style={{ aspectRatio: ratio }}>
+                        <img src={url} alt={`Cliché ${i + 1}`} />
+                      </div>
+                      <span className="cp-sheet-number contact-edgeprint">{`▸${i + 1}`}</span>
+                    </div>
+                  ))}
                 </div>
-              </motion.div>
-            )}
-          </div>
-
-          {/* COLONNE DROITE : actions sobres */}
-          <div className="flex flex-col justify-center" style={{ maxWidth: '28rem' }}>
-            <motion.p
-              {...fadeUp(0.25)}
-              className="label-editorial"
-              style={{ color: '#6B5D4F', marginBottom: '1.25rem' }}
-            >
-              Aperçu
-            </motion.p>
-
-            <motion.h1
-              {...fadeUp(0.35)}
-              className="font-editorial"
-              style={{
-                fontSize: 'clamp(2rem, 3.5vw, 2.5rem)',
-                color: '#1A1A1A',
-                fontWeight: 700,
-                letterSpacing: '-0.02em',
-                lineHeight: 1.1,
-              }}
-            >
-              Et maintenant&nbsp;?
-            </motion.h1>
-
-            <motion.p
-              {...fadeUp(0.5)}
-              style={{
-                color: '#6B5D4F',
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '0.9375rem',
-                lineHeight: 1.6,
-                marginTop: '1.5rem',
-                maxWidth: '24rem',
-              }}
-            >
-              {isMulti
-                ? `${photos.length} clichés capturés. Validez pour les composer, ou recommencez la séance.`
-                : 'Votre cliché est prêt. Validez pour passer au partage, ou recommencez.'}
-            </motion.p>
-
-            {/* Actions */}
-            <motion.div {...fadeUp(0.7)} className="flex flex-wrap gap-3" style={{ marginTop: '2.5rem' }}>
-              <button
-                onClick={validate}
-                disabled={saving}
-                className="btn-editorial-primary"
-              >
-                <MdCheck size={20} />
-                {saving ? 'Sauvegarde...' : 'Je la garde'}
-              </button>
-
-              <button
-                onClick={retake}
-                disabled={saving}
-                className="btn-editorial-secondary"
-              >
-                <MdReplay size={20} />
-                Reprendre
-              </button>
+              ) : (
+                // Photo entière, dans son vrai format (horizontal ou vertical).
+                <img src={photos[0]} alt="Aperçu" className="cp-photo" />
+              )}
             </motion.div>
           </div>
-        </div>
 
-        {/* Footer */}
-        <motion.div
-          {...fadeUp(0.95)}
-          className="flex items-center justify-between pt-3 pb-3"
-          style={{ borderTop: '1px solid #1A1A1A' }}
-        >
-          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            Édition limitée
-          </span>
-          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            № 002
-          </span>
-        </motion.div>
+          <div className="cp-side">
+            <h1 className="contact-title">{isMulti ? 'Elles vous plaisent ?' : 'Elle vous plaît ?'}</h1>
+            <p className="contact-lede">
+              {isMulti
+                ? `Vos ${photos.length} photos sont prêtes. Gardez-les pour les imprimer et les récupérer sur votre téléphone, ou recommencez la séance.`
+                : 'Gardez-la pour l’imprimer et la récupérer sur votre téléphone, ou reprenez-la.'}
+            </p>
+
+            <div className="cp-actions">
+              <button onClick={validate} disabled={saving} className="btn-editorial-primary">
+                {saving ? 'Enregistrement…' : isMulti ? 'Je les garde' : 'Je la garde'}
+              </button>
+              <button onClick={retake} disabled={saving} className="btn-editorial-secondary">
+                {isMulti ? 'Recommencer la séance' : 'Reprendre la photo'}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </Screen>
   );

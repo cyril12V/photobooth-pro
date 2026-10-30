@@ -1,41 +1,29 @@
 import { useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { MdCameraAlt, MdVideocam } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
+import { localFileUrl } from '@shared/lib/poseAssets';
+import { FilmStrip, type FilmFrame } from '../components/FilmStrip';
+import { formatDateline } from '../components/ContactHeader';
+import { FILM_IMAGES } from '../components/filmImages';
 
-const fadeUp = (delay: number) => ({
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0 },
-  transition: { delay, duration: 0.7, ease: [0.16, 1, 0.3, 1] as const },
-});
+type Choice = 'photo' | 'video';
 
-function formatYear(iso?: string): string {
-  if (!iso) return String(new Date().getFullYear());
-  try {
-    return new Date(iso).toLocaleDateString('fr-FR', { year: 'numeric' });
-  } catch {
-    return String(new Date().getFullYear());
-  }
+/** « Minas & Christine » → deux lignes, la seconde commençant par l'esperluette. */
+function splitNames(name: string): [string, string | null] {
+  const m = name.match(/^(.+?)\s+(&|et)\s+(.+)$/i);
+  return m ? [m[1], `${m[2]} ${m[3]}`] : [name, null];
 }
 
 export function SplashScreen() {
   const { event, settings, setScreen, setFlow } = useAppStore();
   const captureMode = settings?.capture_mode ?? 'both';
 
-  const eventName = event?.name ?? 'Notre Évènement';
-  const year = formatYear(event?.date);
-
-  const choosePhoto = () => {
-    setFlow('photo');
-    setScreen('home');
-  };
-
-  const chooseVideo = () => {
-    if (captureMode === 'photo') return;
-    setFlow('video');
-    setScreen('video-home');
-  };
+  const name = event?.name?.trim() || 'Bienvenue';
+  const [firstLine, secondLine] = splitNames(name);
+  const dateline = formatDateline(event?.date);
+  const couplePhoto = event?.background_path ? localFileUrl(event.background_path) : null;
+  // Les prénoms longs passent sur moins de place.
+  const namesScale = Math.max(firstLine.length, secondLine?.length ?? 0) > 16 ? 0.72 : 1;
 
   useEffect(() => {
     if (captureMode === 'photo') {
@@ -51,136 +39,35 @@ export function SplashScreen() {
     return null;
   }
 
+  const choose = (choice: Choice) => {
+    setFlow(choice);
+    setScreen(choice === 'photo' ? 'home' : 'video-home');
+  };
+
+  const frames: Array<FilmFrame<Choice>> = [
+    { id: 'photo', label: 'Prendre une photo', image: couplePhoto, crop: '30% 45%', fallback: FILM_IMAGES.photo },
+    { id: 'video', label: 'Laisser un message vidéo', fallback: FILM_IMAGES.video },
+  ];
+
   return (
     <Screen className="overflow-hidden">
-      <div className="absolute inset-0" style={{ backgroundColor: '#F4ECDD' }} />
+      <div className="contact absolute inset-0">
+        <div className="contact-grain" style={{ opacity: 0.07 }} aria-hidden />
 
-      <div className="relative z-10 h-full flex flex-col" style={{ padding: '2.5rem 5rem' }}>
-        {/* HEADER éditorial sobre */}
-        <motion.div
-          {...fadeUp(0.1)}
-          className="flex items-center justify-between pt-3 pb-3"
-          style={{ borderBottom: '1px solid #1A1A1A' }}
-        >
-          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            Bienvenue
-          </span>
-          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            Issue {year}
-          </span>
-        </motion.div>
+        <div className="contact-page">
+          {dateline && <p className="contact-dateline">{dateline}</p>}
 
-        {/* CORPS centré */}
-        <div className="flex-1 flex flex-col items-center justify-center text-center" style={{ paddingTop: '3rem', paddingBottom: '3rem' }}>
-          <motion.p
-            {...fadeUp(0.25)}
-            className="label-editorial"
-            style={{ color: '#6B5D4F', marginBottom: '1.5rem' }}
-          >
-            Bienvenue
-          </motion.p>
+          <h1 className="contact-names" style={{ '--names-scale': namesScale } as React.CSSProperties}>
+            <span>{firstLine}</span>
+            {secondLine && <span>{secondLine}</span>}
+          </h1>
 
-          <motion.h1
-            {...fadeUp(0.35)}
-            className="font-editorial"
-            style={{
-              fontSize: 'clamp(2.25rem, 4vw, 3rem)',
-              color: '#1A1A1A',
-              fontWeight: 700,
-              letterSpacing: '-0.02em',
-              lineHeight: 1.1,
-              maxWidth: '36rem',
-            }}
-          >
-            {eventName}
-          </motion.h1>
+          <p className="contact-standfirst">Ce soir, le reportage, c'est vous.</p>
 
-          <motion.p
-            {...fadeUp(0.55)}
-            className="label-editorial"
-            style={{ color: '#6B5D4F', marginTop: '4rem', marginBottom: '2.5rem' }}
-          >
-            Choisissez votre format
-          </motion.p>
+          <FilmStrip frames={frames} event={event} onChoose={choose} />
 
-          {/* Cards Photo / Vidéo — petites, centrées, espacées */}
-          <div className="flex items-center justify-center" style={{ gap: '3rem' }}>
-            <motion.button
-              {...fadeUp(0.7)}
-              onClick={choosePhoto}
-              className="flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02]"
-              style={{
-                width: 280,
-                height: 280,
-                backgroundColor: '#FAF6EE',
-                borderRadius: '24px',
-                border: '1px solid rgba(212, 184, 150, 0.4)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-                cursor: 'pointer',
-                gap: '1.75rem',
-              }}
-            >
-              <MdCameraAlt size={56} color="#1A1A1A" />
-              <h2
-                className="font-editorial"
-                style={{
-                  fontSize: '2rem',
-                  color: '#1A1A1A',
-                  fontWeight: 600,
-                  letterSpacing: '-0.01em',
-                  lineHeight: 1,
-                }}
-              >
-                Photo
-              </h2>
-            </motion.button>
-
-            <motion.button
-              {...fadeUp(0.85)}
-              onClick={chooseVideo}
-              className="flex flex-col items-center justify-center text-center transition-all hover:scale-[1.02]"
-              style={{
-                width: 280,
-                height: 280,
-                backgroundColor: '#FAF6EE',
-                borderRadius: '24px',
-                border: '1px solid rgba(212, 184, 150, 0.4)',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-                cursor: 'pointer',
-                gap: '1.75rem',
-              }}
-              title="Enregistrer une vidéo"
-            >
-              <MdVideocam size={56} color="#1A1A1A" />
-              <h2
-                className="font-editorial"
-                style={{
-                  fontSize: '2rem',
-                  color: '#1A1A1A',
-                  fontWeight: 600,
-                  letterSpacing: '-0.01em',
-                  lineHeight: 1,
-                }}
-              >
-                Vidéo
-              </h2>
-            </motion.button>
-          </div>
+          <p className="contact-hint">Touchez une image pour commencer.</p>
         </div>
-
-        {/* FOOTER */}
-        <motion.div
-          {...fadeUp(1)}
-          className="flex items-center justify-between pt-3 pb-3"
-          style={{ borderTop: '1px solid #1A1A1A' }}
-        >
-          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            Édition limitée
-          </span>
-          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            № 001
-          </span>
-        </motion.div>
       </div>
     </Screen>
   );

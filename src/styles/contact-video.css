@@ -1,0 +1,168 @@
+/* ─── Chambre noire : enregistrement vidéo (interview, message libre) ───────────
+   Le direct de la caméra cadré comme un négatif dans le passe-vue, la légende à côté
+   (en paysage) ou dessous (en portrait). */
+.darkroom {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  align-content: center;
+  column-gap: calc(var(--mm) * 5);
+  padding: calc(var(--mm) * 9) var(--margin) calc(var(--mm) * 5);
+}
+
+.darkroom-negative {
+  position: relative;
+  padding: calc(var(--mm) * 5.5) 0;
+  background-color: var(--ink);
+}
+
+.darkroom-window {
+  position: relative;
+  overflow: hidden;
+  width: min(56vw, 100vh);
+  aspect-ratio: 16 / 9;
+  background: radial-gradient(ellipse 70% 80% at 45% 45%, #444240 0%, #1e1d1c 70%, #121212 100%);
+}
+
+.darkroom-caption {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  max-width: 36rem;
+}
+
+.darkroom-heading {
+  font-style: italic;
+  font-weight: 330;
+  font-size: clamp(2.2rem, 3.1vw, 4rem);
+  line-height: 1.06;
+  letter-spacing: -0.01em;
+}
+
+.darkroom-caption .contact-edgeprint {
+  margin-bottom: calc(var(--mm) * 2);
+  color: rgba(232, 230, 225, 0.75);
+}
+
+.darkroom-caption .contact-lede {
+  margin-top: calc(var(--mm) * 2.2);
+}
+
+.darkroom-progress {
+  width: 100%;
+  max-width: 22rem;
+  height: 2px;
+  margin-top: calc(var(--mm) * 1.4);
+  background-color: rgba(232, 230, 225, 0.22);
+  overflow: hidden;
+}
+
+.darkroom-progress > div {
+  height: 100%;
+  background-color: var(--paper);
+}
+
+.darkroom-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: calc(var(--mm) * 3.5);
+}
+
+.darkroom-actions button {
+  min-height: 4.5rem;
+}
+
+/* Décompte en grands chiffres, au centre de l'image. */
+.darkroom-count {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-style: italic;
+  font-weight: 300;
+  font-size: min(34vh, 40vw);
+  line-height: 1;
+  color: var(--paper);
+  text-shadow: 0 0 60px rgba(0, 0, 0, 0.45);
+}
+
+/* Témoin d'enregistrement, en haut à droite, aligné sur le lien « Annuler ». */
+.darkroom-rec {
+  position: absolute;
+  z-index: 10;
+  top: calc(var(--mm) * 3);
+  right: var(--margin);
+  height: 2.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.darkroom-rec .contact-edgeprint {
+  font-size: 1rem;
+}
+
+.darkroom-rec-dot {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  background-color: var(--paper);
+}
+
+.darkroom-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 var(--margin);
+  background-color: rgba(0, 0, 0, 0.85);
+  text-align: center;
+}
+
+/* Erreur : retour sur le papier, texte aligné sur la marge. */
+.darkroom-error {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 0 var(--margin);
+}
+
+.darkroom-error .contact-lede {
+  max-width: 40rem;
+  margin-top: calc(var(--mm) * 2.4);
+}
+
+.darkroom-error .btn-editorial-primary {
+  min-height: 4.5rem;
+  margin-top: calc(var(--mm) * 4);
+}
+
+@media (orientation: portrait) {
+  .darkroom {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: calc(var(--mm) * 5);
+  }
+
+  .darkroom-window {
+    width: calc(100vw - 2 * var(--margin));
+  }
+
+  .darkroom-caption {
+    max-width: none;
+  }
+
+  .darkroom-heading {
+    font-size: clamp(2.4rem, 5.4vw, 4.2rem);
+  }
+}

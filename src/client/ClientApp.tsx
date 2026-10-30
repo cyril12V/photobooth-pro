@@ -16,9 +16,9 @@ export function ClientApp() {
   const screen = useAppStore((s) => s.screen);
 
   return (
-    // Fond cream sur le wrapper : si jamais un cross-fade laisse voir le parent,
-    // ce sera cream et non sombre. Plus jamais de flash bleu sombre entre les écrans.
-    <div className="absolute inset-0 overflow-hidden" style={{ backgroundColor: '#faf6ef' }}>
+    // Fond papier sur le wrapper : si jamais un cross-fade laisse voir le parent,
+    // ce sera le papier et non du sombre. La classe contact porte le style de tous les écrans invités.
+    <div className="contact contact-paper absolute inset-0 overflow-hidden">
       {/* Sans mode="wait" : les écrans se chevauchent (cross-fade), pas de gap. */}
       <AnimatePresence initial={false}>
         {screen === 'splash' && <SplashScreen key="splash" />}

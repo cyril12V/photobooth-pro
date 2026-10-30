@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { MdArrowBack, MdErrorOutline, MdMic, MdStop } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { CanonLiveView } from '@shared/components/CanonLiveView';
@@ -18,11 +17,14 @@ import {
   pickRecorderMimeType,
   type CaptureResolution,
 } from '@shared/lib/mediaCapture';
+import { ContactBack } from '../components/ContactHeader';
+import { VideoNegative, formatTimecode } from '../components/VideoNegative';
+import '../../styles/contact-video.css';
 
 type Phase = 'preparing' | 'countdown' | 'recording' | 'finishing' | 'error';
 
 export function VideoFreeMessageScreen() {
-  const { settings, setScreen, setVideoCapture, setCameraVideoCapture } = useAppStore();
+  const { event, settings, setScreen, setVideoCapture, setCameraVideoCapture } = useAppStore();
   // Appareil Canon en USB : il enregistre lui-même, l'aperçu vient de son LiveView.
   const canonVideo = settings?.video_source === 'canon';
   // Appareil Canon + Cam Link : bascule auto en mode vidéo par USB, l'app enregistre la Cam Link.
@@ -301,233 +303,97 @@ export function VideoFreeMessageScreen() {
   const progressPct = Math.min(100, (elapsed / maxSeconds) * 100);
 
   return (
-    <Screen className="flex items-center justify-center">
-      <div className="absolute inset-0" style={{ backgroundColor: '#1A1A1A' }} />
+    <Screen className="overflow-hidden">
+      <div className="contact-darkroom absolute inset-0">
+        <ContactBack onBack={cancel} label="Annuler" />
 
-      <button
-        onClick={cancel}
-        className="absolute top-8 left-8 z-30 flex items-center gap-2 px-3 py-2"
-        style={{
-          color: '#FAF6EE',
-          fontFamily: 'Inter, sans-serif',
-          fontWeight: 500,
-          fontSize: '0.875rem',
-          textTransform: 'uppercase',
-          letterSpacing: '0.15em',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-        }}
-      >
-        <MdArrowBack size={18} />
-        <span>Annuler</span>
-      </button>
+        {phase === 'recording' && (
+          <div className="darkroom-rec">
+            <motion.span
+              animate={{ opacity: [1, 0.3, 1] }}
+              transition={{ duration: 1.2, repeat: Infinity }}
+              className="darkroom-rec-dot"
+            />
+            <span className="contact-edgeprint">Enregistrement</span>
+          </div>
+        )}
 
-      <div
-        className="absolute top-8 left-1/2 -translate-x-1/2 z-30"
-        style={{
-          color: '#FAF6EE',
-          fontFamily: 'Inter, sans-serif',
-          fontWeight: 600,
-          fontSize: '0.75rem',
-          textTransform: 'uppercase',
-          letterSpacing: '0.3em',
-        }}
-      >
-        Message libre
+        <div className="darkroom">
+          <VideoNegative event={event} frame={1} timecode={`${formatTimecode(elapsed)} / ${formatTimecode(maxSeconds)}`}>
+            {canonVideo ? (
+              <CanonLiveView className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
+            ) : (
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover"
+                style={{ transform: 'scaleX(-1)' }}
+              />
+            )}
+
+            <AnimatePresence>
+              {phase === 'countdown' && countdown > 0 && (
+                <motion.div
+                  key={countdown}
+                  initial={{ scale: 0.7, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 1.3, opacity: 0 }}
+                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                  className="darkroom-count"
+                >
+                  {countdown}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </VideoNegative>
+
+          <div className="darkroom-caption">
+            {phase === 'preparing' ? (
+              <p className="darkroom-heading">Un instant, la caméra s'allume.</p>
+            ) : (
+              <>
+                <h1 className="darkroom-heading">Dites un mot aux mariés.</h1>
+                {phase === 'countdown' && (
+                  <p className="contact-lede">
+                    Vous avez {maxSeconds} secondes. L'enregistrement commence après le décompte.
+                  </p>
+                )}
+                {phase === 'recording' && (
+                  <>
+                    <p className="contact-lede">Encore {remaining.toFixed(0)} s</p>
+                    <div className="darkroom-progress">
+                      <div className="transition-all" style={{ width: `${progressPct}%` }} />
+                    </div>
+                    <div className="darkroom-actions">
+                      <button onClick={stopRecording} className="btn-editorial-primary">
+                        Terminer le message
+                      </button>
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+
+        {phase === 'finishing' && (
+          <div className="darkroom-overlay">
+            <p className="darkroom-heading">
+              {downloadPercent === null ? 'Sauvegarde de la vidéo…' : `Récupération de la vidéo : ${downloadPercent} %`}
+            </p>
+          </div>
+        )}
       </div>
 
-      {canonVideo ? (
-        <CanonLiveView className="w-full h-full object-cover" style={{ transform: 'scaleX(-1)' }} />
-      ) : (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="w-full h-full object-cover"
-          style={{ transform: 'scaleX(-1)' }}
-        />
-      )}
-
-      {phase === 'recording' && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          className="absolute top-8 right-8 z-30 flex items-center gap-3 px-4 py-2"
-          style={{ backgroundColor: '#FAF6EE', borderRadius: '4px' }}
-        >
-          <motion.span
-            animate={{ opacity: [1, 0.3, 1] }}
-            transition={{ duration: 1.2, repeat: Infinity }}
-            className="w-2.5 h-2.5 inline-block"
-            style={{ backgroundColor: '#1A1A1A', borderRadius: '50%' }}
-          />
-          <span
-            style={{
-              color: '#1A1A1A',
-              fontFamily: 'Inter, sans-serif',
-              fontWeight: 600,
-              fontSize: '0.75rem',
-              letterSpacing: '0.25em',
-            }}
-          >
-            REC
-          </span>
-          <span
-            style={{
-              color: '#6B5D4F',
-              fontFamily: 'Inter, sans-serif',
-              fontSize: '0.75rem',
-            }}
-          >
-            {remaining.toFixed(0)}s
-          </span>
-        </motion.div>
-      )}
-
-      {phase === 'recording' && (
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 z-30 flex flex-col items-center gap-3">
-          <div
-            className="w-96 h-1 overflow-hidden"
-            style={{ backgroundColor: 'rgba(250,246,238,0.2)' }}
-          >
-            <div
-              className="h-full transition-all"
-              style={{ width: `${progressPct}%`, backgroundColor: '#FAF6EE' }}
-            />
-          </div>
-          <p
-            style={{
-              color: '#FAF6EE',
-              opacity: 0.7,
-              fontFamily: 'Inter, sans-serif',
-              fontSize: '0.75rem',
-              letterSpacing: '0.15em',
-            }}
-          >
-            {elapsed.toFixed(1)}s sur {maxSeconds}s
-          </p>
-          <button
-            onClick={stopRecording}
-            className="mt-2 flex items-center gap-2 px-5 py-2.5"
-            style={{
-              backgroundColor: '#FAF6EE',
-              color: '#1A1A1A',
-              border: 'none',
-              fontFamily: 'Inter, sans-serif',
-              fontWeight: 500,
-              fontSize: '0.75rem',
-              textTransform: 'uppercase',
-              letterSpacing: '0.15em',
-              borderRadius: '4px',
-              cursor: 'pointer',
-            }}
-          >
-            <MdStop size={16} />
-            <span>Terminer</span>
-          </button>
-        </div>
-      )}
-
-      <AnimatePresence>
-        {phase === 'countdown' && countdown > 0 && (
-          <motion.div
-            key={countdown}
-            initial={{ scale: 0.7, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 1.3, opacity: 0 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute inset-0 flex items-center justify-center pointer-events-none z-30"
-          >
-            <span
-              className="font-editorial leading-none"
-              style={{
-                fontSize: 'clamp(14rem, 30vw, 28rem)',
-                fontWeight: 900,
-                color: '#FAF6EE',
-                letterSpacing: '-0.05em',
-                textShadow: '0 0 80px rgba(0,0,0,0.5)',
-              }}
-            >
-              {countdown}
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {phase === 'countdown' && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="absolute bottom-28 left-1/2 -translate-x-1/2 px-8 py-4 z-30 flex items-center gap-3"
-          style={{ backgroundColor: '#FAF6EE', borderRadius: '4px' }}
-        >
-          <MdMic size={16} style={{ color: '#1A1A1A' }} />
-          <span
-            className="label-editorial"
-            style={{ color: '#1A1A1A', fontSize: '0.75rem' }}
-          >
-            Vous avez {maxSeconds}s pour votre message
-          </span>
-        </motion.div>
-      )}
-
-      {phase === 'finishing' && (
-        <div
-          className="absolute inset-0 flex items-center justify-center z-40"
-          style={{ backgroundColor: 'rgba(26,26,26,0.85)' }}
-        >
-          <p
-            className="font-editorial"
-            style={{
-              color: '#FAF6EE',
-              fontSize: '2.5rem',
-              fontWeight: 700,
-              letterSpacing: '-0.02em',
-            }}
-          >
-            {downloadPercent === null ? 'Sauvegarde en cours...' : `Récupération de la vidéo : ${downloadPercent} %`}
-          </p>
-        </div>
-      )}
-
       {phase === 'error' && (
-        <div
-          className="absolute inset-0 flex items-center justify-center z-40"
-          style={{ backgroundColor: '#F4ECDD' }}
-        >
-          <div className="card-editorial p-12 max-w-lg text-center">
-            <MdErrorOutline size={48} className="mx-auto mb-6" style={{ color: '#1A1A1A' }} />
-            <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
-              Erreur
-            </p>
-            <h3
-              className="font-editorial mb-4"
-              style={{
-                fontSize: '2rem',
-                color: '#1A1A1A',
-                fontWeight: 800,
-                letterSpacing: '-0.02em',
-              }}
-            >
-              Oups
-            </h3>
-            <p
-              className="mb-8"
-              style={{
-                color: '#6B5D4F',
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '0.9375rem',
-                lineHeight: 1.6,
-              }}
-            >
-              {error}
-            </p>
-            <button onClick={() => setScreen('video-home')} className="btn-editorial-primary">
-              Retour
-            </button>
-          </div>
+        <div className="darkroom-error contact-paper">
+          <h1 className="contact-title">Impossible d'enregistrer la vidéo.</h1>
+          <p className="contact-lede">{error}</p>
+          <button onClick={() => setScreen('video-home')} className="btn-editorial-primary">
+            Retour au choix du message
+          </button>
         </div>
       )}
     </Screen>

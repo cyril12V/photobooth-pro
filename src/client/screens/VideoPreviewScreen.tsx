@@ -1,14 +1,10 @@
 import { motion } from 'framer-motion';
-import { MdCheck, MdReplay, MdRefresh } from 'react-icons/md';
+import { MdRefresh } from 'react-icons/md';
 import { useEffect, useState } from 'react';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
-
-const fadeUp = (delay: number) => ({
-  initial: { opacity: 0, y: 14 },
-  animate: { opacity: 1, y: 0 },
-  transition: { delay, duration: 0.6, ease: [0.16, 1, 0.3, 1] as const },
-});
+import { edgePrint } from '../components/ContactHeader';
+import '../../styles/contact-videoshare.css';
 
 export function VideoPreviewScreen() {
   const {
@@ -48,7 +44,7 @@ export function VideoPreviewScreen() {
       setScreen('video-share');
     } catch (e) {
       console.error(e);
-      setError('Impossible de sauvegarder la vidéo. Réessayez.');
+      setError("La vidéo n'a pas pu être enregistrée. Touchez « Garder ce message » pour réessayer.");
       setSaving(false);
     }
   };
@@ -61,151 +57,58 @@ export function VideoPreviewScreen() {
   const seconds = Math.round(currentVideoDurationMs / 1000);
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
-  const durationLabel = mins > 0 ? `${mins} min ${String(secs).padStart(2, '0')}s` : `${secs}s`;
-  const eventNameUp = (event?.name ?? 'Wedding').toUpperCase();
+  // Compteur imprimé sur le bord de la pellicule : « 1:05 ».
+  const timecode = `${mins}:${String(secs).padStart(2, '0')}`;
+  const name = event?.name?.trim();
+  const edge = edgePrint(event, 'Message vidéo');
 
   return (
-    <Screen className="overflow-hidden">
-      <div className="absolute inset-0" style={{ backgroundColor: '#F4ECDD' }} />
+    <Screen className="overflow-hidden contact-paper">
+      <div className="reel-page reel-page--preview">
+        <div className="reel-text">
+          {name && <p className="reel-dateline">Pour {name}</p>}
+          <h1 className="contact-title">Voici votre message.</h1>
+          <p className="contact-lede">
+            Regardez-le avant de le laisser aux mariés. Vous pouvez le refaire autant de fois que vous voulez.
+          </p>
 
-      <div className="relative z-10 h-full flex flex-col px-16 py-10">
-        {/* Header */}
-        <motion.div
-          {...fadeUp(0.1)}
-          className="flex items-center justify-between pb-4"
-          style={{ borderBottom: '1px solid #1A1A1A' }}
-        >
-          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            Aperçu vidéo
-          </span>
-          <span className="label-editorial" style={{ color: '#6B5D4F' }}>
-            Durée {durationLabel}
-          </span>
-          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            № 005
-          </span>
-        </motion.div>
-
-        {/* Corps */}
-        <div className="flex-1 grid grid-cols-12 gap-12 items-center pt-8">
-          <div className="col-span-5 flex flex-col justify-center">
-            <motion.p
-              {...fadeUp(0.25)}
-              className="label-editorial mb-5"
-              style={{ color: '#6B5D4F' }}
-            >
-              The Video Cover
-            </motion.p>
-
-            <motion.h1
-              {...fadeUp(0.35)}
-              className="font-editorial leading-[0.9]"
-              style={{
-                fontSize: 'clamp(3.5rem, 7vw, 7rem)',
-                color: '#1A1A1A',
-                fontWeight: 900,
-                letterSpacing: '-0.03em',
-              }}
-            >
-              {eventNameUp}
-            </motion.h1>
-
-            <motion.div {...fadeUp(0.5)} className="mt-8">
-              <div className="editorial-rule-light mb-4" style={{ width: '4rem' }} />
-              <p
-                style={{
-                  color: '#6B5D4F',
-                  fontFamily: 'Inter, sans-serif',
-                  fontSize: '0.9375rem',
-                  lineHeight: 1.6,
-                  maxWidth: '28rem',
-                }}
-              >
-                Votre vidéo est prête. Validez pour la sauvegarder et la partager, ou refaites une
-                prise si nécessaire.
-              </p>
-            </motion.div>
-
-            {error && (
-              <motion.p
-                {...fadeUp(0.6)}
-                className="mt-4"
-                style={{ color: '#1A1A1A', fontFamily: 'Inter, sans-serif', fontSize: '0.875rem' }}
-              >
-                {error}
-              </motion.p>
-            )}
-
-            <motion.div {...fadeUp(0.7)} className="mt-10 flex flex-wrap gap-3">
-              <button
-                onClick={validate}
-                disabled={saving}
-                className="btn-editorial-primary"
-              >
-                {saving ? (
-                  <MdRefresh size={20} className="animate-spin" />
-                ) : (
-                  <MdCheck size={20} />
-                )}
-                {saving ? 'Sauvegarde...' : 'Je la garde'}
-              </button>
-              <button
-                onClick={retake}
-                disabled={saving}
-                className="btn-editorial-secondary"
-              >
-                <MdReplay size={20} />
-                Refaire
-              </button>
-            </motion.div>
+          <div className="reel-actions">
+            <button onClick={validate} disabled={saving} className="btn-editorial-primary">
+              {saving && <MdRefresh size={22} className="animate-spin" />}
+              {saving ? 'Enregistrement…' : 'Garder ce message'}
+            </button>
+            <button onClick={retake} disabled={saving} className="btn-editorial-secondary">
+              Recommencer
+            </button>
           </div>
 
-          <motion.div
-            initial={{ opacity: 0, scale: 0.97 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.3, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-            className="col-span-7 flex items-center justify-center"
-          >
-            <div
-              className="overflow-hidden relative"
-              style={{
-                borderRadius: '4px',
-                boxShadow: '0 12px 40px rgba(0,0,0,0.08)',
-                maxHeight: '70vh',
-              }}
-            >
-              <video
-                src={currentVideoBlobUrl}
-                controls
-                playsInline
-                autoPlay
-                className="max-h-[70vh] w-auto bg-black"
-              />
-              <div
-                className="absolute -bottom-2 -right-2 px-4 py-2 label-editorial"
-                style={{ backgroundColor: '#1A1A1A', color: '#FAF6EE', fontSize: '0.6875rem' }}
-              >
-                The Take
-              </div>
-            </div>
-          </motion.div>
+          {error && (
+            <p className="reel-error" role="alert">
+              {error}
+            </p>
+          )}
         </div>
 
-        {/* Footer */}
+        {/* La prise projetée dans un bout de pellicule : seule entrée animée de l'écran. */}
         <motion.div
-          {...fadeUp(1)}
-          className="flex items-center justify-between pt-4 mt-6"
-          style={{ borderTop: '1px solid #1A1A1A' }}
+          initial={{ opacity: 0, x: 40 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+          className="reel"
         >
-          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            Édition limitée
-          </span>
-          <span className="label-editorial" style={{ color: '#6B5D4F' }}>
-            Validez ou refaites
-          </span>
-          <span className="label-editorial" style={{ color: '#1A1A1A' }}>
-            № 005
-          </span>
+          <div className="contact-rebate contact-rebate--top" aria-hidden>
+            {[0, 1].map((i) => (
+              <span key={i} className="contact-edge" style={{ left: `calc(var(--mm) * ${8 + i * 92})` }}>
+                {edge}
+              </span>
+            ))}
+          </div>
+          <video src={currentVideoBlobUrl} controls playsInline autoPlay />
+          <div className="contact-rebate contact-rebate--bottom" aria-hidden>
+            <span className="contact-edge" style={{ left: 'calc(var(--mm) * 4)' }}>
+              {`▸ DURÉE ${timecode}`}
+            </span>
+          </div>
         </motion.div>
       </div>
     </Screen>

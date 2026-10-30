@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MdArrowBack, MdErrorOutline } from 'react-icons/md';
+import { MdArrowBack } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { CanonLiveView } from '@shared/components/CanonLiveView';
@@ -11,9 +11,12 @@ import {
   type CaptureResolution,
 } from '@shared/lib/mediaCapture';
 import type { TemplateConfig } from '@shared/types';
+import { edgePrint } from '../components/ContactHeader';
+import '../../styles/contact-photo.css';
 
 export function CaptureScreen() {
-  const { setScreen, setCurrentPhoto, pushPhoto, clearPhotos, mode, selectedPose, selectedPoses, settings } = useAppStore();
+  const { event, setScreen, setCurrentPhoto, pushPhoto, clearPhotos, mode, selectedPose, selectedPoses, settings } = useAppStore();
+  const edgeName = edgePrint(event);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
@@ -298,259 +301,142 @@ export function CaptureScreen() {
 
   const aspectRatioString = templateRatio ? `${templateRatio.w} / ${templateRatio.h}` : '';
   const currentPose = selectedPoses[capturedCount] ?? selectedPose;
+  const frameNumber = Math.min(capturedCount + 1, totalSlots);
+  const status = capturing && !error
+    ? 'Photo en cours…'
+    : countdown !== null && countdown > 0
+      ? mode === 'challenge' ? 'Prenez la pose.' : 'Souriez.'
+      : null;
 
   return (
-    <Screen className="flex items-center justify-center" >
-      {/* Fond éditorial noir pour la prise (contraste, focus sur la photo) */}
-      <div className="absolute inset-0" style={{ backgroundColor: '#1A1A1A' }} />
-
-      {/* Bouton retour ghost */}
-      <button
-        onClick={() => setScreen('home')}
-        className="absolute top-8 left-8 z-30 flex items-center gap-2 px-3 py-2"
-        style={{
-          color: '#FAF6EE',
-          fontFamily: 'Inter, sans-serif',
-          fontWeight: 500,
-          fontSize: '0.8125rem',
-          textTransform: 'uppercase',
-          letterSpacing: '0.18em',
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-        }}
-      >
-        <MdArrowBack size={18} />
-        <span>Annuler</span>
-      </button>
-
-      {/* Label discret en haut (sans pastille pleine) */}
-      <div
-        className="absolute top-10 left-1/2 -translate-x-1/2 z-30"
-        style={{
-          color: '#FAF6EE',
-          fontFamily: 'Inter, sans-serif',
-          fontWeight: 500,
-          fontSize: '0.7rem',
-          textTransform: 'uppercase',
-          letterSpacing: '0.32em',
-          opacity: 0.85,
-        }}
-      >
-        {totalSlots > 1
-          ? `Cliché ${Math.min(capturedCount + 1, totalSlots)} sur ${totalSlots}`
-          : 'Capture'}
+    <Screen className="contact-darkroom overflow-hidden">
+      {/* Bord haut de la pellicule : perforations, nom des mariés, compteur. */}
+      <div className="darkroom-band darkroom-band--top">
+        <div className="contact-rebate contact-rebate--top" aria-hidden />
+        <button
+          onClick={() => setScreen('home')}
+          className="btn-editorial-ghost relative"
+          style={{ minHeight: 64 }}
+        >
+          <MdArrowBack size={20} />
+          <span>Annuler</span>
+        </button>
+        <span className="contact-edgeprint darkroom-band-center" aria-hidden>
+          {edgeName}
+        </span>
+        {totalSlots > 1 && (
+          <span className="darkroom-status relative ml-auto">
+            Photo {frameNumber} sur {totalSlots}
+          </span>
+        )}
       </div>
 
-      {/* Pose à imiter — card discrète bas-droite */}
-      {mode === 'challenge' && currentPose && (
-        <motion.div
-          key={currentPose.id}
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="absolute z-30"
-          style={{
-            bottom: '3rem',
-            right: '3rem',
-            width: '11rem',
-            padding: '0.875rem',
-            backgroundColor: '#FAF6EE',
-            borderRadius: '4px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
-          }}
-        >
-          <p
-            style={{
-              fontFamily: 'Inter, sans-serif',
-              fontWeight: 600,
-              fontSize: '0.625rem',
-              letterSpacing: '0.25em',
-              textTransform: 'uppercase',
-              color: '#6B5D4F',
-              marginBottom: '0.5rem',
-            }}
-          >
-            À imiter
-          </p>
-          <img
-            src={poseSrc(currentPose.image_path)}
-            alt={currentPose.label}
-            className="w-full object-contain"
-            style={{ height: '6rem', borderRadius: '2px', marginBottom: '0.5rem' }}
+      {/* Le négatif : aperçu inversé façon miroir */}
+      <div className="darkroom-gate">
+        {usbPreview ? (
+          <CanonLiveView
+            className="darkroom-view"
+            style={{ transform: 'scaleX(-1)' }}
+            onFirstFrame={onCanonFirstFrame}
           />
-          <p
-            className="text-center"
-            style={{
-              fontFamily: '"Playfair Display", serif',
-              fontWeight: 500,
-              fontSize: '0.875rem',
-              color: '#1A1A1A',
-              letterSpacing: '0.01em',
-            }}
-          >
-            {currentPose.label}
-          </p>
-        </motion.div>
-      )}
+        ) : (
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="darkroom-view"
+            style={{ transform: 'scaleX(-1)' }}
+          />
+        )}
 
-      {/* Aperçu plein écran (inversé façon miroir) */}
-      {usbPreview ? (
-        <CanonLiveView
-          className="w-full h-full object-cover"
-          style={{ transform: 'scaleX(-1)' }}
-          onFirstFrame={onCanonFirstFrame}
-        />
-      ) : (
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="w-full h-full object-cover"
-          style={{ transform: 'scaleX(-1)' }}
-        />
-      )}
-
-      {capturing && !error && (
-        <div
-          className="absolute z-30"
-          style={{ bottom: '4rem', left: '50%', transform: 'translateX(-50%)' }}
-        >
-          <span
-            style={{
-              color: '#FAF6EE',
-              fontFamily: 'Inter, sans-serif',
-              fontSize: '0.75rem',
-              letterSpacing: '0.35em',
-              textTransform: 'uppercase',
-              fontWeight: 500,
-              whiteSpace: 'nowrap',
-              opacity: 0.85,
-            }}
-          >
-            Photo en cours…
-          </span>
-        </div>
-      )}
-
-      {/* Guide de recadrage — cadre éditorial fin doré (seulement avec un template) */}
-      {ready && !error && templateRatio && (
-        <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
-          <div
-            className="relative h-[86vh]"
-            style={{
-              aspectRatio: aspectRatioString,
-              boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
-              border: '1px solid #FAF6EE',
-              borderRadius: '4px',
-            }}
-          >
-            {/* Coins éditoriaux */}
-            <div className="absolute -top-1 -left-1 w-8 h-8" style={{ borderTop: '2px solid #FAF6EE', borderLeft: '2px solid #FAF6EE' }} />
-            <div className="absolute -top-1 -right-1 w-8 h-8" style={{ borderTop: '2px solid #FAF6EE', borderRight: '2px solid #FAF6EE' }} />
-            <div className="absolute -bottom-1 -left-1 w-8 h-8" style={{ borderBottom: '2px solid #FAF6EE', borderLeft: '2px solid #FAF6EE' }} />
-            <div className="absolute -bottom-1 -right-1 w-8 h-8" style={{ borderBottom: '2px solid #FAF6EE', borderRight: '2px solid #FAF6EE' }} />
+        {/* Cadre de la photo finale (seulement avec un modèle) */}
+        {ready && !error && templateRatio && (
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
+            <div className="darkroom-guide" style={{ aspectRatio: aspectRatioString }} />
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Erreur */}
-      {error && (
-        <div
-          className="absolute inset-0 flex items-center justify-center z-40"
-          style={{ backgroundColor: '#F4ECDD' }}
-        >
-          <div
-            className="p-12 max-w-lg text-center"
-            style={{
-              backgroundColor: '#FAF6EE',
-              borderRadius: '4px',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.06)',
-            }}
+        {/* Compte à rebours */}
+        <AnimatePresence>
+          {countdown !== null && countdown > 0 && (
+            <motion.div
+              key={countdown}
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 1.15, opacity: 0 }}
+              transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+              className="absolute inset-0 flex items-center justify-center pointer-events-none z-30"
+            >
+              <span className="darkroom-countdown">{countdown}</span>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Pose à imiter : un tirage posé sur le coin de l'image */}
+        {mode === 'challenge' && currentPose && (
+          <motion.div
+            key={currentPose.id}
+            initial={{ opacity: 0, y: 24, rotate: -2 }}
+            animate={{ opacity: 1, y: 0, rotate: -2 }}
+            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            className="darkroom-pose contact-print"
           >
-            <MdErrorOutline size={48} className="mx-auto mb-6" style={{ color: '#1A1A1A' }} />
-            <p className="label-editorial mb-3" style={{ color: '#6B5D4F' }}>
-              Erreur
+            <p style={{ fontSize: '1rem', lineHeight: 1.2, color: 'var(--muted)', marginBottom: '0.5rem' }}>
+              Imitez cette pose
             </p>
-            <h3
-              className="font-editorial mb-4"
-              style={{ fontSize: '2.5rem', color: '#1A1A1A', fontWeight: 800, letterSpacing: '-0.02em' }}
+            <img src={poseSrc(currentPose.image_path)} alt={currentPose.label} />
+            <p style={{ fontStyle: 'italic', fontSize: '1.35rem', lineHeight: 1.15, marginTop: '0.5rem' }}>
+              {currentPose.label}
+            </p>
+          </motion.div>
+        )}
+      </div>
+
+      {/* Bord bas : numéro d'image et consigne */}
+      <div className="darkroom-band darkroom-band--bottom">
+        <div className="contact-rebate contact-rebate--bottom" aria-hidden />
+        <span className="contact-edgeprint relative" aria-hidden>
+          ▸{frameNumber}
+        </span>
+        <AnimatePresence>
+          {status && (
+            <motion.span
+              key={status}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="darkroom-status darkroom-band-center"
             >
-              Caméra indisponible
-            </h3>
-            <p
-              className="mb-8"
-              style={{ color: '#6B5D4F', fontFamily: 'Inter, sans-serif', fontSize: '0.9375rem', lineHeight: 1.6 }}
-            >
+              {status}
+            </motion.span>
+          )}
+        </AnimatePresence>
+        <span className="contact-edgeprint relative ml-auto" aria-hidden>
+          {frameNumber}A
+        </span>
+      </div>
+
+      {/* Erreur : retour sur le papier */}
+      {error && (
+        <div className="contact-paper absolute inset-0 z-40">
+          <div className="contact-page" style={{ paddingRight: 'var(--margin)' }}>
+            <h3 className="contact-title">La caméra ne répond pas.</h3>
+            <p className="contact-lede" style={{ marginTop: '1.5rem', maxWidth: '38ch' }}>
               {error}
             </p>
-            <button onClick={() => setScreen('home')} className="btn-editorial-primary">
-              Retour à l'accueil
-            </button>
+            <div style={{ marginTop: '2.5rem' }}>
+              <button onClick={() => setScreen('home')} className="btn-editorial-primary">
+                Retour à l'accueil
+              </button>
+            </div>
           </div>
         </div>
       )}
-
-      {/* Compte à rebours éditorial — Didone géant blanc */}
-      <AnimatePresence>
-        {countdown !== null && countdown > 0 && (
-          <motion.div
-            key={countdown}
-            initial={{ scale: 0.7, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 1.3, opacity: 0 }}
-            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute inset-0 flex items-center justify-center pointer-events-none z-30"
-          >
-            <span
-              className="font-editorial leading-none"
-              style={{
-                fontSize: 'clamp(8rem, 20vw, 16rem)',
-                fontWeight: 700,
-                color: '#FAF6EE',
-                letterSpacing: '-0.03em',
-                textShadow: '0 0 80px rgba(0,0,0,0.5)',
-              }}
-            >
-              {countdown}
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* "Souriez" éditorial — pas en mode challenge */}
-      <AnimatePresence>
-        {mode !== 'challenge' && countdown !== null && countdown > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute z-30"
-            style={{ bottom: '4rem', left: '50%', transform: 'translateX(-50%)' }}
-          >
-            <span
-              style={{
-                color: '#FAF6EE',
-                fontFamily: 'Inter, sans-serif',
-                fontSize: '0.75rem',
-                letterSpacing: '0.35em',
-                textTransform: 'uppercase',
-                fontWeight: 500,
-                whiteSpace: 'nowrap',
-                opacity: 0.85,
-              }}
-            >
-              Souriez
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Flash */}
       {isFlashing && <div className="flash-overlay flash-active" />}
     </Screen>
   );
 }
-

@@ -1,0 +1,140 @@
+/* ─── Aperçu et partage vidéo ────────────────────────────────────────────────
+   La prise est projetée dans un bout de pellicule posé sur la planche : bande noire,
+   perforations et inscriptions de bord (classes .contact-rebate / .contact-edge).
+   La vidéo garde ses vraies couleurs. */
+
+.reel-page {
+  position: relative;
+  height: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 36fr) minmax(0, 64fr);
+  align-items: center;
+  column-gap: calc(var(--mm) * 6);
+  padding: calc(var(--mm) * 6) var(--margin);
+}
+
+.reel-page--share {
+  grid-template-columns: minmax(0, 54fr) minmax(0, 46fr);
+}
+
+.reel-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+}
+
+.reel-dateline {
+  font-size: calc(var(--mm) * 1.75);
+  line-height: 1.3;
+  font-weight: 450;
+  margin-bottom: calc(var(--mm) * 1.6);
+}
+
+.reel-text .contact-lede {
+  margin-top: calc(var(--mm) * 2.2);
+  max-width: 34ch;
+}
+
+.reel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: calc(var(--mm) * 1.6);
+  margin-top: calc(var(--mm) * 4);
+}
+
+.reel-actions button {
+  min-height: 72px;
+}
+
+.reel-error {
+  margin-top: calc(var(--mm) * 2);
+  font-size: calc(var(--mm) * 1.7);
+  line-height: 1.3;
+}
+
+.reel {
+  position: relative;
+  background-color: var(--ink);
+  padding: calc(var(--mm) * 5.5) calc(var(--mm) * 3);
+}
+
+.reel video {
+  display: block;
+  width: 100%;
+  max-height: 62vh;
+  object-fit: contain;
+  background-color: #000;
+}
+
+/* Le bon à tirer : QR code imprimé sur un petit carré de papier, légende à côté. */
+.reel-proof {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--mm) * 2.6);
+  margin-top: calc(var(--mm) * 3.5);
+}
+
+.reel-proof-qr {
+  flex: none;
+  width: calc(var(--mm) * 17);
+  height: calc(var(--mm) * 17);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f7f6f2;
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+.reel-proof-qr img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.reel-proof-text {
+  font-size: calc(var(--mm) * 2);
+  line-height: 1.3;
+  max-width: 22ch;
+}
+
+.reel-link {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--mm) * 1.2);
+  margin-top: calc(var(--mm) * 1.6);
+  max-width: 100%;
+  font-size: calc(var(--mm) * 1.25);
+  color: var(--muted);
+}
+
+.reel-link span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reel-link button {
+  flex: none;
+  min-height: 64px;
+}
+
+@media (orientation: portrait) {
+  .reel-page,
+  .reel-page--share {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: center;
+    row-gap: calc(var(--mm) * 5);
+  }
+
+  /* On regarde la prise avant de décider. */
+  .reel-page--preview .reel {
+    order: -1;
+  }
+
+  .reel video {
+    max-height: 42vh;
+  }
+}

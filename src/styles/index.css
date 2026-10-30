@@ -347,3 +347,352 @@ textarea {
   pointer-events: none;
   mix-blend-mode: overlay;
 }
+
+/* ─── Planche-contact : écran d'accueil invités ──────────────────────────────
+   Le reportage de mariage vu comme la planche-contact du photographe : une bande
+   de pellicule 35 mm dont les images sont les choix, entourées au crayon gras.
+   Tout est mesuré en millimètres de pellicule (--mm) : une image fait 36 × 24 mm,
+   la bande 35 mm de haut, 2 mm entre deux images, une perforation tous les 4,75 mm. */
+.contact {
+  --paper: #e8e6e1;
+  --ink: #000;
+  --muted: #5c5a55;
+  --margin: 6.25vw;
+  --mm: min(1.25vh, calc((100vw - 2 * var(--margin)) / 80));
+  background-color: var(--paper);
+  color: var(--ink);
+  font-family: 'Newsreader Variable', Georgia, serif;
+}
+
+.contact-grain {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .6 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.contact-page {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-left: var(--margin);
+}
+
+.contact-dateline {
+  font-size: calc(var(--mm) * 1.75);
+  line-height: 1.3;
+  font-weight: 450;
+}
+
+.contact-names {
+  margin-top: calc(var(--mm) * 2.2);
+  font-style: italic;
+  font-weight: 330;
+  font-size: calc(var(--mm) * 10.5 * var(--names-scale, 1));
+  line-height: 0.92;
+  letter-spacing: -0.015em;
+  max-width: calc(100vw - 2 * var(--margin));
+}
+
+.contact-names > span {
+  display: block;
+}
+
+/* Deuxième ligne décalée, comme un titre de magazine composé à la main. */
+.contact-names > span + span {
+  padding-left: 0.9em;
+}
+
+.contact-standfirst {
+  margin-top: calc(var(--mm) * 2.4);
+  font-size: calc(var(--mm) * 2.2);
+  line-height: 1.3;
+  color: var(--muted);
+}
+
+.contact-strip {
+  position: relative;
+  margin-top: calc(var(--mm) * 4);
+  margin-left: calc(var(--mm) * -3);
+  width: calc(100vw - var(--margin) + var(--mm) * 3);
+  height: calc(var(--mm) * 35);
+  padding: calc(var(--mm) * 5.5) 0 0 calc(var(--mm) * 3);
+  display: flex;
+  gap: calc(var(--mm) * 2);
+  background-color: var(--ink);
+  animation: contact-pull 1s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes contact-pull {
+  from {
+    transform: translateX(30vw);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.contact-rebate {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: calc(var(--mm) * 5.5);
+  overflow: hidden;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4.75 5.5'%3E%3Crect x='.975' y='.7' width='2.8' height='1.98' rx='.45' fill='%23e8e6e1'/%3E%3C/svg%3E");
+  background-size: calc(var(--mm) * 4.75) 100%;
+  background-repeat: repeat-x;
+}
+
+.contact-rebate--top {
+  top: 0;
+}
+
+/* Perforations côté bord : la bande du bas est la symétrique de celle du haut. */
+.contact-rebate--bottom {
+  bottom: 0;
+  transform: scaleY(-1);
+}
+
+.contact-edge {
+  position: absolute;
+  white-space: nowrap;
+  font-family: 'Archivo Variable', 'Arial Narrow', sans-serif;
+  font-stretch: 72%;
+  font-weight: 620;
+  font-size: calc(var(--mm) * 1.5);
+  line-height: 1;
+  letter-spacing: 0.14em;
+  color: rgba(232, 230, 225, 0.8);
+}
+
+.contact-rebate--top .contact-edge {
+  top: calc(var(--mm) * 3.2);
+}
+
+.contact-rebate--bottom .contact-edge {
+  top: calc(var(--mm) * 3.2);
+  transform: scaleY(-1);
+}
+
+.contact-frame {
+  position: relative;
+  flex: none;
+  width: calc(var(--mm) * 36);
+  height: calc(var(--mm) * 24);
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+  color: var(--paper);
+  background: radial-gradient(ellipse 70% 80% at 45% 45%, #444240 0%, #1e1d1c 70%, #121212 100%);
+}
+
+.contact-frame:focus-visible {
+  outline: 3px solid var(--paper);
+  outline-offset: calc(var(--mm) * -0.8);
+}
+
+.contact-frame img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(1) contrast(1.12);
+}
+
+.contact-frame .contact-grain {
+  opacity: 0.3;
+  mix-blend-mode: screen;
+}
+
+/* Voile en bas de l'image : la légende reste lisible sur la photo du couple. */
+.contact-frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.8), rgba(0, 0, 0, 0.35) 40%, transparent 70%);
+}
+
+.contact-frame-label {
+  position: absolute;
+  z-index: 1;
+  left: calc(var(--mm) * 1.8);
+  right: calc(var(--mm) * 1.8);
+  bottom: calc(var(--mm) * 1.5);
+  font-style: italic;
+  font-weight: 400;
+  font-size: calc(var(--mm) * 2.6);
+  line-height: 1.1;
+}
+
+.contact-frame-caption {
+  display: block;
+  margin-top: calc(var(--mm) * 0.5);
+  font-style: normal;
+  font-size: calc(var(--mm) * 1.45);
+  line-height: 1.25;
+  opacity: 0.85;
+}
+
+.contact-frame:active:not(:disabled) {
+  filter: brightness(1.25);
+}
+
+.contact-frame:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+.contact-hint {
+  margin-top: calc(var(--mm) * 2.2);
+  font-size: calc(var(--mm) * 1.6);
+  line-height: 1.3;
+  color: var(--muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .contact-strip {
+    animation-duration: 1ms;
+  }
+}
+
+/* ─── Planche-contact : les autres écrans invités ────────────────────────────
+   Papier photo, encre noire, titres en Newsreader italique, inscriptions de bord
+   de pellicule en Archivo étroit. Les écrans de prise de vue sont la chambre noire. */
+
+/* Papier avec son grain, sans calque supplémentaire. */
+.contact-paper {
+  background-color: var(--paper);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .045 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  color: var(--ink);
+}
+
+.contact-darkroom {
+  background-color: var(--ink);
+  color: var(--paper);
+}
+
+.contact-title {
+  font-family: 'Newsreader Variable', Georgia, serif;
+  font-style: italic;
+  font-weight: 330;
+  font-size: clamp(2.6rem, 5vw, 5.25rem);
+  line-height: 0.98;
+  letter-spacing: -0.015em;
+}
+
+.contact-lede {
+  font-size: clamp(1.15rem, 1.55vw, 1.6rem);
+  line-height: 1.35;
+  color: var(--muted);
+}
+
+.contact-darkroom .contact-lede {
+  color: rgba(232, 230, 225, 0.7);
+}
+
+/* Inscription de bord de pellicule, pour les petites indications (numéros, compteurs). */
+.contact-edgeprint {
+  font-family: 'Archivo Variable', 'Arial Narrow', sans-serif;
+  font-stretch: 72%;
+  font-weight: 620;
+  font-size: 0.85rem;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+/* Un tirage posé sur la table : marge blanche du papier baryté, ombre portée courte. */
+.contact-print {
+  background: #f7f6f2;
+  padding: calc(var(--mm) * 1.4);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 18px 40px -18px rgba(0, 0, 0, 0.45);
+}
+
+/* Classes éditoriales communes avec l'admin : ici, au style du reportage. */
+.contact .font-editorial {
+  font-family: 'Newsreader Variable', Georgia, serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}
+
+.contact .label-editorial {
+  font-family: 'Archivo Variable', 'Arial Narrow', sans-serif;
+  font-stretch: 72%;
+  font-weight: 620;
+  font-size: 0.85rem;
+  letter-spacing: 0.14em;
+}
+
+.contact .btn-editorial-primary,
+.contact .btn-editorial-secondary {
+  border-radius: 0;
+  font-family: 'Newsreader Variable', Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.5rem;
+  line-height: 1.1;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 1.1rem 2.6rem;
+}
+
+.contact .btn-editorial-primary,
+.contact .btn-editorial-primary:hover {
+  background-color: var(--ink);
+  color: var(--paper);
+}
+
+.contact .btn-editorial-secondary {
+  background-color: transparent;
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1.5px var(--ink);
+}
+
+.contact .btn-editorial-secondary:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.contact-darkroom .btn-editorial-primary,
+.contact-darkroom .btn-editorial-primary:hover {
+  background-color: var(--paper);
+  color: var(--ink);
+}
+
+.contact-darkroom .btn-editorial-secondary {
+  color: var(--paper);
+  box-shadow: inset 0 0 0 1.5px var(--paper);
+}
+
+.contact .btn-editorial-ghost {
+  font-family: 'Newsreader Variable', Georgia, serif;
+  font-style: italic;
+  font-weight: 400;
+  font-size: 1.3rem;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 0.5rem 0;
+  color: inherit;
+}
+
+.contact .photo-warm {
+  filter: none;
+}
+
+.contact .card-editorial {
+  background: #f1efeb;
+  border-radius: 0;
+  box-shadow: none;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.contact .editorial-rule {
+  background: var(--ink);
+}
+
+.contact .editorial-rule-light {
+  background: rgba(0, 0, 0, 0.15);
+}
