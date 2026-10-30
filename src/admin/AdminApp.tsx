@@ -13,6 +13,8 @@ import {
   MdQuestionAnswer,
   MdLogout,
   MdMenuBook,
+  MdVideoCameraFront,
+  MdFactCheck,
 } from 'react-icons/md';
 import type { IconType } from 'react-icons';
 import { useAppStore } from '@shared/store';
@@ -27,6 +29,8 @@ import { ChallengePoses } from './screens/ChallengePoses';
 import { ThemeSettings } from './screens/ThemeSettings';
 import { GeneralSettings } from './screens/GeneralSettings';
 import { VideoSettings } from './screens/VideoSettings';
+import { VideoCameraSettings } from './screens/VideoCameraSettings';
+import { CameraTest } from './screens/CameraTest';
 import { InterviewQuestions } from './screens/InterviewQuestions';
 import { Album } from './screens/Album';
 
@@ -34,7 +38,9 @@ type AdminTab =
   | 'dashboard'
   | 'event'
   | 'camera'
+  | 'video-camera'
   | 'video'
+  | 'camera-test'
   | 'questions'
   | 'printer'
   | 'templates'
@@ -62,7 +68,7 @@ const sections: SidebarSection[] = [
     title: 'Photo',
     tabs: [
       { id: 'event', label: 'Évènement', icon: MdCalendarMonth },
-      { id: 'camera', label: 'Caméra', icon: MdCameraAlt },
+      { id: 'camera', label: 'Caméra photo', icon: MdCameraAlt },
       { id: 'printer', label: 'Imprimante', icon: MdPrint },
       { id: 'templates', label: 'Templates', icon: MdImage },
       { id: 'poses', label: 'Poses challenge', icon: MdAutoAwesome },
@@ -72,9 +78,14 @@ const sections: SidebarSection[] = [
   {
     title: 'Vidéo',
     tabs: [
+      { id: 'video-camera', label: 'Caméra vidéo', icon: MdVideoCameraFront },
       { id: 'video', label: 'Vidéo', icon: MdVideocam },
       { id: 'questions', label: 'Questions interview', icon: MdQuestionAnswer },
     ],
+  },
+  {
+    title: 'Tests',
+    tabs: [{ id: 'camera-test', label: 'Caméra', icon: MdFactCheck }],
   },
   {
     title: 'Apparence',
@@ -252,7 +263,9 @@ export function AdminApp() {
               {tab === 'dashboard' && <Dashboard />}
               {tab === 'event' && <EventSettings />}
               {tab === 'camera' && <CameraSettings />}
+              {tab === 'video-camera' && <VideoCameraSettings />}
               {tab === 'video' && <VideoSettings />}
+              {tab === 'camera-test' && <CameraTest />}
               {tab === 'questions' && <InterviewQuestions />}
               {tab === 'printer' && <PrinterSettings />}
               {tab === 'templates' && <Templates />}

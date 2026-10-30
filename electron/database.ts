@@ -149,6 +149,8 @@ export async function initDatabase() {
     capture_source: 'webcam',
     canon_preview: 'video',
     video_source: 'webcam',
+    // Vide : même caméra que les photos (camera_device_id).
+    video_camera_device_id: '',
     // ─── VideoBooth ─────────────────────────────────────────────────────────
     video_enabled: true,
     capture_mode: legacyCaptureMode,

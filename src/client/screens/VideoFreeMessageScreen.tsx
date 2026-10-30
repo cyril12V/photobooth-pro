@@ -13,6 +13,7 @@ import {
   applyPreviewElementSize,
   applyRealtimeCaptureHints,
   resolveMicrophone,
+  videoCameraId,
   buildVideoTrackConstraints,
   pickRecorderMimeType,
   type CaptureResolution,
@@ -76,9 +77,9 @@ export function VideoFreeMessageScreen() {
           await window.api.canon.disconnect();
         }
         // Par défaut, le son de la caméra (Cam Link : micro de l'appareil ou micro branché dessus).
-        const mic = await resolveMicrophone(settings?.microphone_device_id, settings?.camera_device_id);
+        const mic = await resolveMicrophone(settings?.microphone_device_id, videoCameraId(settings));
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: buildVideoTrackConstraints(resolution, settings?.camera_device_id),
+          video: buildVideoTrackConstraints(resolution, videoCameraId(settings)),
           audio: mic.audio,
         });
         if (cancelled) {

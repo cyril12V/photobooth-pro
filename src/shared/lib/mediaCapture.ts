@@ -56,6 +56,11 @@ export function buildVideoTrackConstraints(
   };
 }
 
+/** Caméra des vidéos : la sienne si elle est choisie, sinon celle des photos. */
+export function videoCameraId(settings: { video_camera_device_id?: string; camera_device_id?: string } | null | undefined) {
+  return settings?.video_camera_device_id || settings?.camera_device_id || '';
+}
+
 type DeviceLike = Pick<MediaDeviceInfo, 'kind' | 'deviceId' | 'groupId' | 'label'>;
 
 /**

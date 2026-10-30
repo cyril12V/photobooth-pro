@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { MdCameraAlt, MdContentCopy, MdLink, MdLinkOff, MdRefresh, MdVisibility } from 'react-icons/md';
 import { Button } from '@shared/components/Button';
 import { CanonLiveView } from '@shared/components/CanonLiveView';
-import { resolveMicrophone } from '@shared/lib/mediaCapture';
+import { resolveMicrophone, videoCameraId } from '@shared/lib/mediaCapture';
 import type { CanonCapture, CanonResult, CanonStatus, CanonWindowsCheck } from '@shared/types';
 import { AdminCard } from '../components/AdminUI';
 
@@ -186,7 +186,7 @@ export function CanonCameraPanel({ videoDeviceId }: { videoDeviceId: string }) {
     const version = await window.api.app.version();
     const settings = await window.api.settings.get();
     const devices = await navigator.mediaDevices.enumerateDevices();
-    const mic = await resolveMicrophone(settings.microphone_device_id, settings.camera_device_id);
+    const mic = await resolveMicrophone(settings.microphone_device_id, videoCameraId(settings));
     const report = {
       app: `PhotoBooth Pro ${version}`,
       date: new Date().toISOString(),
@@ -239,7 +239,7 @@ export function CanonCameraPanel({ videoDeviceId }: { videoDeviceId: string }) {
             (mode avion), ferme EOS Utility et EOS Webcam Utility, désactive l'arrêt automatique et mets la molette
             sur un mode photo (P, Av ou M).
             <br />
-            Vidéo : la Cam Link (HDMI) reste la caméra sélectionnée plus bas. Règle l'affichage HDMI de l'appareil
+            Vidéo : la Cam Link (HDMI) se choisit dans Vidéo › Caméra vidéo. Règle l'affichage HDMI de l'appareil
             « sans informations », sinon les réglages apparaissent à l'image.
           </p>
         </div>

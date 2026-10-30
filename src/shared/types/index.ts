@@ -192,6 +192,8 @@ export interface AppSettings {
   //   (sortie HDMI propre), puis le remet en photo ;
   // 'canon' = enregistrées par l'appareil Canon, aperçu par le LiveView USB, rapatriées ensuite
   video_source: 'webcam' | 'canon_hdmi' | 'canon';
+  // Caméra des vidéos ; vide = même caméra que les photos (camera_device_id)
+  video_camera_device_id: string;
   // VideoBooth
   video_enabled: boolean;
   capture_mode: 'photo' | 'video' | 'both';
