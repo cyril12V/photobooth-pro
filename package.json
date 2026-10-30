@@ -1,6 +1,6 @@
 {
   "name": "photobooth-pro",
-  "version": "0.2.12",
+  "version": "0.3.0-beta.1",
   "description": "Photo Booth professionnel pour mariages et évènements",
   "main": "dist-electron/main.js",
   "author": "You",
@@ -14,12 +14,11 @@
     "release:major": "node scripts/release.mjs major",
     "preview": "vite preview",
     "lint": "eslint src --ext ts,tsx",
-    "start": "electron .",
-    "postinstall": "electron-rebuild -f -w better-sqlite3"
+    "start": "electron ."
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.45.0",
-    "better-sqlite3": "^12.9.0",
+    "better-sqlite3": "^13.0.3",
     "electron-updater": "^6.8.3",
     "express": "^5.2.1",
     "ffmpeg-static": "^5.3.0",
@@ -28,6 +27,7 @@
     "jspdf": "^4.2.1",
     "koffi": "^2.16.3",
     "lucide-react": "^0.453.0",
+    "mp4-muxer": "^5.2.2",
     "nodemailer": "^8.0.7",
     "qrcode": "^1.5.4",
     "react": "^18.3.1",
@@ -50,7 +50,7 @@
     "@vitejs/plugin-react": "^4.3.2",
     "autoprefixer": "^10.4.20",
     "concurrently": "^9.0.1",
-    "electron": "^32.1.0",
+    "electron": "^43.8.4",
     "electron-builder": "^25.0.5",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13",
@@ -109,7 +109,8 @@
       "owner": "cyril12V",
       "repo": "photobooth-pro",
       "private": false,
-      "releaseType": "release"
-    }
+      "releaseType": "prerelease"
+    },
+    "npmRebuild": false
   }
 }

@@ -6,6 +6,7 @@ import { Screen } from '@shared/components/Screen';
 import { CanonLiveView } from '@shared/components/CanonLiveView';
 import { sounds } from '@shared/lib/sounds';
 import { finishCanonMovie, prepareCanonMovie, releaseCanonMovie, startCanonMovie, switchCanonToMovieForHdmi } from '@shared/lib/canonMovie';
+import { GPU_RECORDER_MIME, GpuRecorder } from '@shared/lib/gpuRecorder';
 import {
   VIDEO_BITRATE_MAP,
   VIDEO_RECORDING_SLICE_MS,
@@ -30,6 +31,8 @@ export function VideoFreeMessageScreen() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
+  // Encodeur de la carte graphique prêt (MP4 H.264, le processeur reste libre), sinon MediaRecorder.
+  const gpuRecorderRef = useRef<GpuRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const t0Ref = useRef<number>(0);
   const tickerRef = useRef<number | null>(null);
@@ -83,6 +86,13 @@ export function VideoFreeMessageScreen() {
         }
         streamRef.current = stream;
         applyRealtimeCaptureHints(stream);
+        // Démarre l'encodeur de la carte graphique maintenant, pour que l'enregistrement parte sans à-coup.
+        const gpu = await GpuRecorder.prepare(stream, VIDEO_BITRATE_MAP[resolution]);
+        if (cancelled) {
+          gpu?.cancel();
+          return;
+        }
+        gpuRecorderRef.current = gpu;
         if (videoRef.current) {
           applyPreviewElementSize(videoRef.current, previewResolution);
           videoRef.current.srcObject = stream;
@@ -126,6 +136,7 @@ export function VideoFreeMessageScreen() {
           recorderRef.current.stop();
         } catch {}
       }
+      gpuRecorderRef.current?.cancel();
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
@@ -145,6 +156,9 @@ export function VideoFreeMessageScreen() {
         return;
       }
       canonRecordingRef.current = true;
+      t0Ref.current = performance.now();
+    } else if (gpuRecorderRef.current) {
+      gpuRecorderRef.current.start();
       t0Ref.current = performance.now();
     } else {
       if (!streamRef.current) return;
@@ -201,6 +215,18 @@ export function VideoFreeMessageScreen() {
       finishCanonRecording();
       return;
     }
+    if (gpuRecorderRef.current) {
+      const rec = gpuRecorderRef.current;
+      gpuRecorderRef.current = null;
+      rec
+        .stop()
+        .then((blob) => finalize(GPU_RECORDER_MIME, blob))
+        .catch((e) => {
+          setError(e instanceof Error ? e.message : String(e));
+          setPhase('error');
+        });
+      return;
+    }
     if (recorderRef.current && recorderRef.current.state !== 'inactive') {
       try {
         recorderRef.current.stop();
@@ -226,9 +252,9 @@ export function VideoFreeMessageScreen() {
     setScreen('video-preview');
   };
 
-  const finalize = (mime: string) => {
+  const finalize = (mime: string, recorded?: Blob) => {
     try {
-      const blob = new Blob(chunksRef.current, { type: mime });
+      const blob = recorded ?? new Blob(chunksRef.current, { type: mime });
       const durationMs = Math.round(performance.now() - t0Ref.current);
 
       if (soundsOn) sounds.recordingEnd();
@@ -260,6 +286,8 @@ export function VideoFreeMessageScreen() {
         recorderRef.current.stop();
       } catch {}
     }
+    gpuRecorderRef.current?.cancel();
+    gpuRecorderRef.current = null;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;

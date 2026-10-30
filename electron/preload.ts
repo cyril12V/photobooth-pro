@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('api', {
   video: {
     save: (payload: {
       buffer: ArrayBuffer | Uint8Array;
+      extension?: 'mp4' | 'webm';
       eventId: number;
       mode: 'interview' | 'free_message';
       durationMs: number;

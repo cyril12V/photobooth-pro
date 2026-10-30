@@ -14,6 +14,7 @@ import { AdminCard, AdminPageHeader, AdminToggle } from '../components/AdminUI';
 import { Button } from '@shared/components/Button';
 import { CanonLiveView } from '@shared/components/CanonLiveView';
 import { finishCanonMovie, prepareCanonMovie, releaseCanonMovie, startCanonMovie, switchCanonToMovieForHdmi } from '@shared/lib/canonMovie';
+import { GpuRecorder } from '@shared/lib/gpuRecorder';
 import type { AppSettings } from '@shared/types';
 
 type CaptureMode = 'photo' | 'video' | 'both';
@@ -186,7 +187,7 @@ function CanonVideoTest() {
 }
 
 type RecordingTestResult =
-  | { ok: true; size: string; before: number; during: number; threads: number }
+  | { ok: true; size: string; before: number; during: number; threads: number; gpu: { fps: number } | null }
   | { ok: false; error: string };
 
 /**
@@ -214,6 +215,7 @@ function RecordingTest({
     setRunning(true);
     setResult(null);
     let stream: MediaStream | null = null;
+    let gpuRecorder: GpuRecorder | null = null;
     try {
       if (canonSwitch) {
         const err = await switchCanonToMovieForHdmi();
@@ -235,22 +237,30 @@ function RecordingTest({
       const fps = (from: number, to: number) => Math.round(frames.filter((t) => t >= from && t < to).length / ((to - from) / 1000));
       const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+      // Même choix d'encodeur qu'en session : carte graphique (MP4) si elle sait, sinon processeur (WebM).
+      gpuRecorder = await GpuRecorder.prepare(stream, VIDEO_BITRATE_MAP[resolution]);
       await sleep(500);
       const t0 = performance.now();
       await sleep(2000);
       const t1 = performance.now();
-      const recorder = new MediaRecorder(stream, {
-        mimeType: pickRecorderMimeType(),
-        videoBitsPerSecond: VIDEO_BITRATE_MAP[resolution],
-        audioBitsPerSecond: 128_000,
-      });
-      recorder.start(VIDEO_RECORDING_SLICE_MS);
+      let recorder: MediaRecorder | null = null;
+      if (gpuRecorder) {
+        gpuRecorder.start();
+      } else {
+        recorder = new MediaRecorder(stream, {
+          mimeType: pickRecorderMimeType(),
+          videoBitsPerSecond: VIDEO_BITRATE_MAP[resolution],
+          audioBitsPerSecond: 128_000,
+        });
+        recorder.start(VIDEO_RECORDING_SLICE_MS);
+      }
       // La 1re seconde sert à lancer l'encodeur : on mesure les 4 suivantes.
       await sleep(1000);
       const t2 = performance.now();
       await sleep(4000);
       const t3 = performance.now();
-      recorder.stop();
+      recorder?.stop();
+      if (gpuRecorder) await gpuRecorder.stop();
       const s = stream.getVideoTracks()[0].getSettings();
       setResult({
         ok: true,
@@ -258,10 +268,12 @@ function RecordingTest({
         before: fps(t0, t1),
         during: fps(t2, t3),
         threads: navigator.hardwareConcurrency,
+        gpu: gpuRecorder ? { fps: gpuRecorder.stats?.fps ?? 0 } : null,
       });
     } catch (e) {
       setResult({ ok: false, error: e instanceof Error ? e.message : String(e) });
     } finally {
+      gpuRecorder?.cancel();
       stream?.getTracks().forEach((t) => t.stop());
       if (videoRef.current) videoRef.current.srcObject = null;
       if (canonSwitch) await releaseCanonMovie(false);
@@ -269,7 +281,9 @@ function RecordingTest({
     }
   };
 
-  const smooth = result?.ok && result.before > 0 && result.during >= Math.min(25, result.before - 3);
+  const keepsUp = (fps: number) => result?.ok && result.before > 0 && fps >= Math.min(25, result.before - 3);
+  // Avec la carte graphique, la vidéo enregistrée doit aussi être fluide (images sautées si elle ne suit pas).
+  const smooth = result?.ok && keepsUp(result.during) && (!result.gpu || keepsUp(result.gpu.fps));
 
   return (
     <div className="mt-4">
@@ -289,6 +303,9 @@ function RecordingTest({
         (result.ok ? (
           <p className="text-xs mt-2" style={{ color: smooth ? '#2F6B3A' : '#9B2C2C', fontWeight: 600 }}>
             Caméra {result.size} : {result.before} i/s avant, {result.during} i/s pendant l'enregistrement (PC : {result.threads} threads).{' '}
+            {result.gpu
+              ? `Encodé par la carte graphique en MP4 : vidéo à ${result.gpu.fps} i/s. `
+              : 'Encodé par le processeur en WebM. '}
             {result.before === 0
               ? "Aucune image reçue : vérifie la Cam Link, le câble HDMI et que la caméra sélectionnée dans Caméra est bien la Cam Link."
               : smooth

@@ -1,23 +1,35 @@
 import { BrowserWindow, app } from 'electron';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { getDb } from './database';
 
 function logPrint(...args: unknown[]) {
   console.log('[PRINT]', ...args);
 }
 
+/** Nom de l'imprimante par défaut de Windows (Electron ne le fournit plus depuis la v33). */
+function windowsDefaultPrinter(): Promise<string | null> {
+  return new Promise((resolve) => {
+    execFile(
+      'powershell.exe',
+      ['-NoProfile', '-NonInteractive', '-Command', '(Get-CimInstance Win32_Printer | Where-Object Default).Name'],
+      { windowsHide: true, timeout: 10_000 },
+      (_err, stdout) => resolve(String(stdout ?? '').trim() || null),
+    );
+  });
+}
+
 /**
  * Liste les imprimantes disponibles.
  */
 export async function listPrinters(win: BrowserWindow) {
-  const printers = await win.webContents.getPrintersAsync();
+  const [printers, defaultName] = await Promise.all([win.webContents.getPrintersAsync(), windowsDefaultPrinter()]);
   return printers.map((p) => ({
     name: p.name,
     displayName: p.displayName,
-    isDefault: p.isDefault,
-    status: p.status,
+    isDefault: p.name === defaultName,
+    status: 0,
   }));
 }
 

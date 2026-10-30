@@ -3,6 +3,8 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { useAppStore } from '@shared/store';
 import { ClientApp } from '@client/ClientApp';
 import { AdminApp } from '@admin/AdminApp';
+import { warmUpGpuProbe } from '@shared/lib/gpuRecorder';
+import { CAPTURE_RESOLUTION_MAP, VIDEO_BITRATE_MAP } from '@shared/lib/mediaCapture';
 
 export function App() {
   const { adminMode, setAdminMode, setEvent, setSettings, setPoses, setScreen, event } = useAppStore();
@@ -18,7 +20,13 @@ export function App() {
           window.api.pose.list(),
         ]);
         if (ev) setEvent(ev);
-        if (settings) setSettings(settings);
+        if (settings) {
+          setSettings(settings);
+          // Interroge la carte graphique dès maintenant : la réponse sera prête au moment de filmer.
+          const res = settings.video_capture_resolution ?? '1080p';
+          const { width, height } = CAPTURE_RESOLUTION_MAP[res];
+          warmUpGpuProbe(width, height, VIDEO_BITRATE_MAP[res]);
+        }
         if (poses) setPoses(poses);
         // Si la vidéo est désactivée, on saute le splash et on va direct à l'accueil photo
         if (settings && !settings.video_enabled) {

@@ -5,6 +5,7 @@ import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { CanonLiveView } from '@shared/components/CanonLiveView';
 import { finishCanonMovie, prepareCanonMovie, releaseCanonMovie, startCanonMovie, switchCanonToMovieForHdmi } from '@shared/lib/canonMovie';
+import { GPU_RECORDER_MIME, GpuRecorder } from '@shared/lib/gpuRecorder';
 import {
   VIDEO_BITRATE_MAP,
   VIDEO_RECORDING_SLICE_MS,
@@ -32,6 +33,8 @@ export function VideoInterviewScreen() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
+  // Encodeur de la carte graphique prêt (MP4 H.264, le processeur reste libre), sinon MediaRecorder.
+  const gpuRecorderRef = useRef<GpuRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const tickerRef = useRef<number | null>(null);
   const t0Ref = useRef<number>(0);
@@ -115,6 +118,13 @@ export function VideoInterviewScreen() {
         }
         streamRef.current = stream;
         applyRealtimeCaptureHints(stream);
+        // Démarre l'encodeur de la carte graphique maintenant, pour que l'enregistrement parte sans à-coup.
+        const gpu = await GpuRecorder.prepare(stream, VIDEO_BITRATE_MAP[resolution]);
+        if (cancelled) {
+          gpu?.cancel();
+          return;
+        }
+        gpuRecorderRef.current = gpu;
         if (videoRef.current) {
           applyPreviewElementSize(videoRef.current, previewResolution);
           videoRef.current.srcObject = stream;
@@ -185,6 +195,7 @@ export function VideoInterviewScreen() {
           recorderRef.current.stop();
         } catch {}
       }
+      gpuRecorderRef.current?.cancel();
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
@@ -211,6 +222,14 @@ export function VideoInterviewScreen() {
       return;
     }
     if (!streamRef.current) return;
+    if (gpuRecorderRef.current) {
+      gpuRecorderRef.current.start();
+      t0Ref.current = performance.now();
+      builderRef.current = new InterviewTimecodeBuilder(t0Ref.current);
+      setCurrentIdx(0);
+      setPhase('recording');
+      return;
+    }
     const mime = pickRecorderMimeType();
     const videoBitsPerSecond = VIDEO_BITRATE_MAP[resolution];
 
@@ -290,6 +309,19 @@ export function VideoInterviewScreen() {
       finishCanonRecording();
       return;
     }
+    if (gpuRecorderRef.current) {
+      const rec = gpuRecorderRef.current;
+      gpuRecorderRef.current = null;
+      rec
+        .stop()
+        .then((blob) => finalize(GPU_RECORDER_MIME, blob))
+        .catch((e) => {
+          console.error(e);
+          setError(e instanceof Error ? e.message : String(e));
+          setPhase('error');
+        });
+      return;
+    }
     if (recorderRef.current && recorderRef.current.state !== 'inactive') {
       try {
         recorderRef.current.stop();
@@ -318,9 +350,9 @@ export function VideoInterviewScreen() {
     setScreen('video-preview');
   };
 
-  const finalize = (mime: string) => {
+  const finalize = (mime: string, recorded?: Blob) => {
     try {
-      const blob = new Blob(chunksRef.current, { type: mime });
+      const blob = recorded ?? new Blob(chunksRef.current, { type: mime });
       const durationMs = builderRef.current
         ? builderRef.current.elapsed()
         : Math.round(performance.now() - t0Ref.current);
@@ -355,6 +387,8 @@ export function VideoInterviewScreen() {
         recorderRef.current.stop();
       } catch {}
     }
+    gpuRecorderRef.current?.cancel();
+    gpuRecorderRef.current = null;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;

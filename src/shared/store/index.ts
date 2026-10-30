@@ -180,8 +180,11 @@ export const useAppStore = create<AppState>((set, get) => ({
       ? { baseUrl: settings.cloud_vps_url, apiKey: settings.cloud_vps_api_key }
       : null;
 
+    // MP4 quand la carte graphique a encodé, WebM avec MediaRecorder.
+    const extension: 'mp4' | 'webm' = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
     const buildLocalSavePayload = (buf: ArrayBuffer) => ({
       buffer: new Uint8Array(buf),
+      extension,
       eventId: ev.id,
       mode,
       durationMs,
@@ -196,7 +199,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         eventName: ev.name,
         eventDate: ev.date ?? null,
         kind: 'video',
-        filename: `${Date.now()}_${mode}.webm`,
+        filename: `${Date.now()}_${mode}.${extension}`,
       });
 
       savePromise = cloudUploadPromise

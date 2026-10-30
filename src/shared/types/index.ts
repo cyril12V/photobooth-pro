@@ -245,6 +245,7 @@ declare global {
       video: {
         save: (payload: {
           buffer: ArrayBuffer | Uint8Array;
+          extension?: 'mp4' | 'webm';
           eventId: number;
           mode: VideoMode;
           durationMs: number;

@@ -659,6 +659,7 @@ function registerIpcHandlers() {
       _e,
       {
         buffer,
+        extension,
         eventId,
         mode,
         durationMs,
@@ -667,6 +668,7 @@ function registerIpcHandlers() {
         skipCloudUpload,
       }: {
         buffer: ArrayBuffer | Uint8Array;
+        extension?: 'mp4' | 'webm';
         eventId: number;
         mode: 'interview' | 'free_message';
         durationMs: number;
@@ -690,7 +692,7 @@ function registerIpcHandlers() {
       const dir = path.join(eventDir, subFolder);
 
       const ts = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `${ts}_${safeName}.webm`;
+      const filename = `${ts}_${safeName}.${extension === 'mp4' ? 'mp4' : 'webm'}`;
       const filepath = path.join(dir, filename);
 
       const data = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
