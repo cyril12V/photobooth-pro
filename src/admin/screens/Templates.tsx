@@ -7,6 +7,7 @@ import { Button } from '@shared/components/Button';
 import { Editor } from './templates/Editor';
 import { CanvasPreview } from './templates/CanvasPreview';
 import { makeDefaultTemplate } from './templates/defaults';
+import { pickActiveTemplate } from '@shared/lib/activeTemplate';
 
 interface TemplateRow {
   id: number;
@@ -16,6 +17,8 @@ interface TemplateRow {
 
 export function Templates() {
   const event = useAppStore((s) => s.event);
+  const setSettings = useAppStore((s) => s.setSettings);
+  const [activeId, setActiveId] = useState<number | undefined>();
   const [templates, setTemplates] = useState<TemplateRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<TemplateRow | null>(null);
@@ -24,7 +27,8 @@ export function Templates() {
   const load = async () => {
     setLoading(true);
     try {
-      const list = await window.api.template.list();
+      const [list, settings] = await Promise.all([window.api.template.list(), window.api.settings.get()]);
+      setActiveId(settings.active_template_id);
       setTemplates(
         list.map((t) => {
           let config: TemplateConfig;
@@ -58,6 +62,14 @@ export function Templates() {
   useEffect(() => {
     load();
   }, []);
+
+  // Modèle appliqué aux photos (-1 : sans cadre).
+  const inUseId = pickActiveTemplate(templates, activeId)?.id ?? -1;
+  const useForPhotos = async (id: number) => {
+    await window.api.settings.set('active_template_id', id);
+    setActiveId(id);
+    setSettings(await window.api.settings.get());
+  };
 
   const newTemplate = () => {
     setEditing({
@@ -222,6 +234,32 @@ export function Templates() {
                   {t.config.elements?.length ?? 0} élément
                   {(t.config.elements?.length ?? 0) !== 1 ? 's' : ''}
                 </p>
+                {t.id === inUseId ? (
+                  <p
+                    className="mt-2 inline-flex items-center gap-1.5"
+                    style={{ color: '#1A1A1A', fontFamily: 'Inter, sans-serif', fontSize: '0.8125rem', fontWeight: 600 }}
+                  >
+                    <MdCheck size={16} />
+                    Utilisé pour les photos
+                  </p>
+                ) : (
+                  <button
+                    onClick={() => useForPhotos(t.id)}
+                    className="mt-2 px-3 py-1.5"
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: '#1A1A1A',
+                      border: '1px solid #1A1A1A',
+                      borderRadius: '4px',
+                      fontFamily: 'Inter, sans-serif',
+                      fontWeight: 500,
+                      fontSize: '0.8125rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Utiliser pour les photos
+                  </button>
+                )}
               </div>
 
               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -262,6 +300,21 @@ export function Templates() {
             </div>
           ))}
         </div>
+      )}
+
+      {!loading && templates.length > 0 && (
+        <p className="mb-4" style={{ color: '#6B5D4F', fontFamily: 'Inter, sans-serif', fontSize: '0.875rem' }}>
+          {inUseId === -1 ? (
+            'Les photos sont imprimées sans cadre.'
+          ) : (
+            <button
+              onClick={() => useForPhotos(-1)}
+              style={{ background: 'none', border: 'none', padding: 0, color: '#1A1A1A', textDecoration: 'underline', cursor: 'pointer' }}
+            >
+              Imprimer les photos sans cadre
+            </button>
+          )}
+        </p>
       )}
 
       <Button variant="primary" onClick={newTemplate} icon={<MdAdd size={20} />} fullWidth>

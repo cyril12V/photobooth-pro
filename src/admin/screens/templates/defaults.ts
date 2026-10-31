@@ -6,6 +6,7 @@ import type {
   ShapeElement,
   FrameElement,
 } from '@shared/types';
+import { makeContactSheetTemplate } from '@shared/lib/contactSheetTemplate';
 
 let _idCounter = 0;
 export function genId(): string {
@@ -16,6 +17,8 @@ export const CANVAS_W = 1200;
 export const CANVAS_H = 1800;
 
 export const FONT_FAMILIES = [
+  'Newsreader Variable',
+  'Archivo Variable',
   'Fraunces',
   'Manrope',
   'Allura',
@@ -336,6 +339,12 @@ export function makePresetPolaroid(): TemplateConfig {
     background_color: '#f5f0e8',
     elements: [bg, photo, caption, dateCaption],
   };
+}
+
+// ─── Preset planche-contact (même cadre que celui ajouté aux templates) ──────
+export function makePresetContactSheet(): TemplateConfig {
+  const config = makeContactSheetTemplate();
+  return { ...config, elements: config.elements.map((el) => ({ ...el, id: genId() })) };
 }
 
 // ─── Preset géométrique ──────────────────────────────────────────────────────

@@ -86,6 +86,7 @@ function ElementPreview({
           color: el.color,
           textAlign: el.align,
           letterSpacing: el.letter_spacing * scale,
+          textTransform: el.uppercase ? 'uppercase' : undefined,
           display: 'flex',
           alignItems: 'center',
           justifyContent:

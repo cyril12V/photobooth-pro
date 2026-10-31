@@ -9,7 +9,7 @@ import {
   buildVideoTrackConstraints,
   type CaptureResolution,
 } from '@shared/lib/mediaCapture';
-import type { TemplateConfig } from '@shared/types';
+import { loadActiveTemplate } from '@shared/lib/activeTemplate';
 import { ContactBack, edgePrint } from '../components/ContactHeader';
 import '../../styles/contact-photo.css';
 
@@ -62,9 +62,8 @@ export function CaptureScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const templates = await window.api.template.list();
-        if (templates.length > 0) {
-          const config = JSON.parse(templates[0].config_json) as TemplateConfig;
+        const config = await loadActiveTemplate();
+        if (config) {
           const w = config.canvas_width || 1200;
           const h = config.canvas_height || 1800;
           setTemplateRatio({ w, h });

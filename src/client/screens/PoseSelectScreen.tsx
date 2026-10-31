@@ -3,7 +3,8 @@ import { MdShuffle } from 'react-icons/md';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { poseSrc } from '@shared/lib/poseAssets';
-import type { ChallengePose, TemplateConfig } from '@shared/types';
+import { loadActiveTemplate } from '@shared/lib/activeTemplate';
+import type { ChallengePose } from '@shared/types';
 import { ContactBack } from '../components/ContactHeader';
 import '../../styles/contact-photo.css';
 
@@ -16,9 +17,8 @@ export function PoseSelectScreen() {
   useEffect(() => {
     (async () => {
       try {
-        const templates = await window.api.template.list();
-        if (templates.length > 0) {
-          const config = JSON.parse(templates[0].config_json) as TemplateConfig;
+        const config = await loadActiveTemplate();
+        if (config) {
           const slots = config.elements.filter((el) => el.type === 'photo-slot').length;
           setTotalSlots(slots > 0 ? slots : 1);
         }

@@ -182,6 +182,7 @@ function renderContent(el: TemplateElement, scale: number, event: PhotoboothEven
           color: el.color,
           textAlign: el.align,
           letterSpacing: el.letter_spacing * scale,
+          textTransform: el.uppercase ? 'uppercase' : undefined,
           display: 'flex',
           alignItems: 'center',
           justifyContent: el.align === 'left' ? 'flex-start' : el.align === 'right' ? 'flex-end' : 'center',

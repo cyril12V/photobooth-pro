@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { useAppStore } from '@shared/store';
 import { Screen } from '@shared/components/Screen';
 import { composePhotoWithTemplate } from '@shared/lib/composer';
-import type { TemplateConfig } from '@shared/types';
+import { loadActiveTemplate } from '@shared/lib/activeTemplate';
 import { useEffect, useState } from 'react';
 import '../../styles/contact-print.css';
 
@@ -51,9 +51,8 @@ export function PreviewScreen() {
     try {
       let finalDataUrl = photos[0];
       try {
-        const templates = await window.api.template.list();
-        if (templates.length > 0) {
-          const config = JSON.parse(templates[0].config_json) as TemplateConfig;
+        const config = await loadActiveTemplate();
+        if (config) {
           const paperFormat = (settings?.paper_format as '4x6' | '5x7' | '6x8' | undefined) ?? '4x6';
           finalDataUrl = await composePhotoWithTemplate(photos, config, event, paperFormat);
         }

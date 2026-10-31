@@ -25,6 +25,7 @@ import {
   makePresetWedding,
   makePresetPolaroid,
   makePresetGeometric,
+  makePresetContactSheet,
   resizeCanvas,
   FORMAT_PRESETS,
   CANVAS_W,
@@ -60,6 +61,7 @@ const PRESETS = [
   { label: 'Mariage', fn: makePresetWedding },
   { label: 'Polaroid', fn: makePresetPolaroid },
   { label: 'Géométrique', fn: makePresetGeometric },
+  { label: 'Planche-contact', fn: makePresetContactSheet },
 ] as const;
 
 // Calcule la scale pour afficher le canvas dans l'espace disponible

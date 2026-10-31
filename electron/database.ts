@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import path from 'node:path';
 import { app } from 'electron';
 import crypto from 'node:crypto';
+import { CONTACT_SHEET_TEMPLATE_NAME, makeContactSheetTemplate } from '../src/shared/lib/contactSheetTemplate';
 
 let _db: Database.Database;
 
@@ -175,6 +176,22 @@ export async function initDatabase() {
   );
   for (const [k, v] of Object.entries(defaults)) {
     stmt.run(k, JSON.stringify(v));
+  }
+
+  // Cadre « Planche-contact » ajouté une seule fois aux templates. Les photos gardent
+  // leur cadre actuel : on fige d'abord le modèle en place (le premier par nom, ancien
+  // comportement ; -1 = sans cadre) pour que le nouveau ne passe pas devant.
+  const seeded = _db.prepare("SELECT 1 FROM settings WHERE key = 'contact_template_added'").get();
+  if (!seeded) {
+    const current = _db.prepare('SELECT id FROM templates ORDER BY name LIMIT 1').get() as { id: number } | undefined;
+    _db.prepare(
+      "INSERT INTO settings (key, value) VALUES ('active_template_id', ?) ON CONFLICT(key) DO NOTHING",
+    ).run(JSON.stringify(current ? current.id : -1));
+    _db.prepare('INSERT INTO templates (name, config_json) VALUES (?, ?)').run(
+      CONTACT_SHEET_TEMPLATE_NAME,
+      JSON.stringify(makeContactSheetTemplate()),
+    );
+    _db.prepare("INSERT INTO settings (key, value) VALUES ('contact_template_added', 'true')").run();
   }
 
   // Évènement par défaut si aucun

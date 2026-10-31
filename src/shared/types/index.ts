@@ -94,6 +94,7 @@ export interface TextElement extends BaseElement {
   letter_spacing: number;
   use_event_name?: boolean;  // remplace text par event.name dynamiquement
   use_event_date?: boolean;  // idem pour date
+  uppercase?: boolean;       // texte en capitales (inscription de bord de pellicule)
 }
 
 export interface ImageElement extends BaseElement {
@@ -210,6 +211,8 @@ export interface AppSettings {
   video_compilation_show_logo: boolean;
   video_compilation_show_event_name: boolean;
   video_compilation_intro_duration: number;
+  // Modèle appliqué aux photos : id du template, -1 = sans cadre ; absent = le premier par nom
+  active_template_id?: number;
 }
 
 // Bridge IPC exposé au renderer

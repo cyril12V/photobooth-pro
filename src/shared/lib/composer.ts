@@ -52,7 +52,9 @@ export async function composePhotoWithTemplate(
 
   // Résolution cible pour l'impression à 300 DPI. On garde le ratio du template
   // et on prend la dimension qui sature la cible.
-  const target = PAPER_TARGET_PX[paperFormat];
+  // Un modèle en paysage vise la même feuille tournée (l'impression la remet droite).
+  const paper = PAPER_TARGET_PX[paperFormat];
+  const target = baseW > baseH ? { w: paper.h, h: paper.w } : paper;
   const scale = Math.min(target.w / baseW, target.h / baseH);
   const W = Math.round(baseW * scale);
   const H = Math.round(baseH * scale);
@@ -96,6 +98,13 @@ export async function composePhotoWithTemplate(
   photoSlots.forEach((slot, i) => {
     photoBySlotId.set(slot.id, loadedPhotos[i % loadedPhotos.length]);
   });
+
+  // Les polices embarquées ne se chargent qu'à leur premier usage : on les attend avant de dessiner.
+  await Promise.all(
+    template.elements
+      .filter((el): el is TextElement => el.type === 'text')
+      .map((el) => document.fonts.load(fontFor(el)).catch(() => undefined)),
+  );
 
   // Tri par z (croissant — z bas dessous, z haut dessus)
   const sorted = [...template.elements].sort((a, b) => a.z - b.z);
@@ -213,6 +222,13 @@ function drawPhotoSlot(
   ctx.restore();
 }
 
+function fontFor(el: TextElement): string {
+  const weight = el.font_weight || 400;
+  const italic = el.italic ? 'italic ' : '';
+  const family = el.font_family || 'Manrope, sans-serif';
+  return `${italic}${weight} ${el.font_size}px "${family}"`;
+}
+
 function drawText(
   ctx: CanvasRenderingContext2D,
   el: TextElement,
@@ -232,10 +248,9 @@ function drawText(
     }
   }
 
-  const weight = el.font_weight || 400;
-  const italic = el.italic ? 'italic ' : '';
-  const family = el.font_family || 'Manrope, sans-serif';
-  ctx.font = `${italic}${weight} ${el.font_size}px "${family}"`;
+  if (el.uppercase) text = text.toLocaleUpperCase('fr-FR');
+
+  ctx.font = fontFor(el);
   ctx.fillStyle = el.color || '#000000';
   ctx.textAlign = el.align || 'left';
   ctx.textBaseline = 'top';
